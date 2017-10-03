@@ -1,0 +1,10 @@
+[package]
+name = "expert-rs"
+version = "0.1.0"
+authors = ["abaxter <ambaxter@users.noreply.github.com>"]
+
+[dependencies]
+mopa = "0.2.2"
+num = "0.1"
+itertools = "0.6"
+string-interner = "0.6"

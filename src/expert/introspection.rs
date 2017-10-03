@@ -1,0 +1,18 @@
+use mopa;
+use std::any::TypeId;
+use std::hash::Hash;
+use expert::builder::StatementCondition;
+use string_interner::DefaultStringInterner;
+
+pub trait ReteMopa: mopa::Any {}
+
+mopafy!(ReteMopa);
+
+pub trait ReteIntrospection : ReteMopa + Eq + Hash {
+    type HashEq: Hash + Eq + Clone;
+
+    fn static_type_id() -> TypeId;
+    fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &DefaultStringInterner) -> Self::HashEq;
+    fn getter(field: &str) -> Option<fn(&Self) -> u64>;
+    fn type_id(&self) -> TypeId;
+}
