@@ -503,18 +503,3 @@ impl<T: ReteIntrospection> Debug for ConditionTest<T> {
         write!(f, "}}")
     }
 }
-
-
-// KBase and friends
-
-
-pub enum DestinationNode {
-    Alpha(usize),
-    Beta(usize),
-}
-
-pub struct AlphaNode<T: ReteIntrospection> {
-    id: ConditionId,
-    condition: ConditionTest<T>,
-    destinations: Vec<DestinationNode>
-}

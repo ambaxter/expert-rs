@@ -9,6 +9,8 @@ extern crate itertools;
 
 extern crate string_interner;
 
+extern crate ordered_float;
+
 mod expert;
 use itertools::Itertools;
 
@@ -200,7 +202,7 @@ impl Ord for ReteNode {
 fn main() {
     use expert::builder::KnowledgeBuilder;
 
-    let f = Aspect::getter("id").unwrap();
+    println!("Do test output: {:?}", expert::base::new::do_test::<Aspect>());
 
     let mut builder: KnowledgeBuilder<Aspect> = KnowledgeBuilder::new()
         .rule("test1")
