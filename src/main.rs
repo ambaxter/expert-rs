@@ -218,11 +218,18 @@ fn main() {
             .eq("id", 9).eq("aspect_type", 1).btwn("impact", 8, false, 400, true)
             .then()
             .when()
+            .eq("id", 9).eq("aspect_type", 1)//.btwn("impact", 8, false, 400, true).btwn("impact", 9, false, 400, true)
+            .then()
+            .when()
             .gt("impact", 5, true)
             .then()
         .end();
 
     println!("builder: {:?}", &builder);
+
+
+
+    let base = builder.compile();
 
 /*
     // Last POC. Worked pretty well

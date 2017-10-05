@@ -3,14 +3,13 @@ use std::marker::PhantomData;
 use std::fmt;
 use std::fmt::Debug;
 use std::rc::Rc;
-
+use itertools::Itertools;
 use string_interner;
 use string_interner::DefaultStringInterner;
 use std::collections::{HashMap, HashSet};
 use expert::serial::SerialGen;
 use expert::introspection::ReteIntrospection;
-use expert::builder::{ConditionTest, KnowledgeBuilder};
-use expert::builder::RuleId;
+use expert::builder::{ConditionTest, ConditionInfo, Rule, RuleId, StatementId, KnowledgeBuilder};
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub struct HashEqId{id: usize}
@@ -101,12 +100,123 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
     pub fn compile(builder: KnowledgeBuilder<T>) -> KnowledgeBase<T> {
         let (string_repo, rules, condition_map) = builder.explode();
 
+        Self::alpha_network_compile(&rules, condition_map);
         KnowledgeBase{t: PhantomData}
     }
 
+    fn alpha_network_compile(rules: &[Rule], condition_map: HashMap<T::HashEq, HashMap<ConditionTest<T>, ConditionInfo>>) {
+        let mut conditions: Vec<_> = condition_map.into_iter().collect();
+        // Order conditions ascending by dependent statement count, then test count.
+        conditions.sort_by(|&(_, ref tests1), &(_, ref tests2)| {
+            if let (Some(ref hash1), Some(ref hash2)) = (tests1.get(&ConditionTest::HashEq), tests2.get(&ConditionTest::HashEq)) {
+                hash1.dependents.len().cmp(&hash2.dependents.len()).then(tests1.len().cmp(&tests2.len()))
+            } else {
+                unreachable!("Unexpected comparison. HashEq must be set");
+            }
+        });
+
+        let mut node_id_gen = LayoutIdGenerator::new();
+
+        let mut hash_eq_node = HashMap::new();
+
+        let mut statement_memories: HashMap<StatementId, MemoryId> = HashMap::new();
+
+        let mut alpha_network = Vec::new();
+
+        // Pop off the most shared & complex tests first and lay them out at the front of the network.
+        // That way they're more likely to be right next to each other
+        while let Some((hash_val, mut test_map)) = conditions.pop() {
+
+            let mut layout_map = HashMap::new();
+
+            // Take the HashEq node (our entry point) and exhaustively assign destination nodes until no more statements are shared.
+            let mut hash_eq_info = test_map.remove(&ConditionTest::HashEq).unwrap();
+            let hash_eq_id = node_id_gen.next_hash_eq_id();
+            let mut hash_eq_destinations: Vec<DestinationNode> = Vec::new();
+
+            // Lay down the node for the most shared nodes before the others
+            while let Some((max_info, max_intersection)) = test_map.iter()
+                .map(|(_, info)| info)
+                .map(|info| (info, &hash_eq_info.dependents & &info.dependents))
+                .filter(|&(_, ref intersection)| !intersection.is_empty())
+                .max_by_key(|&(_, ref intersection)| intersection.len()) {
+
+                let destination_id = layout_map.entry(max_info.id)
+                        .or_insert_with(|| AlphaLayout{alpha_id: node_id_gen.next_alpha_id(), destinations: Default::default()})
+                        .alpha_id;
+
+                hash_eq_info.dependents.retain(|x| !max_intersection.contains(&x));
+                hash_eq_destinations.push(destination_id.into());
+            }
+
+            // Add the HashEq node to the map && store any remaining statements for the beta network
+            hash_eq_node.insert(hash_val, HashEqNode{id: hash_eq_id, store: !hash_eq_info.dependents.is_empty(), destinations: hash_eq_destinations});
+
+            for statment_id in hash_eq_info.dependents {
+                statement_memories.insert(statment_id, hash_eq_id.into());
+            }
+
+            let mut tests: Vec<_> = test_map.into_iter().collect();
+
+            loop {
+                // Sort the remaining tests by layed-out vs not.
+                // TODO: sort by dependents.size, too. put that at the front
+                tests.sort_by_key(|&(_, ref info)| !layout_map.contains_key(&info.id));
+                println!("Layout: {:?}", layout_map);
+                println!("Sorted: {:?}", tests);
+
+                // Again, in order of most shared to least, lay down nodes
+                // TODO: when closure is cloneable, fix this to use cartisian product
+                let output = tests.iter().enumerate().tuple_combinations()
+                    .filter(|&((_, &(_, ref info1)), (_, &(_, ref info2)))| !info1.dependents.is_empty() && layout_map.contains_key(&info1.id) && !layout_map.contains_key(&info2.id))
+                    .map(|((pos1, &(_, ref info1)), (_, &(_, ref info2)))| (pos1, info1.id, info2.id, &info1.dependents & &info2.dependents))
+                    .filter(|&(_, _, _, ref shared)| !shared.is_empty())
+                    .max_by_key(|&(_, _, _, ref shared)| shared.len());
+
+                if let Some((pos1, id1, id2, shared)) = output {
+                    let alpha2_id = layout_map.entry(id2)
+                        .or_insert_with(|| AlphaLayout{alpha_id: node_id_gen.next_alpha_id(), destinations: Default::default()})
+                        .alpha_id;
+                    layout_map.get_mut(&id1).unwrap().destinations.push(alpha2_id.into());
+                    tests.get_mut(pos1).unwrap().1.dependents.retain(|x| !shared.contains(&x));
+                } else {
+                    break;
+                }
+            }
+            println!("Final layout: {:?}", &layout_map);
+            // TODO: Assert layout numbers are correct
+            // Do the actual layout into the alpha network
+            tests.sort_by_key(|&(_, ref info)| layout_map.get(&info.id).unwrap().alpha_id);
+            for (test, info) in tests.into_iter() {
+                let alpha_layout = layout_map.remove(&info.id).unwrap();
+                let id = alpha_layout.alpha_id;
+                let dest = alpha_layout.destinations;
+                let store = !info.dependents.is_empty();
+                assert_eq!(alpha_network.len(), alpha_layout.alpha_id.id);
+                alpha_network.push(AlphaNode{id, test, store, dest});
+
+                for statment_id in info.dependents {
+                    statement_memories.insert(statment_id, id.into());
+                }
+            }
+
+        }
+        println!("Conditions: {:?}", &conditions);
+        println!("HashEqNode: {:?}", &hash_eq_node);
+        println!("Memory map: {:?}", &statement_memories);
+        println!("Alpha Network: size {:?}", alpha_network.len());
+    }
+
+
+
+}
+#[derive(Debug)]
+struct AlphaLayout {
+    alpha_id: AlphaId,
+    destinations: Vec<DestinationNode>
 }
 
-#[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub enum DestinationNode {
     Alpha(AlphaId),
     Beta(BetaId),
@@ -132,6 +242,7 @@ impl Into<DestinationNode> for RuleId {
 
 }
 
+#[derive(Debug)]
 pub struct HashEqNode {
     id: HashEqId,
     store: bool,
@@ -147,7 +258,7 @@ pub struct AlphaNode<T: ReteIntrospection> {
 
 pub trait AlphaMemoryId {}
 
-#[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub enum MemoryId {
     HashEq(HashEqId),
     Alpha(AlphaId),
@@ -176,11 +287,11 @@ impl Into<MemoryId> for BetaId {
     }
 }
 
-pub struct Memory<T: ReteIntrospection>  {
+pub struct AlphaMemory<T: ReteIntrospection>  {
     mem: HashMap<MemoryId, HashSet<Rc<T>>>,
 }
 
-impl<T: ReteIntrospection> Memory<T> {
+impl<T: ReteIntrospection> AlphaMemory<T> {
     pub fn insert<I: Into<MemoryId> + AlphaMemoryId>(&mut self, id: I, val: Rc<T>) {
         let mem_id = id.into();
         self.mem.entry(mem_id)
@@ -259,9 +370,14 @@ pub mod new {
     #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
     pub enum ConditionTest {
         HashEq, // TODO: Move one layer up - HashEq vs Ordinal
-        Lt{closed: bool},
-        Gt{closed: bool},
-        Btwn{from_closed: bool, to_closed: bool}
+        Lt,
+        Lte,
+        Gt,
+        Gte,
+        GtLt,
+        GteLt,
+        GtLte,
+        GteLte
     }
 
     impl ConditionTest {
@@ -270,35 +386,29 @@ pub mod new {
             use self::ConditionLimits::*;
             match (self, limits) {
                 (&HashEq, _) => true,
-                (&Lt{closed}, &S(ref to)) => {
-                    if closed {
-                        val <= to
-                    } else {
-                        val < to
-                    }
+                (&Lt, &S(ref to)) => {
+                    val < to
                 },
-                (&Gt{closed}, &S(ref from)) => {
-                    if closed {
-                        val >= from
-                    } else {
-                        val > from
-                    }
+                (&Lte, &S(ref to)) => {
+                    val <= to
                 },
-                (&Btwn{from_closed, to_closed}, &D(ref from, ref to)) => {
-                    match (from_closed, to_closed) {
-                        (false, false) => {
-                            val > from && val < to
-                        },
-                        (false, true) => {
-                            val > from && val <= to
-                        }
-                        (true, false) => {
-                            val >= from && val < to
-                        },
-                        (true, true) => {
-                            val >= from && val <= to
-                        }
-                    }
+                (&Gt, &S(ref to)) => {
+                    val > to
+                },
+                (&Gte, &S(ref to)) => {
+                    val >= to
+                },
+                (&GtLt, &D(ref from, ref to)) => {
+                    val > from && val < to
+                },
+                (&GteLt, &D(ref from, ref to)) => {
+                    val >= from && val < to
+                },
+                (&GtLte, &D(ref from, ref to)) => {
+                    val > from && val <= to
+                },
+                (&GteLte, &D(ref from, ref to)) => {
+                    val >= from && val <= to
                 },
                 _ => unreachable!("Unexpected condition test combination.")
             }
@@ -307,7 +417,7 @@ pub mod new {
 
     pub fn do_test<T:ReteIntrospection>() -> bool {
         use std::mem;
-        let test = ConditionTest::Gt{closed: true};
+        let test = ConditionTest::Gt;
         println!("Type: {:?}", mem::size_of::<ConditionType<T>>());
         println!("Test: {:?}", mem::size_of::<ConditionTest>());
         println!("String: {:?}", mem::size_of::<String>());

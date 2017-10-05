@@ -17,6 +17,10 @@ impl<T: Unsigned  + Zero + One + Copy + Into<R>, R> SerialGen<T, R>{
         self.serial = prev + T::one();
         prev.into()
     }
+
+    pub fn check(&self) -> T {
+        self.serial
+    }
 }
 
 

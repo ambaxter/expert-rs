@@ -3,6 +3,7 @@ use string_interner::DefaultStringInterner;
 use expert::serial::SerialGen;
 use std::marker::PhantomData;
 use expert::introspection::ReteIntrospection;
+use expert::base::KnowledgeBase;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::collections::{HashMap, HashSet};
@@ -148,8 +149,8 @@ impl<T: ReteIntrospection> KnowledgeBuilder<T> {
         RuleBuilder::new(self, name)
     }
 
-    pub fn compile(self) {
-
+    pub fn compile(self) -> KnowledgeBase<T> {
+        KnowledgeBase::compile(self)
     }
 
     pub(crate) fn explode(self) -> (DefaultStringInterner, Vec<Rule>, HashMap<T::HashEq, HashMap<ConditionTest<T>, ConditionInfo>>) {
@@ -339,9 +340,9 @@ pub enum ConditionTest<T: ReteIntrospection> {
 
 #[derive(Debug, Clone)]
 pub struct ConditionInfo {
-    id: ConditionId,
-    field_sym: Option<usize>,
-    dependents: HashSet<StatementId>
+    pub(crate) id: ConditionId,
+    pub(crate) field_sym: Option<usize>,
+    pub(crate) dependents: HashSet<StatementId>
 }
 
 impl ConditionInfo {
