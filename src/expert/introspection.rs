@@ -14,6 +14,6 @@ pub trait ReteIntrospection : ReteMopa + Eq + Hash {
 
     fn static_type_id() -> TypeId;
     fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &DefaultStringInterner) -> Self::HashEq;
-    fn getter(field: &str) -> Option<fn(&Self) -> u64>;
+    fn getter(field: &str) -> Option<fn(&Self) -> &u64>;
     fn type_id(&self) -> TypeId;
 }

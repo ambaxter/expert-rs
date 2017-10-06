@@ -7,6 +7,7 @@ use expert::base::KnowledgeBase;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::collections::{HashMap, HashSet};
+use ordered_float::NotNaN;
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::Debug;
@@ -94,7 +95,7 @@ impl Default for ReteIdGenerator {
 struct BuilderShared<T: ReteIntrospection> {
     string_repo: DefaultStringInterner,
     id_generator: ReteIdGenerator,
-    condition_map: HashMap<T::HashEq, HashMap<ConditionTest<T>, ConditionInfo>>
+    condition_map: HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>
 }
 
 impl<T: ReteIntrospection> BuilderShared<T> {
@@ -124,7 +125,7 @@ impl<T: ReteIntrospection> Debug for KnowledgeBuilder<T>
         writeln!(f, "  ],");
         writeln!(f, "  Alpha Nodes: [");
         for (root_hash, dependents) in &self.build_shared.condition_map {
-            let root_info = dependents.get(&ConditionTest::HashEq).unwrap();
+            let root_info = dependents.get(&AlphaTest::HashEq).unwrap();
             writeln!(f, "   -{:?} - sids: {:?}", root_hash, root_info.dependents);
             for (test, info) in dependents.iter().filter(|&(t, _)| !t.is_hash_eq()) {
                 writeln!(f, "    +{:?}({:?}) - {:?} - sids: {:?}",
@@ -153,7 +154,7 @@ impl<T: ReteIntrospection> KnowledgeBuilder<T> {
         KnowledgeBase::compile(self)
     }
 
-    pub(crate) fn explode(self) -> (DefaultStringInterner, Vec<Rule>, HashMap<T::HashEq, HashMap<ConditionTest<T>, ConditionInfo>>) {
+    pub(crate) fn explode(self) -> (DefaultStringInterner, Vec<Rule>, HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>) {
         (self.build_shared.string_repo, self.rules, self.build_shared.condition_map)
     }
 
@@ -266,7 +267,7 @@ impl<T: ReteIntrospection> StatementBuilder<T> {
                         .dependents.insert(statement_id);
                 }
 
-                entry_point.entry(ConditionTest::HashEq).or_insert_with(|| ConditionInfo::new(id_generator.next_condition_id(), None))
+                entry_point.entry(AlphaTest::HashEq).or_insert_with(|| ConditionInfo::new(id_generator.next_condition_id(), None))
                     .dependents.insert(statement_id);
 
                 statement_id
@@ -296,25 +297,43 @@ impl StatementCondition {
         }
     }
 
-    fn convert<T: ReteIntrospection>(self, string_repo: &DefaultStringInterner) -> ConditionTest<T> {
+    fn convert<T: ReteIntrospection>(self, string_repo: &DefaultStringInterner) -> AlphaTest<T> {
         use self::StatementCondition::*;
+        use self::ConditionLimits::*;
         match self {
             Lt{field_sym, to, closed} => {
                 let accessor= string_repo.resolve(field_sym)
                     .and_then(|s| T::getter(s)).unwrap();
-                ConditionTest::Lt{accessor, to, closed}
+                let test = if closed {
+                    ConditionTest::Lte
+                } else {
+                    ConditionTest::Lt
+                };
+                AlphaTest::Ord{data: ConditionData::U64(accessor, S(to)), test}
             }
             Gt{field_sym, from, closed} => {
                 let accessor= string_repo.resolve(field_sym)
                     .and_then(|s| T::getter(s)).unwrap();
-                ConditionTest::Gt{accessor, from, closed}
+                let test = if closed {
+                    ConditionTest::Gte
+                } else {
+                    ConditionTest::Gt
+                };
+                AlphaTest::Ord{data: ConditionData::U64(accessor, S(from)), test}
             }
             Btwn{field_sym, from, from_closed, to, to_closed} => {
                 let accessor= string_repo.resolve(field_sym)
                     .and_then(|s| T::getter(s)).unwrap();
-                ConditionTest::Btwn{accessor, from, from_closed, to, to_closed}
+                let test = match (from_closed, to_closed) {
+                    (false, false) => ConditionTest::GtLt,
+                    (false, true) => ConditionTest::GtLte,
+                    (true, false) => ConditionTest::GteLt,
+                    (true, true) => ConditionTest::GteLte,
+
+                };
+                AlphaTest::Ord{data: ConditionData::U64(accessor, D(from, to)), test}
             },
-            _ => ConditionTest::HashEq
+            _ => AlphaTest::HashEq
         }
     }
 
@@ -327,15 +346,6 @@ impl StatementCondition {
             _ => None
         }
     }
-}
-
-
-#[derive(Copy, Clone)]
-pub enum ConditionTest<T: ReteIntrospection> {
-    HashEq,
-    Lt{accessor: fn(&T) -> u64, to: u64, closed: bool},
-    Gt{accessor: fn(&T) -> u64, from: u64, closed: bool},
-    Btwn{accessor: fn(&T) -> u64, from:u64, from_closed: bool, to: u64, to_closed: bool}
 }
 
 #[derive(Debug, Clone)]
@@ -351,116 +361,211 @@ impl ConditionInfo {
     }
 }
 
-impl<T: ReteIntrospection> Hash for ConditionTest<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        use self::ConditionTest::*;
+#[derive(Hash, Eq, PartialEq)]
+pub enum AlphaTest<T: ReteIntrospection> {
+    HashEq,
+    Ord{data: ConditionData<T>, test: ConditionTest}
+}
+
+impl<T: ReteIntrospection> AlphaTest<T> {
+    pub fn is_hash_eq(&self) -> bool {
+        use self::AlphaTest::*;
+        match self {
+            &HashEq => true,
+            _ => false
+        }
+    }
+}
+
+impl<T: ReteIntrospection> Debug for AlphaTest<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::AlphaTest::*;
+        write!(f, "Test{{");
         match self {
             &HashEq => {
-                0.hash(state);
+                write!(f, "HashEq");
             },
-            &Lt{accessor, to, closed} => {
-                1.hash(state);
-                (accessor as usize).hash(state);
-                to.hash(state);
-                closed.hash(state);
+            &Ord{ref data, test} => {
+                write!(f, "Ord");
+            }
+        }
+        write!(f, "}}")
+    }
+}
+
+#[derive(Clone, Hash, Eq, PartialEq)]
+pub enum ConditionLimits<T: Hash + Eq + Ord + Clone> {
+    S(T),
+    D(T, T)
+}
+
+#[derive(Clone)]
+pub enum ConditionData<T: ReteIntrospection>{
+    I8(fn(&T) -> &i8, ConditionLimits<i8>),
+    I16(fn(&T) -> &i16, ConditionLimits<i16>),
+    I32(fn(&T) -> &i32, ConditionLimits<i32>),
+    I64(fn(&T) -> &i64, ConditionLimits<i64>),
+    U8(fn(&T) -> &u8, ConditionLimits<u8>),
+    U16(fn(&T) -> &u16, ConditionLimits<u16>),
+    U32(fn(&T) -> &u32, ConditionLimits<u32>),
+    U64(fn(&T) -> &u64, ConditionLimits<u64>),
+    ISIZE(fn(&T) -> &isize, ConditionLimits<isize>),
+    USIZE(fn(&T) -> &usize, ConditionLimits<usize>),
+    F32(fn(&T) -> &f32, ConditionLimits<NotNaN<f32>>),
+    F64(fn(&T) -> &f64, ConditionLimits<NotNaN<f64>>),
+    //STR(fn(&T) -> &String, ConditionLimits<String>),
+}
+
+impl<T: ReteIntrospection> ConditionData<T> {
+    fn hash_self<H: Hasher, L: Hash>(ord: usize, accessor: usize, limits: &L, state: &mut H) {
+        ord.hash(state);
+        accessor.hash(state);
+        limits.hash(state);
+    }
+}
+
+impl<T: ReteIntrospection> Hash for ConditionData<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        use self::ConditionData::*;
+        match self {
+            &I8(accessor, ref limits) => {
+                Self::hash_self(0, accessor as usize, limits, state);
             },
-            &Gt{accessor, from, closed} => {
-                2.hash(state);
-                (accessor as usize).hash(state);
-                from.hash(state);
-                closed.hash(state);
+            &I16(accessor, ref limits) => {
+                Self::hash_self(1, accessor as usize, limits, state);
             },
-            &Btwn{accessor, from, from_closed, to, to_closed} => {
-                3.hash(state);
-                (accessor as usize).hash(state);
-                from.hash(state);
-                from_closed.hash(state);
-                to.hash(state);
-                to_closed.hash(state);
+            &I32(accessor, ref limits) => {
+                Self::hash_self(2, accessor as usize, limits, state);
+
+            },
+            &I64(accessor, ref limits) => {
+                Self::hash_self(3, accessor as usize, limits, state);
+            },
+            &U8(accessor, ref limits) => {
+                Self::hash_self(4, accessor as usize, limits, state);
+            },
+            &U16(accessor, ref limits) => {
+                Self::hash_self(5, accessor as usize, limits, state);
+            },
+            &U32(accessor, ref limits) => {
+                Self::hash_self(6, accessor as usize, limits, state);
+            },
+            &U64(accessor, ref limits) => {
+                Self::hash_self(7, accessor as usize, limits, state);
+            },
+            &ISIZE(accessor, ref limits) => {
+                Self::hash_self(8, accessor as usize, limits, state);
+            },
+            &USIZE(accessor, ref limits) => {
+                Self::hash_self(9, accessor as usize, limits, state);
+            },
+            &F32(accessor, ref limits) => {
+                Self::hash_self(10, accessor as usize, limits, state);
+            },
+            &F64(accessor, ref limits) => {
+                Self::hash_self(11, accessor as usize, limits, state);
             },
         }
     }
 }
 
-impl<T: ReteIntrospection> PartialEq for ConditionTest<T> {
+impl<T: ReteIntrospection> PartialEq for ConditionData<T> {
     fn eq(&self, other: &Self) -> bool {
-        use self::ConditionTest::*;
+        use self::ConditionData::*;
         match (self, other) {
-            (&HashEq, &HashEq) => true,
-            (&Lt{accessor, to, closed}, &Lt{accessor: accessor_o, to: to_o, closed: closed_o}) => {
-                (accessor as usize) == (accessor_o as usize) &&
-                    to == to_o &&
-                    closed == closed_o
+            (&I8(accessor1, ref limits1), &I8(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
             },
-            (&Gt{accessor, from, closed}, &Gt{accessor: accessor_o, from: from_o, closed: closed_o}) => {
-                (accessor as usize) == (accessor_o as usize) &&
-                    from == from_o &&
-                    closed == closed_o
+            (&I16(accessor1, ref limits1), &I16(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
             },
-            (&Btwn{accessor, from, from_closed, to, to_closed}, &Btwn{accessor: accessor_o, from: from_o, from_closed: from_close_o, to: to_o, to_closed: to_closed_o} ) => {
-                (accessor as usize) == (accessor_o as usize) &&
-                    from == from_o &&
-                    from_closed == from_close_o &&
-                    to == to_o &&
-                    to_closed == to_closed_o
-            }
+            (&I32(accessor1, ref limits1), &I32(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&I64(accessor1, ref limits1), &I64(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&U8(accessor1, ref limits1), &U8(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&U16(accessor1, ref limits1), &U16(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&U32(accessor1, ref limits1), &U32(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&U64(accessor1, ref limits1), &U64(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&ISIZE(accessor1, ref limits1), &ISIZE(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&USIZE(accessor1, ref limits1), &USIZE(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&F32(accessor1, ref limits1), &F32(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            (&F64(accessor1, ref limits1), &F64(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
             _ => false
         }
     }
 }
 
-impl<T: ReteIntrospection> Eq for ConditionTest<T> {}
+impl<T: ReteIntrospection> Eq for ConditionData<T> {}
 
-impl<T: ReteIntrospection> ConditionTest<T> {
+#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+pub enum ConditionTest {
+    HashEq, // TODO: Move one layer up - HashEq vs Ordinal?
+    Lt,
+    Lte,
+    Gt,
+    Gte,
+    GtLt,
+    GteLt,
+    GtLte,
+    GteLte
+}
 
-    pub fn is_hash_eq(&self) -> bool {
+impl ConditionTest {
+
+    fn test<T: Hash + Eq + Ord + Clone>(&self, val: &T, limits: &ConditionLimits<T>) -> bool {
         use self::ConditionTest::*;
-        match self {
-            &HashEq => true,
-            _ => false
-        }
-    }
-
-    pub fn test(&self, t: &T) -> bool {
-        use self::ConditionTest::*;
-        match self {
-            &HashEq => true,
-            &Lt{accessor, to, closed} => {
-                let val = accessor(t);
-                if closed {
-                    val <= to
-                } else {
-                    val < to
-                }
+        use self::ConditionLimits::*;
+        match (self, limits) {
+            (&Lt, &S(ref to)) => {
+                val < to
             },
-            &Gt{accessor, from, closed} => {
-                let val = accessor(t);
-                if closed {
-                    val >= from
-                } else {
-                    val > from
-                }
+            (&Lte, &S(ref to)) => {
+                val <= to
             },
-            &Btwn{accessor, from, from_closed, to, to_closed} => {
-                let val = accessor(t);
-                match (from_closed, to_closed) {
-                    (false, false) => {
-                        val > from && val < to
-                    },
-                    (false, true) => {
-                        val > from && val <= to
-                    }
-                    (true, false) => {
-                        val >= from && val < to
-                    },
-                    (true, true) => {
-                        val >= from && val <= to
-                    }
-                }
-            }
+            (&Gt, &S(ref to)) => {
+                val > to
+            },
+            (&Gte, &S(ref to)) => {
+                val >= to
+            },
+            (&GtLt, &D(ref from, ref to)) => {
+                val > from && val < to
+            },
+            (&GteLt, &D(ref from, ref to)) => {
+                val >= from && val < to
+            },
+            (&GtLte, &D(ref from, ref to)) => {
+                val > from && val <= to
+            },
+            (&GteLte, &D(ref from, ref to)) => {
+                val >= from && val <= to
+            },
+            _ => unreachable!("Unexpected condition test combination.")
         }
     }
 }
+
+
+/*
 
 impl<T: ReteIntrospection> Debug for ConditionTest<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -504,3 +609,4 @@ impl<T: ReteIntrospection> Debug for ConditionTest<T> {
         write!(f, "}}")
     }
 }
+*/

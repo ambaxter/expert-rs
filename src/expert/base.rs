@@ -9,7 +9,7 @@ use string_interner::DefaultStringInterner;
 use std::collections::{HashMap, HashSet};
 use expert::serial::SerialGen;
 use expert::introspection::ReteIntrospection;
-use expert::builder::{ConditionTest, ConditionInfo, Rule, RuleId, StatementId, KnowledgeBuilder};
+use expert::builder::{AlphaTest, ConditionInfo, Rule, RuleId, StatementId, KnowledgeBuilder};
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub struct HashEqId{id: usize}
@@ -104,11 +104,11 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
         KnowledgeBase{t: PhantomData}
     }
 
-    fn alpha_network_compile(rules: &[Rule], condition_map: HashMap<T::HashEq, HashMap<ConditionTest<T>, ConditionInfo>>) {
+    fn alpha_network_compile(rules: &[Rule], condition_map: HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>) {
         let mut conditions: Vec<_> = condition_map.into_iter().collect();
         // Order conditions ascending by dependent statement count, then test count.
         conditions.sort_by(|&(_, ref tests1), &(_, ref tests2)| {
-            if let (Some(ref hash1), Some(ref hash2)) = (tests1.get(&ConditionTest::HashEq), tests2.get(&ConditionTest::HashEq)) {
+            if let (Some(ref hash1), Some(ref hash2)) = (tests1.get(&AlphaTest::HashEq), tests2.get(&AlphaTest::HashEq)) {
                 hash1.dependents.len().cmp(&hash2.dependents.len()).then(tests1.len().cmp(&tests2.len()))
             } else {
                 unreachable!("Unexpected comparison. HashEq must be set");
@@ -130,7 +130,7 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
             let mut layout_map = HashMap::new();
 
             // Take the HashEq node (our entry point) and exhaustively assign destination nodes until no more statements are shared.
-            let mut hash_eq_info = test_map.remove(&ConditionTest::HashEq).unwrap();
+            let mut hash_eq_info = test_map.remove(&AlphaTest::HashEq).unwrap();
             let hash_eq_id = node_id_gen.next_hash_eq_id();
             let mut hash_eq_destinations: Vec<DestinationNode> = Vec::new();
 
@@ -251,7 +251,7 @@ pub struct HashEqNode {
 
 pub struct AlphaNode<T: ReteIntrospection> {
     id: AlphaId,
-    test: ConditionTest<T>,
+    test: AlphaTest<T>,
     store: bool,
     dest: Vec<DestinationNode>
 }
@@ -342,7 +342,6 @@ pub mod new {
     use expert::introspection::ReteIntrospection;
     use ordered_float::NotNaN;
 
-    #[repr(u8)]
     #[derive(Clone, Hash, Eq, PartialEq)]
     pub enum ConditionLimits<T: Eq + Ord + Clone> {
         S(T),
