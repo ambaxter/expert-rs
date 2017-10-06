@@ -122,9 +122,7 @@ impl ReteMopa for Aspect {}
 
 fn main() {
     use expert::builder::KnowledgeBuilder;
-
-    println!("Do test output: {:?}", expert::base::new::do_test::<Aspect>());
-
+    
     let mut builder: KnowledgeBuilder<Aspect> = KnowledgeBuilder::new()
         .rule("test1")
             .when()
@@ -147,7 +145,7 @@ fn main() {
         .end();
 
     println!("builder: {:?}", &builder);
-    
+
     let base = builder.compile();
 
 }
