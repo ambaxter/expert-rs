@@ -23,4 +23,4 @@ impl Debug for SymbolId {
     }
 }
 
-pub type KStringInterner = StringInterner<SymbolId>;
+pub type StringCache = StringInterner<SymbolId>;

@@ -2,7 +2,7 @@ use expert::serial::SerialGen;
 use std::marker::PhantomData;
 use expert::introspection::ReteIntrospection;
 use expert::base::KnowledgeBase;
-use expert::memory::{SymbolId, KStringInterner};
+use expert::memory::{SymbolId, StringCache};
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::collections::{HashMap, HashSet};
@@ -92,7 +92,7 @@ impl Default for ReteIdGenerator {
 }
 
 struct BuilderShared<T: ReteIntrospection> {
-    string_repo: KStringInterner,
+    string_repo: StringCache,
     id_generator: ReteIdGenerator,
     condition_map: HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>
 }
@@ -100,7 +100,7 @@ struct BuilderShared<T: ReteIntrospection> {
 impl<T: ReteIntrospection> BuilderShared<T> {
     fn new() -> BuilderShared<T> {
         BuilderShared{
-            string_repo: KStringInterner::new(),
+            string_repo: StringCache::new(),
             id_generator: Default::default(),
             condition_map: Default::default()
         }
@@ -153,7 +153,7 @@ impl<T: ReteIntrospection> KnowledgeBuilder<T> {
         KnowledgeBase::compile(self)
     }
 
-    pub(crate) fn explode(self) -> (KStringInterner, HashMap<RuleId, Rule>, HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>) {
+    pub(crate) fn explode(self) -> (StringCache, HashMap<RuleId, Rule>, HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>) {
         (self.build_shared.string_repo, self.rules, self.build_shared.condition_map)
     }
 
@@ -296,7 +296,7 @@ impl StatementCondition {
         }
     }
 
-    fn convert<T: ReteIntrospection>(self, string_repo: &KStringInterner) -> AlphaTest<T> {
+    fn convert<T: ReteIntrospection>(self, string_repo: &StringCache) -> AlphaTest<T> {
         use self::StatementCondition::*;
         use self::ConditionLimits::*;
         match self {
@@ -412,7 +412,7 @@ pub enum ConditionData<T: ReteIntrospection>{
     USIZE(fn(&T) -> &usize, ConditionLimits<usize>),
     //F32(fn(&T) -> &f32, ConditionLimits<NotNaN<f32>>),
     //F64(fn(&T) -> &f64, ConditionLimits<NotNaN<f64>>),
-    STR(fn(&T) -> Cow<str>, ConditionLimits<&'static str>),
+    //STR(fn(&T) -> &str, ConditionLimits<SymbolId>),
 }
 
 impl<T: ReteIntrospection> ConditionData<T> {

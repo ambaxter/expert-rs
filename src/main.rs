@@ -25,7 +25,7 @@ use expert::serial::SerialGen;
 use std::cmp::Ordering;
 use expert::builder::StatementCondition;
 use expert::base::MemoryId;
-use expert::memory::KStringInterner;
+use expert::memory::StringCache;
 use expert::iter::OptionIter;
 use expert::introspection::{ReteMopa, ReteIntrospection};
 
@@ -75,7 +75,7 @@ impl ReteIntrospection for Aspect {
     }
 
 
-    fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &KStringInterner) -> [Option<u64>; 3] {
+    fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &StringCache) -> [Option<u64>; 3] {
         let mut o_id = None;
         let mut o_aspect_type = None;
         let mut o_impact = None;
