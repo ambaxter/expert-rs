@@ -1,10 +1,11 @@
-#![feature(generators, generator_trait, conservative_impl_trait)]
+#![feature(conservative_impl_trait)]
 
 #[macro_use]
 extern crate mopa;
 
 extern crate num;
 
+#[macro_use]
 extern crate itertools;
 
 extern crate string_interner;
@@ -14,8 +15,8 @@ extern crate ordered_float;
 mod expert;
 use itertools::Itertools;
 
+use std::mem;
 use std::any::TypeId;
-use std::ops::{Generator, GeneratorState};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::hash::Hash;
@@ -23,23 +24,11 @@ use std::hash::Hasher;
 use expert::serial::SerialGen;
 use std::cmp::Ordering;
 use expert::builder::StatementCondition;
-use string_interner::DefaultStringInterner;
-
+use expert::base::MemoryId;
+use expert::memory::KStringInterner;
+use expert::iter::OptionIter;
 use expert::introspection::{ReteMopa, ReteIntrospection};
 
-
-struct GenIter<T>(T);
-
-impl<T: Generator<Return = ()>> Iterator for GenIter<T> {
-    type Item = T::Yield;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.0.resume() {
-            GeneratorState::Complete(..) => None,
-            GeneratorState::Yielded(v) => Some(v),
-        }
-    }
-}
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 struct Aspect {
@@ -61,17 +50,8 @@ impl Aspect {
         &self.impact
     }
 
-    fn exhaustive_hash<'a>(&'a self) -> impl Iterator<Item=[Option<u64>; 3]> +'a {
-        GenIter(move || {
-            yield [Some(self.id), Some(self.aspect_type), Some(self.impact)];
-            yield [Some(self.id), Some(self.aspect_type), None];
-            yield [Some(self.id), None, Some(self.impact)];
-            yield [Some(self.id), None, None];
-            yield [None, Some(self.aspect_type), Some(self.impact)];
-            yield [None, None, Some(self.impact)];
-            yield [None, Some(self.aspect_type), None];
-            yield [None, None, None];
-        })
+    fn exhaustive_hash<'a>(&'a self) -> impl Iterator<Item=(Option<u64>, Option<u64>, Option<u64>)> +'a {
+        iproduct!(OptionIter::new(Some(self.id)), OptionIter::new(Some(self.aspect_type)), OptionIter::new(Some(self.impact)))
     }
 }
 
@@ -95,7 +75,7 @@ impl ReteIntrospection for Aspect {
     }
 
 
-    fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &DefaultStringInterner) -> [Option<u64>; 3] {
+    fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &KStringInterner) -> [Option<u64>; 3] {
         let mut o_id = None;
         let mut o_aspect_type = None;
         let mut o_impact = None;
@@ -120,9 +100,18 @@ impl ReteIntrospection for Aspect {
 
 impl ReteMopa for Aspect {}
 
+enum BetaJoin {
+    //NOT(MemoryId),
+    AND(MemoryId, MemoryId),
+    //OR(MemoryId, MemoryId),
+    ALL(Vec<MemoryId>),
+    //ANY(Vec<MemoryId>)
+}
+
 fn main() {
     use expert::builder::KnowledgeBuilder;
-    
+    use expert::builder::ConditionData;
+
     let mut builder: KnowledgeBuilder<Aspect> = KnowledgeBuilder::new()
         .rule("test1")
             .when()
@@ -146,6 +135,11 @@ fn main() {
 
     println!("builder: {:?}", &builder);
 
-    let base = builder.compile();
+//    let base = builder.compile();
+
+    let a = Aspect{id: 485, aspect_type: 3840, impact: 9};
+    for i in a.exhaustive_hash() {
+        println!("{:?}", i);
+    }
 
 }

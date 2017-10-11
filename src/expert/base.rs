@@ -100,11 +100,13 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
     pub fn compile(builder: KnowledgeBuilder<T>) -> KnowledgeBase<T> {
         let (string_repo, rules, condition_map) = builder.explode();
 
-        Self::alpha_network_compile(&rules, condition_map);
+        let (hash_eq_nodes, alpha_network, statement_memories) = Self::compile_alpha_network(condition_map);
+
         KnowledgeBase{t: PhantomData}
     }
 
-    fn alpha_network_compile(rules: &[Rule], condition_map: HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>) {
+    fn compile_alpha_network(condition_map: HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>)
+                             -> (HashMap<HashEqId, (T::HashEq, HashEqNode)>, Vec<AlphaNode<T>>, HashMap<StatementId, MemoryId>) {
         let mut conditions: Vec<_> = condition_map.into_iter().collect();
         // Order conditions ascending by dependent statement count, then test count.
         conditions.sort_by(|&(_, ref tests1), &(_, ref tests2)| {
@@ -117,7 +119,7 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
 
         let mut node_id_gen = LayoutIdGenerator::new();
 
-        let mut hash_eq_node = HashMap::new();
+        let mut hash_eq_nodes = HashMap::new();
 
         let mut statement_memories: HashMap<StatementId, MemoryId> = HashMap::new();
 
@@ -150,7 +152,7 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
             }
 
             // Add the HashEq node to the map && store any remaining statements for the beta network
-            hash_eq_node.insert(hash_val, HashEqNode{id: hash_eq_id, store: !hash_eq_info.dependents.is_empty(), destinations: hash_eq_destinations});
+            hash_eq_nodes.insert(hash_eq_id, (hash_val, HashEqNode{id: hash_eq_id, store: !hash_eq_info.dependents.is_empty(), destinations: hash_eq_destinations}));
 
             for statment_id in hash_eq_info.dependents {
                 statement_memories.insert(statment_id, hash_eq_id.into());
@@ -202,12 +204,17 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
 
         }
         println!("Conditions: {:?}", &conditions);
-        println!("HashEqNode: {:?}", &hash_eq_node);
+        println!("HashEqNode: {:?}", &hash_eq_nodes);
         println!("Memory map: {:?}", &statement_memories);
         println!("Alpha Network: size {:?}", alpha_network.len());
+        (hash_eq_nodes, alpha_network, statement_memories)
     }
 
+    fn compile_beta_network(statement_memories: &HashMap<StatementId, MemoryId>,
+                            mut hash_eq_nodes: HashMap<HashEqId, (T::HashEq, HashEqNode)>,
+                            mut alpha_network: Vec<AlphaNode<T>>) {
 
+    }
 
 }
 #[derive(Debug)]
@@ -301,8 +308,8 @@ impl<T: ReteIntrospection> AlphaMemory<T> {
 }
 
 pub struct AlphaNetwork<T: ReteIntrospection> {
-    e_map: HashMap<T::HashEq, HashEqNode>,
-    a_network: Vec<AlphaNode<T>>
+    hash_eq_node: HashMap<T::HashEq, HashEqNode>,
+    alpha_network: Vec<AlphaNode<T>>
 }
 
 pub struct FactStore<T: ReteIntrospection> {

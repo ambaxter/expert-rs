@@ -1,9 +1,8 @@
-use string_interner;
-use string_interner::DefaultStringInterner;
 use expert::serial::SerialGen;
 use std::marker::PhantomData;
 use expert::introspection::ReteIntrospection;
 use expert::base::KnowledgeBase;
+use expert::memory::{SymbolId, KStringInterner};
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::collections::{HashMap, HashSet};
@@ -11,7 +10,7 @@ use ordered_float::NotNaN;
 use std::rc::Rc;
 use std::fmt;
 use std::fmt::Debug;
-
+use std::borrow::Cow;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub struct RuleId{id: usize}
@@ -93,7 +92,7 @@ impl Default for ReteIdGenerator {
 }
 
 struct BuilderShared<T: ReteIntrospection> {
-    string_repo: DefaultStringInterner,
+    string_repo: KStringInterner,
     id_generator: ReteIdGenerator,
     condition_map: HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>
 }
@@ -101,7 +100,7 @@ struct BuilderShared<T: ReteIntrospection> {
 impl<T: ReteIntrospection> BuilderShared<T> {
     fn new() -> BuilderShared<T> {
         BuilderShared{
-            string_repo: Default::default(),
+            string_repo: KStringInterner::new(),
             id_generator: Default::default(),
             condition_map: Default::default()
         }
@@ -111,7 +110,7 @@ impl<T: ReteIntrospection> BuilderShared<T> {
 pub struct KnowledgeBuilder<T: ReteIntrospection> {
     dummy: PhantomData<T>,
     build_shared: BuilderShared<T>,
-    rules: Vec<Rule>
+    rules: HashMap<RuleId, Rule>
 }
 
 impl<T: ReteIntrospection> Debug for KnowledgeBuilder<T>
@@ -119,7 +118,7 @@ impl<T: ReteIntrospection> Debug for KnowledgeBuilder<T>
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         writeln!(f, "KBuilder {{");
         writeln!(f, "  Rules: [");
-        for rule in &self.rules {
+        for rule in self.rules.values() {
             writeln!(f, "    {:?} - sids: {:?}", self.build_shared.string_repo.resolve(rule.name_sym).unwrap(), rule.statement_ids);
         }
         writeln!(f, "  ],");
@@ -154,7 +153,7 @@ impl<T: ReteIntrospection> KnowledgeBuilder<T> {
         KnowledgeBase::compile(self)
     }
 
-    pub(crate) fn explode(self) -> (DefaultStringInterner, Vec<Rule>, HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>) {
+    pub(crate) fn explode(self) -> (KStringInterner, HashMap<RuleId, Rule>, HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>) {
         (self.build_shared.string_repo, self.rules, self.build_shared.condition_map)
     }
 
@@ -166,14 +165,14 @@ impl<T: ReteIntrospection> KnowledgeBuilder<T> {
 
 pub struct Rule {
     rule_id: RuleId,
-    name_sym: usize,
+    name_sym: SymbolId,
     statement_ids: HashSet<StatementId>
 }
 
 pub struct RuleBuilder<T: ReteIntrospection> {
     kbuilder: KnowledgeBuilder<T>,
     rule_id: RuleId,
-    name_sym: usize,
+    name_sym: SymbolId,
     statement_ids: HashSet<StatementId>
 }
 
@@ -193,7 +192,7 @@ impl<T: ReteIntrospection> RuleBuilder<T> {
         // nop in terms of output for now
         let rule = Rule{rule_id: self.rule_id, name_sym: self.name_sym, statement_ids: self.statement_ids};
         let mut kbuilder = self.kbuilder;
-        kbuilder.rules.push(rule);
+        kbuilder.rules.insert(rule.rule_id, rule);
         kbuilder
     }
 
@@ -281,10 +280,10 @@ impl<T: ReteIntrospection> StatementBuilder<T> {
 #[derive(Debug, Copy, Clone)]
 pub enum StatementCondition {
     Exists,
-    Eq{field_sym: usize, to: u64},
-    Lt{field_sym: usize, to: u64, closed: bool},
-    Gt{field_sym: usize, from: u64, closed: bool},
-    Btwn{field_sym: usize, from:u64, from_closed: bool, to: u64, to_closed: bool}
+    Eq{field_sym: SymbolId, to: u64},
+    Lt{field_sym: SymbolId, to: u64, closed: bool},
+    Gt{field_sym: SymbolId, from: u64, closed: bool},
+    Btwn{field_sym: SymbolId, from:u64, from_closed: bool, to: u64, to_closed: bool}
 }
 
 impl StatementCondition {
@@ -297,7 +296,7 @@ impl StatementCondition {
         }
     }
 
-    fn convert<T: ReteIntrospection>(self, string_repo: &DefaultStringInterner) -> AlphaTest<T> {
+    fn convert<T: ReteIntrospection>(self, string_repo: &KStringInterner) -> AlphaTest<T> {
         use self::StatementCondition::*;
         use self::ConditionLimits::*;
         match self {
@@ -305,7 +304,7 @@ impl StatementCondition {
                 let accessor= string_repo.resolve(field_sym)
                     .and_then(|s| T::getter(s)).unwrap();
                 let test = if closed {
-                    ConditionTest::Lte
+                    ConditionTest::Le
                 } else {
                     ConditionTest::Lt
                 };
@@ -315,7 +314,7 @@ impl StatementCondition {
                 let accessor= string_repo.resolve(field_sym)
                     .and_then(|s| T::getter(s)).unwrap();
                 let test = if closed {
-                    ConditionTest::Gte
+                    ConditionTest::Ge
                 } else {
                     ConditionTest::Gt
                 };
@@ -326,9 +325,9 @@ impl StatementCondition {
                     .and_then(|s| T::getter(s)).unwrap();
                 let test = match (from_closed, to_closed) {
                     (false, false) => ConditionTest::GtLt,
-                    (false, true) => ConditionTest::GtLte,
-                    (true, false) => ConditionTest::GteLt,
-                    (true, true) => ConditionTest::GteLte,
+                    (false, true) => ConditionTest::GtLe,
+                    (true, false) => ConditionTest::GeLt,
+                    (true, true) => ConditionTest::GeLe,
 
                 };
                 AlphaTest::Ord{data: ConditionData::U64(accessor, D(from, to)), test}
@@ -337,7 +336,7 @@ impl StatementCondition {
         }
     }
 
-    fn field_sym(&self) -> Option<usize> {
+    fn field_sym(&self) -> Option<SymbolId> {
         use self::StatementCondition::*;
         match self {
             &Lt{field_sym, ..} => Some(field_sym),
@@ -351,12 +350,12 @@ impl StatementCondition {
 #[derive(Debug, Clone)]
 pub struct ConditionInfo {
     pub(crate) id: ConditionId,
-    pub(crate) field_sym: Option<usize>,
+    pub(crate) field_sym: Option<SymbolId>,
     pub(crate) dependents: HashSet<StatementId>
 }
 
 impl ConditionInfo {
-    fn new(id: ConditionId, field_sym: Option<usize>) -> ConditionInfo {
+    fn new(id: ConditionId, field_sym: Option<SymbolId>) -> ConditionInfo {
         ConditionInfo{id, field_sym, dependents: Default::default()}
     }
 }
@@ -411,9 +410,9 @@ pub enum ConditionData<T: ReteIntrospection>{
     U64(fn(&T) -> &u64, ConditionLimits<u64>),
     ISIZE(fn(&T) -> &isize, ConditionLimits<isize>),
     USIZE(fn(&T) -> &usize, ConditionLimits<usize>),
-    F32(fn(&T) -> &f32, ConditionLimits<NotNaN<f32>>),
-    F64(fn(&T) -> &f64, ConditionLimits<NotNaN<f64>>),
-    //STR(fn(&T) -> &String, ConditionLimits<String>),
+    //F32(fn(&T) -> &f32, ConditionLimits<NotNaN<f32>>),
+    //F64(fn(&T) -> &f64, ConditionLimits<NotNaN<f64>>),
+    STR(fn(&T) -> Cow<str>, ConditionLimits<&'static str>),
 }
 
 impl<T: ReteIntrospection> ConditionData<T> {
@@ -459,12 +458,13 @@ impl<T: ReteIntrospection> Hash for ConditionData<T> {
             &USIZE(accessor, ref limits) => {
                 Self::hash_self(9, accessor as usize, limits, state);
             },
-            &F32(accessor, ref limits) => {
+/*            &F32(accessor, ref limits) => {
                 Self::hash_self(10, accessor as usize, limits, state);
             },
             &F64(accessor, ref limits) => {
                 Self::hash_self(11, accessor as usize, limits, state);
-            },
+            },*/
+            _ => {}
         }
     }
 }
@@ -503,12 +503,12 @@ impl<T: ReteIntrospection> PartialEq for ConditionData<T> {
             (&USIZE(accessor1, ref limits1), &USIZE(accessor2, ref limits2)) => {
                 (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
             },
-            (&F32(accessor1, ref limits1), &F32(accessor2, ref limits2)) => {
+/*            (&F32(accessor1, ref limits1), &F32(accessor2, ref limits2)) => {
                 (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
             },
             (&F64(accessor1, ref limits1), &F64(accessor2, ref limits2)) => {
                 (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
-            },
+            },*/
             _ => false
         }
     }
@@ -516,17 +516,16 @@ impl<T: ReteIntrospection> PartialEq for ConditionData<T> {
 
 impl<T: ReteIntrospection> Eq for ConditionData<T> {}
 
-#[derive(Copy, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum ConditionTest {
-    HashEq, // TODO: Move one layer up - HashEq vs Ordinal?
     Lt,
-    Lte,
+    Le,
     Gt,
-    Gte,
+    Ge,
     GtLt,
-    GteLt,
-    GtLte,
-    GteLte
+    GeLt,
+    GtLe,
+    GeLe
 }
 
 impl ConditionTest {
@@ -538,25 +537,25 @@ impl ConditionTest {
             (&Lt, &S(ref to)) => {
                 val < to
             },
-            (&Lte, &S(ref to)) => {
+            (&Le, &S(ref to)) => {
                 val <= to
             },
             (&Gt, &S(ref to)) => {
                 val > to
             },
-            (&Gte, &S(ref to)) => {
+            (&Ge, &S(ref to)) => {
                 val >= to
             },
             (&GtLt, &D(ref from, ref to)) => {
                 val > from && val < to
             },
-            (&GteLt, &D(ref from, ref to)) => {
+            (&GeLt, &D(ref from, ref to)) => {
                 val >= from && val < to
             },
-            (&GtLte, &D(ref from, ref to)) => {
+            (&GtLe, &D(ref from, ref to)) => {
                 val > from && val <= to
             },
-            (&GteLte, &D(ref from, ref to)) => {
+            (&GeLe, &D(ref from, ref to)) => {
                 val >= from && val <= to
             },
             _ => unreachable!("Unexpected condition test combination.")
