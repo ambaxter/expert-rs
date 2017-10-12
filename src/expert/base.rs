@@ -100,7 +100,15 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
     pub fn compile(builder: KnowledgeBuilder<T>) -> KnowledgeBase<T> {
         let (string_repo, rules, condition_map) = builder.explode();
 
+
         let (hash_eq_nodes, alpha_network, statement_memories) = Self::compile_alpha_network(condition_map);
+
+        let mut statement_rule_map = HashMap::new();
+        for (rule_id, rule) in rules {
+            for statement_id in &rule.statement_ids {
+                statement_rule_map.insert(*statement_id, rule_id);
+            }
+        }
 
         KnowledgeBase{t: PhantomData}
     }
@@ -144,8 +152,8 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
                 .max_by_key(|&(_, ref intersection)| intersection.len()) {
 
                 let destination_id = layout_map.entry(max_info.id)
-                        .or_insert_with(|| AlphaLayout{alpha_id: node_id_gen.next_alpha_id(), destinations: Default::default()})
-                        .alpha_id;
+                        .or_insert_with(|| NodeLayout{node_id: node_id_gen.next_alpha_id(), destinations: Default::default()})
+                        .node_id;
 
                 hash_eq_info.dependents.retain(|x| !max_intersection.contains(&x));
                 hash_eq_destinations.push(destination_id.into());
@@ -177,8 +185,8 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
 
                 if let Some((pos1, id1, id2, shared)) = output {
                     let alpha2_id = layout_map.entry(id2)
-                        .or_insert_with(|| AlphaLayout{alpha_id: node_id_gen.next_alpha_id(), destinations: Default::default()})
-                        .alpha_id;
+                        .or_insert_with(|| NodeLayout{node_id: node_id_gen.next_alpha_id(), destinations: Default::default()})
+                        .node_id;
                     layout_map.get_mut(&id1).unwrap().destinations.push(alpha2_id.into());
                     tests.get_mut(pos1).unwrap().1.dependents.retain(|x| !shared.contains(&x));
                 } else {
@@ -188,13 +196,13 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
             println!("Final layout: {:?}", &layout_map);
             // TODO: Assert layout numbers are correct
             // Do the actual layout into the alpha network
-            tests.sort_by_key(|&(_, ref info)| layout_map.get(&info.id).unwrap().alpha_id);
+            tests.sort_by_key(|&(_, ref info)| layout_map.get(&info.id).unwrap().node_id);
             for (test, info) in tests.into_iter() {
                 let alpha_layout = layout_map.remove(&info.id).unwrap();
-                let id = alpha_layout.alpha_id;
+                let id = alpha_layout.node_id;
                 let dest = alpha_layout.destinations;
                 let store = !info.dependents.is_empty();
-                assert_eq!(alpha_network.len(), alpha_layout.alpha_id.id);
+                assert_eq!(alpha_network.len(), alpha_layout.node_id.id);
                 alpha_network.push(AlphaNode{id, test, store, dest});
 
                 for statment_id in info.dependents {
@@ -211,15 +219,41 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
     }
 
     fn compile_beta_network(statement_memories: &HashMap<StatementId, MemoryId>,
+                            statement_rule_map: &HashMap<StatementId, RuleId>,
                             mut hash_eq_nodes: HashMap<HashEqId, (T::HashEq, HashEqNode)>,
                             mut alpha_network: Vec<AlphaNode<T>>) {
+        let mut beta_ids: SerialGen<usize, BetaId> = Default::default();
+
+        let mut memory_rule_map: HashMap<MemoryId, HashSet<RuleId>> = HashMap::new();
+
+        for (statement_id, memory_id) in statement_memories {
+            let rule_id = *statement_rule_map.get(statement_id).unwrap();
+            memory_rule_map
+                .entry(*memory_id)
+                .or_insert_with(|| Default::default()).insert(rule_id);
+        }
+
+        let mut beta_network= Vec::new();
+
+        let mut beta_stack = Vec::new();
+
+
+        // I think I can keep this in the map
+        // 1. Select the memory (m1) with the most rules
+        // 2. Select the next memory (m2) with the most shared rules
+        // 3a. Create a new AND beta node (b1) (in NodeLayout<BetaId>)
+        // 3b. Remove shared rules from m1 & m2. If either have no more rules, remove from map.
+        // 3c. Add b1's destination id to m1 and m2's destinations
+        // 3d. Add b1 to beta stack.
+        // 4. If an m2 can be found, go to 3a. Otherwise add rule to destination. pop b1 off beta stack
+        // 5. If stack empty, select next m2 for m1. if no m2, add rule ids as destination nodes. if no more m1 rules, remove from map
 
     }
 
 }
-#[derive(Debug)]
-struct AlphaLayout {
-    alpha_id: AlphaId,
+#[derive(Debug, Eq, Hash, Ord, PartialOrd, PartialEq)]
+struct NodeLayout<T> {
+    node_id: T,
     destinations: Vec<DestinationNode>
 }
 

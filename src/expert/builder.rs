@@ -166,7 +166,7 @@ impl<T: ReteIntrospection> KnowledgeBuilder<T> {
 pub struct Rule {
     rule_id: RuleId,
     name_sym: SymbolId,
-    statement_ids: HashSet<StatementId>
+    pub(crate) statement_ids: HashSet<StatementId>
 }
 
 pub struct RuleBuilder<T: ReteIntrospection> {
