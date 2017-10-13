@@ -267,16 +267,30 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
                 let beta_id = beta_ids.next();
 
                 most_dep.retain(|x| !intersect.contains(x));
-                // TODO: Left off at adding the new beta id to the destination
+                Self::add_alpha_destination(&mut hash_eq_nodes, &mut alpha_network, most_dep_id, beta_id.into());
                 {
-                    let &mut (intesect_id, ref mut intersect_dep) = alpha_mem_dependents.get_mut(intersect_pos).unwrap();
+                    let &mut (intersect_id, ref mut intersect_dep) = alpha_mem_dependents.get_mut(intersect_pos).unwrap();
                     intersect_dep.retain(|x| !intersect.contains(x));
+                    Self::add_alpha_destination(&mut hash_eq_nodes, &mut alpha_network, intersect_id, beta_id.into());
                 }
+                // TODO: Left off at creating new beta node
 
             }
 
 
             alpha_mem_dependents.sort_by_key(|&(_, ref rule_set)| rule_set.len());
+        }
+    }
+
+    fn add_alpha_destination(hash_eq_nodes: &mut HashMap<HashEqId, (T::HashEq, HashEqNode)>,
+                             alpha_network: &mut Vec<AlphaNode<T>>,
+                             memory: MemoryId,
+                             destination: DestinationNode) {
+        use expert::base::MemoryId::*;
+        match memory {
+            HashEq(ref id) => {hash_eq_nodes.get_mut(id).unwrap().1.destinations.push(destination)},
+            Alpha(alpha_id) => {alpha_network.get_mut(alpha_id.id).unwrap().dest.push(destination)},
+            _ => unreachable!("We shouldn't be adding an beta memory destination with this function")
         }
     }
 
