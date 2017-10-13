@@ -232,14 +232,14 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
                 .entry(*memory_id)
                 .or_insert_with(|| Default::default()).insert(rule_id);
         }
+/*
 
         let mut beta_network= Vec::new();
 
         let mut beta_stack = Vec::new();
+*/
 
-
-        // I think I can keep this in the map
-        // 1. Select the memory (m1) with the most rules
+        // 1. Select (and remove from the map) the memory (m1) with the most rules
         // 2. Select the next memory (m2) with the most shared rules
         // 3a. Create a new AND beta node (b1) (in NodeLayout<BetaId>)
         // 3b. Remove shared rules from m1 & m2. If either have no more rules, remove from map.
@@ -248,6 +248,36 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
         // 4. If an m2 can be found, go to 3a. Otherwise add rule to destination. pop b1 off beta stack
         // 5. If stack empty, select next m2 for m1. if no m2, add rule ids as destination nodes. if no more m1 rules, remove from map
 
+
+        let mut alpha_mem_dependents: Vec<(MemoryId, HashSet<RuleId>)> = memory_rule_map.into_iter().collect();
+        alpha_mem_dependents.sort_by_key(|&(_, ref rule_set)| rule_set.len());
+
+        while let Some((most_dep_id, mut most_dep)) = alpha_mem_dependents.pop() {
+            // early exit in case we've reached the front with no dependencies
+            if most_dep.is_empty() {
+                break;
+            }
+            while let Some((intersect_pos, intersect)) = alpha_mem_dependents.iter().enumerate().rev()
+                .filter(|&(_, &(_, ref rule_set))| !rule_set.is_empty())
+                .map(|(pos, &(_, ref rule_set))| (pos, &most_dep & rule_set))
+                .filter(|&(pos, ref intersect)| !intersect.is_empty())
+                .max_by_key(|&(pos, ref intersect)| !intersect.len()) {
+
+                // Join alpha nodes with beta
+                let beta_id = beta_ids.next();
+
+                most_dep.retain(|x| !intersect.contains(x));
+                // TODO: Left off at adding the new beta id to the destination
+                {
+                    let &mut (intesect_id, ref mut intersect_dep) = alpha_mem_dependents.get_mut(intersect_pos).unwrap();
+                    intersect_dep.retain(|x| !intersect.contains(x));
+                }
+
+            }
+
+
+            alpha_mem_dependents.sort_by_key(|&(_, ref rule_set)| rule_set.len());
+        }
     }
 
 }
