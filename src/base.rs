@@ -9,53 +9,9 @@ use string_interner::DefaultStringInterner;
 use std::collections::{HashMap, HashSet};
 use ::serial::SerialGen;
 use ::introspection::ReteIntrospection;
-use ::builder::{AlphaTest, ConditionInfo, Rule, RuleId, StatementId, KnowledgeBuilder};
-
-#[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct HashEqId{id: usize}
-
-impl Debug for HashEqId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.id)
-    }
-}
-
-impl Into<HashEqId> for usize {
-    fn into(self) -> HashEqId {
-        HashEqId{id: self}
-    }
-}
-
-#[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct AlphaId {id: usize}
-
-impl Debug for AlphaId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.id)
-    }
-}
-
-impl Into<AlphaId> for usize {
-    fn into(self) -> AlphaId {
-        AlphaId {id: self}
-    }
-}
-
-
-#[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct BetaId {id: usize}
-
-impl Debug for BetaId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.id)
-    }
-}
-
-impl Into<BetaId> for usize {
-    fn into(self) -> BetaId {
-        BetaId {id: self}
-    }
-}
+use ::builder::{AlphaTest, ConditionInfo, Rule, KnowledgeBuilder};
+use ::compiler::ids::*;
+use ::builders::ids::{StatementId, RuleId};
 
 pub struct LayoutIdGenerator {
     hash_eq_ids: SerialGen<usize, HashEqId>,

@@ -2,7 +2,8 @@ use ::serial::SerialGen;
 use std::marker::PhantomData;
 use ::introspection::ReteIntrospection;
 use ::base::KnowledgeBase;
-use ::memory::{SymbolId, StringCache};
+use runtime::memory::{SymbolId, StringCache};
+use ::builders::ids::*;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::collections::{HashMap, HashSet};
@@ -11,51 +12,6 @@ use std::rc::Rc;
 use std::fmt;
 use std::fmt::Debug;
 use std::borrow::Cow;
-
-#[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct RuleId{id: usize}
-
-impl Debug for RuleId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.id)
-    }
-}
-
-impl Into<RuleId> for usize {
-    fn into(self) -> RuleId {
-        RuleId{id: self}
-    }
-}
-
-#[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct StatementId{id: usize}
-
-impl Debug for StatementId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.id)
-    }
-}
-
-impl Into<StatementId> for usize {
-    fn into(self) -> StatementId {
-        StatementId{id: self}
-    }
-}
-
-#[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct ConditionId{id: usize}
-
-impl Debug for ConditionId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.id)
-    }
-}
-
-impl Into<ConditionId> for usize {
-    fn into(self) -> ConditionId {
-        ConditionId{id: self}
-    }
-}
 
 pub struct ReteIdGenerator {
     rule_ids: SerialGen<usize, RuleId>,
@@ -304,9 +260,9 @@ impl StatementCondition {
                 let accessor= string_repo.resolve(field_sym)
                     .and_then(|s| T::getter(s)).unwrap();
                 let test = if closed {
-                    ConditionTest::Le
+                    OrdTest::Le
                 } else {
-                    ConditionTest::Lt
+                    OrdTest::Lt
                 };
                 AlphaTest::Ord{data: ConditionData::U64(accessor, S(to)), test}
             }
@@ -314,9 +270,9 @@ impl StatementCondition {
                 let accessor= string_repo.resolve(field_sym)
                     .and_then(|s| T::getter(s)).unwrap();
                 let test = if closed {
-                    ConditionTest::Ge
+                    OrdTest::Ge
                 } else {
-                    ConditionTest::Gt
+                    OrdTest::Gt
                 };
                 AlphaTest::Ord{data: ConditionData::U64(accessor, S(from)), test}
             }
@@ -324,10 +280,10 @@ impl StatementCondition {
                 let accessor= string_repo.resolve(field_sym)
                     .and_then(|s| T::getter(s)).unwrap();
                 let test = match (from_closed, to_closed) {
-                    (false, false) => ConditionTest::GtLt,
-                    (false, true) => ConditionTest::GtLe,
-                    (true, false) => ConditionTest::GeLt,
-                    (true, true) => ConditionTest::GeLe,
+                    (false, false) => OrdTest::GtLt,
+                    (false, true) => OrdTest::GtLe,
+                    (true, false) => OrdTest::GeLt,
+                    (true, true) => OrdTest::GeLe,
 
                 };
                 AlphaTest::Ord{data: ConditionData::U64(accessor, D(from, to)), test}
@@ -363,7 +319,7 @@ impl ConditionInfo {
 #[derive(Hash, Eq, PartialEq)]
 pub enum AlphaTest<T: ReteIntrospection> {
     HashEq,
-    Ord{data: ConditionData<T>, test: ConditionTest}
+    Ord{data: ConditionData<T>, test: OrdTest }
 }
 
 impl<T: ReteIntrospection> AlphaTest<T> {
@@ -517,7 +473,7 @@ impl<T: ReteIntrospection> PartialEq for ConditionData<T> {
 impl<T: ReteIntrospection> Eq for ConditionData<T> {}
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
-pub enum ConditionTest {
+pub enum OrdTest {
     Lt,
     Le,
     Gt,
@@ -528,10 +484,10 @@ pub enum ConditionTest {
     GeLe
 }
 
-impl ConditionTest {
+impl OrdTest {
 
     fn test<T: Hash + Eq + Ord + Clone>(&self, val: &T, limits: &ConditionLimits<T>) -> bool {
-        use self::ConditionTest::*;
+        use self::OrdTest::*;
         use self::ConditionLimits::*;
         match (self, limits) {
             (&Lt, &S(ref to)) => {

@@ -26,7 +26,7 @@ use expert::serial::SerialGen;
 use std::cmp::Ordering;
 use expert::builder::StatementCondition;
 use expert::base::MemoryId;
-use expert::memory::StringCache;
+use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
 use expert::introspection::{ReteMopa, ReteIntrospection};
 
