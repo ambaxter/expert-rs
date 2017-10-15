@@ -1,8 +1,8 @@
 use mopa;
 use std::any::TypeId;
 use std::hash::Hash;
-use expert::builder::StatementCondition;
-use expert::memory::StringCache;
+use ::builder::StatementCondition;
+use ::memory::StringCache;
 use std::fmt::Debug;
 
 pub trait ReteMopa: mopa::Any {}

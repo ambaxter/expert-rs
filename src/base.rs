@@ -7,9 +7,9 @@ use itertools::Itertools;
 use string_interner;
 use string_interner::DefaultStringInterner;
 use std::collections::{HashMap, HashSet};
-use expert::serial::SerialGen;
-use expert::introspection::ReteIntrospection;
-use expert::builder::{AlphaTest, ConditionInfo, Rule, RuleId, StatementId, KnowledgeBuilder};
+use ::serial::SerialGen;
+use ::introspection::ReteIntrospection;
+use ::builder::{AlphaTest, ConditionInfo, Rule, RuleId, StatementId, KnowledgeBuilder};
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub struct HashEqId{id: usize}
@@ -286,7 +286,7 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
                              alpha_network: &mut Vec<AlphaNode<T>>,
                              memory: MemoryId,
                              destination: DestinationNode) {
-        use expert::base::MemoryId::*;
+        use ::base::MemoryId::*;
         match memory {
             HashEq(ref id) => {hash_eq_nodes.get_mut(id).unwrap().1.destinations.push(destination)},
             Alpha(alpha_id) => {alpha_network.get_mut(alpha_id.id).unwrap().dest.push(destination)},

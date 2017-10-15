@@ -1,5 +1,5 @@
 [package]
-name = "expert-rs"
+name = "expert"
 version = "0.1.0"
 authors = ["abaxter <ambaxter@users.noreply.github.com>"]
 

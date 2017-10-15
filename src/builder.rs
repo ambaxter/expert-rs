@@ -1,8 +1,8 @@
-use expert::serial::SerialGen;
+use ::serial::SerialGen;
 use std::marker::PhantomData;
-use expert::introspection::ReteIntrospection;
-use expert::base::KnowledgeBase;
-use expert::memory::{SymbolId, StringCache};
+use ::introspection::ReteIntrospection;
+use ::base::KnowledgeBase;
+use ::memory::{SymbolId, StringCache};
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::collections::{HashMap, HashSet};

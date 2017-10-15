@@ -12,7 +12,8 @@ extern crate string_interner;
 
 extern crate ordered_float;
 
-mod expert;
+extern crate expert;
+
 use itertools::Itertools;
 
 use std::mem;
