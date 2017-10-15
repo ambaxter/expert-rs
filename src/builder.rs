@@ -1,6 +1,6 @@
 use ::serial::SerialGen;
 use std::marker::PhantomData;
-use ::introspection::ReteIntrospection;
+use ::traits::ReteIntrospection;
 use ::base::KnowledgeBase;
 use runtime::memory::{SymbolId, StringCache};
 use ::builders::ids::*;

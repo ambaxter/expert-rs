@@ -1,8 +1,5 @@
 #![feature(conservative_impl_trait)]
 
-#[macro_use]
-extern crate mopa;
-
 extern crate num;
 
 #[macro_use]
@@ -28,7 +25,7 @@ use expert::builder::StatementCondition;
 use expert::base::MemoryId;
 use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
-use expert::introspection::{ReteMopa, ReteIntrospection};
+use expert::traits::ReteIntrospection;
 
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
@@ -98,8 +95,6 @@ impl ReteIntrospection for Aspect {
         [o_id, o_aspect_type, o_impact]
     }
 }
-
-impl ReteMopa for Aspect {}
 
 enum BetaJoin {
     //NOT(MemoryId),

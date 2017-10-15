@@ -8,9 +8,9 @@ use string_interner;
 use string_interner::DefaultStringInterner;
 use std::collections::{HashMap, HashSet};
 use ::serial::SerialGen;
-use ::introspection::ReteIntrospection;
+use ::traits::ReteIntrospection;
 use ::builder::{AlphaTest, ConditionInfo, Rule, KnowledgeBuilder};
-use ::compiler::ids::*;
+use ::network::ids::*;
 use ::builders::ids::{StatementId, RuleId};
 
 pub struct LayoutIdGenerator {
