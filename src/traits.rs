@@ -1,4 +1,3 @@
-use mopa;
 use std;
 use std::any::TypeId;
 use std::hash::Hash;

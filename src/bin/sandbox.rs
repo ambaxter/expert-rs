@@ -150,7 +150,7 @@ enum BetaJoin {
 
 fn main() {
     use expert::builder::KnowledgeBuilder;
-    use expert::builder::ConditionData;
+    use expert::builder::CData;
 
     let mut builder: KnowledgeBuilder<Aspect> = KnowledgeBuilder::new()
         .rule("test1")

@@ -14,9 +14,9 @@ use std::fmt::Debug;
 use std::borrow::Cow;
 
 pub struct ReteIdGenerator {
-    rule_ids: SerialGen<usize, RuleId>,
-    statement_ids: SerialGen<usize, StatementId>,
-    condition_ids: SerialGen<usize, ConditionId>
+    rule_ids: RuleIdGen,
+    statement_ids: StatementIdGen,
+    condition_ids: ConditionIdGen
 }
 
 impl ReteIdGenerator {
@@ -254,7 +254,7 @@ impl StatementCondition {
 
     fn convert<T: ReteIntrospection>(self, string_repo: &StringCache) -> AlphaTest<T> {
         use self::StatementCondition::*;
-        use self::ConditionLimits::*;
+        use self::CLimits::*;
         match self {
             Lt{field_sym, to, closed} => {
                 let accessor= string_repo.resolve(field_sym)
@@ -264,7 +264,7 @@ impl StatementCondition {
                 } else {
                     OrdTest::Lt
                 };
-                AlphaTest::Ord{data: ConditionData::U64(accessor, S(to)), test}
+                AlphaTest::Ord{data: CData::U64(accessor, S(to)), test}
             }
             Gt{field_sym, from, closed} => {
                 let accessor= string_repo.resolve(field_sym)
@@ -274,7 +274,7 @@ impl StatementCondition {
                 } else {
                     OrdTest::Gt
                 };
-                AlphaTest::Ord{data: ConditionData::U64(accessor, S(from)), test}
+                AlphaTest::Ord{data: CData::U64(accessor, S(from)), test}
             }
             Btwn{field_sym, from, from_closed, to, to_closed} => {
                 let accessor= string_repo.resolve(field_sym)
@@ -286,7 +286,7 @@ impl StatementCondition {
                     (true, true) => OrdTest::GeLe,
 
                 };
-                AlphaTest::Ord{data: ConditionData::U64(accessor, D(from, to)), test}
+                AlphaTest::Ord{data: CData::U64(accessor, D(from, to)), test}
             },
             _ => AlphaTest::HashEq
         }
@@ -319,7 +319,7 @@ impl ConditionInfo {
 #[derive(Hash, Eq, PartialEq)]
 pub enum AlphaTest<T: ReteIntrospection> {
     HashEq,
-    Ord{data: ConditionData<T>, test: OrdTest }
+    Ord{data: CData<T>, test: OrdTest }
 }
 
 impl<T: ReteIntrospection> AlphaTest<T> {
@@ -349,29 +349,29 @@ impl<T: ReteIntrospection> Debug for AlphaTest<T> {
 }
 
 #[derive(Clone, Hash, Eq, PartialEq)]
-pub enum ConditionLimits<T: Hash + Eq + Ord + Clone> {
+pub enum CLimits<T: Hash + Eq + Ord + Clone> {
     S(T),
     D(T, T)
 }
 
 #[derive(Clone)]
-pub enum ConditionData<T: ReteIntrospection>{
-    I8(fn(&T) -> &i8, ConditionLimits<i8>),
-    I16(fn(&T) -> &i16, ConditionLimits<i16>),
-    I32(fn(&T) -> &i32, ConditionLimits<i32>),
-    I64(fn(&T) -> &i64, ConditionLimits<i64>),
-    U8(fn(&T) -> &u8, ConditionLimits<u8>),
-    U16(fn(&T) -> &u16, ConditionLimits<u16>),
-    U32(fn(&T) -> &u32, ConditionLimits<u32>),
-    U64(fn(&T) -> &u64, ConditionLimits<u64>),
-    ISIZE(fn(&T) -> &isize, ConditionLimits<isize>),
-    USIZE(fn(&T) -> &usize, ConditionLimits<usize>),
+pub enum CData<T: ReteIntrospection>{
+    I8(fn(&T) -> &i8, CLimits<i8>),
+    I16(fn(&T) -> &i16, CLimits<i16>),
+    I32(fn(&T) -> &i32, CLimits<i32>),
+    I64(fn(&T) -> &i64, CLimits<i64>),
+    U8(fn(&T) -> &u8, CLimits<u8>),
+    U16(fn(&T) -> &u16, CLimits<u16>),
+    U32(fn(&T) -> &u32, CLimits<u32>),
+    U64(fn(&T) -> &u64, CLimits<u64>),
+    ISIZE(fn(&T) -> &isize, CLimits<isize>),
+    USIZE(fn(&T) -> &usize, CLimits<usize>),
     //F32(fn(&T) -> &f32, ConditionLimits<NotNaN<f32>>),
     //F64(fn(&T) -> &f64, ConditionLimits<NotNaN<f64>>),
     //STR(fn(&T) -> &str, ConditionLimits<SymbolId>),
 }
 
-impl<T: ReteIntrospection> ConditionData<T> {
+impl<T: ReteIntrospection> CData<T> {
     fn hash_self<H: Hasher, L: Hash>(ord: usize, accessor: usize, limits: &L, state: &mut H) {
         ord.hash(state);
         accessor.hash(state);
@@ -379,9 +379,9 @@ impl<T: ReteIntrospection> ConditionData<T> {
     }
 }
 
-impl<T: ReteIntrospection> Hash for ConditionData<T> {
+impl<T: ReteIntrospection> Hash for CData<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        use self::ConditionData::*;
+        use self::CData::*;
         match self {
             &I8(accessor, ref limits) => {
                 Self::hash_self(0, accessor as usize, limits, state);
@@ -425,9 +425,9 @@ impl<T: ReteIntrospection> Hash for ConditionData<T> {
     }
 }
 
-impl<T: ReteIntrospection> PartialEq for ConditionData<T> {
+impl<T: ReteIntrospection> PartialEq for CData<T> {
     fn eq(&self, other: &Self) -> bool {
-        use self::ConditionData::*;
+        use self::CData::*;
         match (self, other) {
             (&I8(accessor1, ref limits1), &I8(accessor2, ref limits2)) => {
                 (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
@@ -470,7 +470,7 @@ impl<T: ReteIntrospection> PartialEq for ConditionData<T> {
     }
 }
 
-impl<T: ReteIntrospection> Eq for ConditionData<T> {}
+impl<T: ReteIntrospection> Eq for CData<T> {}
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum OrdTest {
@@ -486,9 +486,9 @@ pub enum OrdTest {
 
 impl OrdTest {
 
-    fn test<T: Hash + Eq + Ord + Clone>(&self, val: &T, limits: &ConditionLimits<T>) -> bool {
+    fn test<T: Hash + Eq + Ord + Clone>(&self, val: &T, limits: &CLimits<T>) -> bool {
         use self::OrdTest::*;
-        use self::ConditionLimits::*;
+        use self::CLimits::*;
         match (self, limits) {
             (&Lt, &S(ref to)) => {
                 val < to

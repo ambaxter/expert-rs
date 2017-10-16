@@ -4,9 +4,9 @@ version = "0.1.0"
 authors = ["abaxter <ambaxter@users.noreply.github.com>"]
 
 [dependencies]
-mopa = "0.2.2"
 num = "0.1"
 itertools = "0.6"
 string-interner = "0.6"
 ordered-float = "0.5"
 typemap = "0.3"
+float-cmp = "0.2"

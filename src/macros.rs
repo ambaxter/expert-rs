@@ -17,13 +17,18 @@ macro_rules! index_id {
                 }
             }
 
-            impl Into<usize> for $t {
-                fn into(self) -> usize {
-                    self.index
-                }
-            }
-
         )*
     };
 }
 
+macro_rules! into_dest {
+    ($dest: ident; $($id:ident => $sub:ident),+) => {
+        $(
+            impl Into<$dest> for $id {
+                fn into(self) -> $dest {
+                    $dest::$sub(self)
+                }
+            }
+        )*
+    };
+}

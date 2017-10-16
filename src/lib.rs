@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate mopa;
-
 extern crate num;
 
 #[macro_use]
@@ -9,6 +6,8 @@ extern crate itertools;
 extern crate string_interner;
 
 extern crate ordered_float;
+
+extern crate float_cmp;
 
 #[macro_use]
 mod macros;

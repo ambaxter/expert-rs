@@ -14,9 +14,9 @@ use ::network::ids::*;
 use ::builders::ids::{StatementId, RuleId};
 
 pub struct LayoutIdGenerator {
-    hash_eq_ids: SerialGen<usize, HashEqId>,
-    alpha_ids: SerialGen<usize, AlphaId>,
-    beta_ids: SerialGen<usize, BetaId>
+    hash_eq_ids: HashEqIdGen,
+    alpha_ids: AlphaIdGen,
+    beta_ids: BetaIdGen
 }
 
 impl LayoutIdGenerator {
