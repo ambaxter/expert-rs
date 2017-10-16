@@ -1,3 +1,6 @@
+#![feature(plugin)]
+#![plugin(interpolate_idents)]
+
 extern crate num;
 
 #[macro_use]
@@ -20,3 +23,28 @@ pub mod serial;
 pub mod builder;
 pub mod builders;
 pub mod iter;
+
+#[macro_export]
+macro_rules! create_type {
+    ($base:ident; inserts => [$($input_type:ident),+]; returns => [$($return_type:ident),*]) => {
+        interpolate_idents!{
+
+            struct [$base RuleBuilder] {
+
+            }
+
+            struct [$base Builder] {
+
+            }
+
+            struct [$base Network] {
+
+            }
+
+            struct [$base Session] {
+                test: Vec<expert::runtime::memory::InterMemoryId>
+            }
+
+        }
+    }
+}

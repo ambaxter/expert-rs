@@ -1,4 +1,7 @@
 #![feature(conservative_impl_trait)]
+#![feature(plugin)]
+#![plugin(interpolate_idents)]
+
 
 extern crate num;
 
@@ -9,6 +12,7 @@ extern crate string_interner;
 
 extern crate ordered_float;
 
+#[macro_use]
 extern crate expert;
 
 use itertools::Itertools;
@@ -147,6 +151,8 @@ enum BetaJoin {
     ALL(Vec<MemoryId>),
     //ANY(Vec<MemoryId>)
 }
+
+create_type!(Knowledge; inserts => [Aspect]; returns => []);
 
 fn main() {
     use expert::builder::KnowledgeBuilder;

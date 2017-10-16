@@ -206,7 +206,7 @@ impl<T: ReteIntrospection> StatementBuilder<T> {
 
         if !conditions.is_empty() {
             let statement_id = {
-                let rule_id = rule_builder.rule_id;
+                //let rule_id = rule_builder.rule_id;
                 let shared = rule_builder.get_shared();
                 let (id_generator, string_repo, condition_map) = (&mut shared.id_generator, &shared.string_repo, &mut shared.condition_map);
 

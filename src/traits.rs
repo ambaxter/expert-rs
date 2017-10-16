@@ -3,24 +3,29 @@ use std::any::TypeId;
 use std::hash::Hash;
 use ::builder::StatementCondition;
 use runtime::memory::StringCache;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use builders::ids::*;
 
 pub trait Introspect {
     fn static_type_id() -> TypeId;
 }
 
-#[derive(Clone)]
-pub enum Getters<T: Insert> {
-    I8(fn(&T) -> &i8),
-    I16(fn(&T) -> &i16),
-    I32(fn(&T) -> &i32),
-    I64(fn(&T) -> &i64),
-    U8(fn(&T) -> &u8),
-    U16(fn(&T) -> &u16),
-    U32(fn(&T) -> &u32),
-    U64(fn(&T) -> &u64),
-    ISIZE(fn(&T) -> &isize),
-    USIZE(fn(&T) -> &usize),
+#[derive(Copy, Clone)]
+pub enum Getters<I: Insert> {
+    I8(fn(&I) -> &i8),
+    I16(fn(&I) -> &i16),
+    I32(fn(&I) -> &i32),
+    I64(fn(&I) -> &i64),
+    U8(fn(&I) -> &u8),
+    U16(fn(&I) -> &u16),
+    U32(fn(&I) -> &u32),
+    U64(fn(&I) -> &u64),
+    ISIZE(fn(&I) -> &isize),
+    USIZE(fn(&I) -> &usize),
+    F32(fn(&I) -> &f32),
+    F64(fn(&I) -> &f64),
+    STR(fn(&I) -> &str),
 }
 
 pub trait Insert : Introspect + Eq + Hash
@@ -31,6 +36,22 @@ pub trait Insert : Introspect + Eq + Hash
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
 }
 
+pub trait NetworkBuilder {
+    fn next_rule_id(&mut self) -> RuleId;
+    fn next_statement_id(&mut self) -> StatementId;
+    fn next_condition_id(&mut self) -> ConditionId;
+    fn get_conditions<I: Insert>(&mut self) ->&mut HashSet<I::HashEq>;
+    fn get_string_cache(&mut self) -> &mut StringCache;
+
+}
+
+pub trait RuleBuilder {
+    fn next_statement_id(&mut self) -> StatementId;
+    fn next_condition_id(&mut self) -> ConditionId;
+    fn get_conditions<I: Insert>(&mut self) ->&mut HashSet<I::HashEq>;
+    fn get_statement_ids(&mut self) -> &mut Vec<StatementId>;
+    fn get_string_cache(&mut self) -> &mut StringCache;
+}
 
 
 pub trait ReteIntrospection : Eq + Hash {

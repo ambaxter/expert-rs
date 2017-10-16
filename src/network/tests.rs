@@ -311,7 +311,7 @@ impl<T: Insert> Eq for StrData<T> {}
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum StrTest {
-    Neq,
+    Ne,
     Lt,
     Le,
     Gt,
@@ -330,7 +330,7 @@ impl StrTest {
         use self::StrTest::*;
         use self::CLimits::*;
         match (self, limits) {
-            (&Neq, &S(to)) => {
+            (&Ne, &S(to)) => {
                 let to_str = cache.resolve(to).unwrap();
                 val != to_str
             },
