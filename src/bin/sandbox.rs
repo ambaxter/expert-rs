@@ -22,7 +22,7 @@ use std::hash::Hasher;
 use expert::serial::SerialGen;
 use std::cmp::Ordering;
 use expert::builder::StatementCondition;
-use expert::base::MemoryId;
+use expert::runtime::memory::MemoryId;
 use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
 use expert::traits::ReteIntrospection;

@@ -12,6 +12,8 @@ use ::traits::ReteIntrospection;
 use ::builder::{AlphaTest, ConditionInfo, Rule, KnowledgeBuilder};
 use ::network::ids::*;
 use ::builders::ids::{StatementId, RuleId};
+use runtime::memory::{AlphaMemoryId, MemoryId};
+
 
 pub struct LayoutIdGenerator {
     hash_eq_ids: HashEqIdGen,
@@ -295,37 +297,6 @@ pub struct AlphaNode<T: ReteIntrospection> {
     test: AlphaTest<T>,
     store: bool,
     dest: Vec<DestinationNode>
-}
-
-pub trait AlphaMemoryId {}
-
-#[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub enum MemoryId {
-    HashEq(HashEqId),
-    Alpha(AlphaId),
-    Beta(BetaId)
-}
-
-impl Into<MemoryId> for HashEqId {
-    fn into(self) -> MemoryId {
-        MemoryId::HashEq(self)
-    }
-}
-
-impl AlphaMemoryId for HashEqId {}
-
-impl Into<MemoryId> for AlphaId {
-    fn into(self) -> MemoryId {
-        MemoryId::Alpha(self)
-    }
-}
-
-impl AlphaMemoryId for AlphaId {}
-
-impl Into<MemoryId> for BetaId {
-    fn into(self) -> MemoryId {
-        MemoryId::Beta(self)
-    }
 }
 
 pub struct AlphaMemory<T: ReteIntrospection>  {

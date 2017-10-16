@@ -1,3 +1,3 @@
 pub mod ids;
-pub mod network;
+pub mod node;
 pub mod tests;
