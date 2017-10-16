@@ -29,6 +29,7 @@ pub trait Insert : Introspect + Eq + Hash
     type HashEq: Hash + Eq + Clone + Debug;
     fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &StringCache) -> Self::HashEq;
     fn getter(field: &str) -> Option<Getters<Self>>;
+    fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
 }
 
 

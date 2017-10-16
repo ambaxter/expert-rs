@@ -158,7 +158,7 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
                 let id = alpha_layout.node_id;
                 let dest = alpha_layout.destinations;
                 let store = !info.dependents.is_empty();
-                assert_eq!(alpha_network.len(), alpha_layout.node_id.id);
+                assert_eq!(alpha_network.len(), alpha_layout.node_id.index());
                 alpha_network.push(AlphaNode{id, test, store, dest});
 
                 for statment_id in info.dependents {
@@ -245,7 +245,7 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
         use ::base::MemoryId::*;
         match memory {
             HashEq(ref id) => {hash_eq_nodes.get_mut(id).unwrap().1.destinations.push(destination)},
-            Alpha(alpha_id) => {alpha_network.get_mut(alpha_id.id).unwrap().dest.push(destination)},
+            Alpha(alpha_id) => {alpha_network.get_mut(alpha_id.index()).unwrap().dest.push(destination)},
             _ => unreachable!("We shouldn't be adding an beta memory destination with this function")
         }
     }

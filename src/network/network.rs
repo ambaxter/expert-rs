@@ -5,7 +5,7 @@ use ::builders::ids::RuleId;
 pub enum AlphaDest {
     Alpha(AlphaId),
     Beta(BetaId),
-    BetaInter(BetaInter),
+    Inter(InterId),
     Rule(RuleId)
 }
 
@@ -21,9 +21,14 @@ impl Into<DestinationNode> for BetaId {
     }
 }
 
+impl Into<DestinationNode> for InterId {
+    fn into(self) -> DestinationNode {
+        DestinationNode::Inter(self)
+    }
+}
+
 impl Into<DestinationNode> for RuleId {
     fn into(self) -> DestinationNode {
         DestinationNode::Rule(self)
     }
-
 }

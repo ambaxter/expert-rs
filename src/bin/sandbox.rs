@@ -26,7 +26,7 @@ use expert::base::MemoryId;
 use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
 use expert::traits::ReteIntrospection;
-
+use expert::traits::{Introspect, Insert, Getters};
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 struct Aspect {
@@ -50,6 +50,50 @@ impl Aspect {
 
     fn exhaustive_hash<'a>(&'a self) -> impl Iterator<Item=(Option<u64>, Option<u64>, Option<u64>)> +'a {
         iproduct!(OptionIter::new(Some(self.id)), OptionIter::new(Some(self.aspect_type)), OptionIter::new(Some(self.impact)))
+    }
+}
+
+impl Introspect for Aspect {
+    fn static_type_id() -> TypeId {
+        TypeId::of::<Self>()
+    }
+}
+
+impl Insert for Aspect {
+    type HashEq = (Option<u64>, Option<u64>, Option<u64>);
+
+    fn getter(field: &str) -> Option<Getters<Self>> {
+        match field {
+            "id" => Some(Getters::U64(Self::get_id)),
+            "aspect_type" => Some(Getters::U64(Self::get_aspect_type)),
+            "impact" => Some(Getters::U64(Self::get_impact)),
+            _ => None
+        }
+    }
+
+    fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &StringCache) -> Self::HashEq {
+        let mut o_id = None;
+        let mut o_aspect_type = None;
+        let mut o_impact = None;
+
+        for c in conditions {
+            match c {
+                &StatementCondition::Exists => return (None, None, None),
+                &StatementCondition::Eq{field_sym, to} => {
+                    match string_interner.resolve(field_sym) {
+                        Some("id") => o_id = Some(to),
+                        Some("aspect_type") => o_aspect_type = Some(to),
+                        Some("impact") => o_impact = Some(to),
+                        _ => {}
+                    }
+                },
+                _ => continue
+            }
+        }
+        (o_id, o_aspect_type, o_impact)
+    }
+    fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>> {
+        Box::new(iproduct!(OptionIter::new(Some(self.id)), OptionIter::new(Some(self.aspect_type)), OptionIter::new(Some(self.impact))))
     }
 }
 

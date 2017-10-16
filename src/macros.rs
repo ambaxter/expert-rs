@@ -2,20 +2,28 @@ macro_rules! index_id {
     ( $( $t:ident),+) => {
         $(
             impl $t {
-                pub fn index(&self) -> usize {self.id}
+                pub fn index(&self) -> usize {self.index}
             }
 
             impl Debug for $t {
                 fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "{:?}", self.id)
+                write!(f, "{:?}", self.index)
                 }
             }
 
             impl Into<$t> for usize {
                 fn into(self) -> $t {
-                    $t{id: self}
+                    $t{index: self}
                 }
             }
+
+            impl Into<usize> for $t {
+                fn into(self) -> usize {
+                    self.index
+                }
+            }
+
         )*
     };
 }
+
