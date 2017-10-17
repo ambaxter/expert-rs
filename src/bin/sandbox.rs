@@ -26,6 +26,7 @@ use std::hash::Hasher;
 use expert::serial::SerialGen;
 use std::cmp::Ordering;
 use expert::builder::StatementCondition;
+use expert::builders::statement::{ValueHolder, StatementValues, StatementConditions};
 use expert::runtime::memory::MemoryId;
 use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
@@ -67,24 +68,27 @@ impl Insert for Aspect {
     type HashEq = (Option<u64>, Option<u64>, Option<u64>);
 
     fn getter(field: &str) -> Option<Getters<Self>> {
+        use Getters::*;
         match field {
-            "id" => Some(Getters::U64(Self::get_id)),
-            "aspect_type" => Some(Getters::U64(Self::get_aspect_type)),
-            "impact" => Some(Getters::U64(Self::get_impact)),
+            "id" => Some(U64(Self::get_id)),
+            "aspect_type" => Some(U64(Self::get_aspect_type)),
+            "impact" => Some(U64(Self::get_impact)),
             _ => None
         }
     }
 
-    fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &StringCache) -> Self::HashEq {
+    fn create_hash_eq(conditions: &Vec<StatementConditions>, cache: &StringCache) -> Self::HashEq {
+        use StatementConditions::*;
+        use StatementValues::*;
+        use ValueHolder::*;
         let mut o_id = None;
         let mut o_aspect_type = None;
         let mut o_impact = None;
 
-        for c in conditions {
+        for c in conditions.iter().filter(|c| c.is_hash_eq()) {
             match c {
-                &StatementCondition::Exists => return (None, None, None),
-                &StatementCondition::Eq{field_sym, to} => {
-                    match string_interner.resolve(field_sym) {
+                &Eq(field, U64(S(to))) => {
+                    match cache.resolve(field) {
                         Some("id") => o_id = Some(to),
                         Some("aspect_type") => o_aspect_type = Some(to),
                         Some("impact") => o_impact = Some(to),
@@ -97,7 +101,7 @@ impl Insert for Aspect {
         (o_id, o_aspect_type, o_impact)
     }
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>> {
-        Box::new(iproduct!(OptionIter::new(Some(self.id)), OptionIter::new(Some(self.aspect_type)), OptionIter::new(Some(self.impact))))
+        Box::new(iproduct!(OptionIter::some(self.id), OptionIter::some(self.aspect_type), OptionIter::some(self.impact)))
     }
 }
 

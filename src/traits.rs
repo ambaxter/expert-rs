@@ -1,6 +1,7 @@
 use std;
 use std::any::TypeId;
 use std::hash::Hash;
+use builders::statement::StatementConditions;
 use ::builder::StatementCondition;
 use runtime::memory::StringCache;
 use std::collections::{HashMap, HashSet};
@@ -31,7 +32,7 @@ pub enum Getters<I: Insert> {
 pub trait Insert : Introspect + Eq + Hash
     where Self: std::marker::Sized {
     type HashEq: Hash + Eq + Clone + Debug;
-    fn create_hash_eq(conditions: &Vec<StatementCondition>, string_interner: &StringCache) -> Self::HashEq;
+    fn create_hash_eq(conditions: &Vec<StatementConditions>, cache: &StringCache) -> Self::HashEq;
     fn getter(field: &str) -> Option<Getters<Self>>;
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
 }

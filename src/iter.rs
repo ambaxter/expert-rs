@@ -11,6 +11,14 @@ impl<T: Copy> OptionIter<T> {
         let is_none = true;
         OptionIter{is_some, is_none, t}
     }
+
+    pub fn some(t: T) -> Self {
+        Self::new(Some(t))
+    }
+
+    pub fn none() -> Self {
+        Self::new(None)
+    }
 }
 
 impl<T: Copy> Iterator for OptionIter<T> {
