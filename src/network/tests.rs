@@ -287,22 +287,38 @@ impl FlTest {
 }
 
 #[derive(Clone)]
-pub struct StrData<T: Insert>{
-    accessor: fn(&T) -> &str,
-    limits: CLimits<SymbolId>,
+pub enum StrData<T: Insert> {
+    REF(fn(&T) -> &str, CLimits<SymbolId>),
+}
+
+impl<T: Insert> StrData<T> {
+    fn hash_self<H: Hasher, L: Hash>(ord: usize, accessor: usize, limits: &L, state: &mut H) {
+        ord.hash(state);
+        accessor.hash(state);
+        limits.hash(state);
+    }
 }
 
 impl<T: Insert> Hash for StrData<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        (self.accessor as usize).hash(state);
-        self.limits.hash(state);
+        use self::StrData::*;
+        match self {
+            &REF(accessor, ref limits) => {
+                Self::hash_self(0, accessor as usize, limits, state);
+            },
+        }
     }
 }
 
 impl<T: Insert> PartialEq for StrData<T> {
     fn eq(&self, other: &Self) -> bool {
-        (self.accessor as usize) == (other.accessor as usize) &&
-            self.limits == other.limits
+        use self::StrData::*;
+        match (self, other) {
+            (&REF(accessor1, ref limits1), &REF(accessor2, ref limits2)) => {
+                (accessor1 as usize) == (accessor2 as usize) && limits1 == limits2
+            },
+            _ => false
+        }
     }
 }
 
@@ -390,9 +406,9 @@ impl StrTest {
 #[derive(Hash, Eq, PartialEq)]
 pub enum AlphaTest<T: Insert> {
     HashEq,
-    Ord{data: OrdData<T>, test: OrdTest},
-    Fl{data: FlData<T>, test: FlTest},
-    Str{data: StrData<T>, test: StrTest},
+    Ord(OrdData<T>, OrdTest),
+    Fl(FlData<T>, FlTest),
+    Str(StrData<T>, StrTest),
 }
 
 impl<T: Insert> AlphaTest<T> {
@@ -413,13 +429,13 @@ impl<T: Insert> Debug for AlphaTest<T> {
             &HashEq => {
                 write!(f, "HashEq")?
             },
-            &Ord{ref data, ref test} => {
+            &Ord(ref data, ref test) => {
                 write!(f, "Ord")?
             },
-            &Fl{ref data, ref test} => {
+            &Fl(ref data, ref test) => {
                 write!(f, "Fl")?
             },
-            &Str{ref data, ref test} => {
+            &Str(ref data, ref test) => {
                 write!(f, "Str")?
             }
         }

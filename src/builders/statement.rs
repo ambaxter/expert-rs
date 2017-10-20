@@ -1,7 +1,11 @@
 use std::marker::PhantomData;
-use traits::{Insert, RuleBuilder};
+use traits::{Insert, RuleBuilder, Getters};
 use ordered_float::NotNaN;
 use runtime::memory::{StringCache, SymbolId};
+use builders::ids::{StatementId, ConditionId};
+use network::tests::{CLimits, OrdTest, OrdData, FLimits, FlData, FlTest, StrData, StrTest, AlphaTest};
+use std::collections::HashSet;
+use errors::Result;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq, Debug)]
 pub enum ValueHolder<T> {
@@ -40,17 +44,22 @@ pub trait IntoIntern<T> {
     fn into_intern(self, cache: &mut StringCache) -> T;
 }
 
+pub trait TryIntoIntern<T> {
+    fn try_into_intern(self, cache: &mut StringCache) -> Result<T>;
+}
+
+
 macro_rules! into_values {
     ($($id:ty => $sub:ident),+) => {
         $(
             impl IntoIntern<StatementValues> for $id {
-                fn into_intern(self, cache: &mut StringCache) -> StatementValues {
+                fn into_intern(self, _: &mut StringCache) -> StatementValues {
                     StatementValues::$sub(ValueHolder::S(self))
                 }
             }
 
             impl IntoIntern<StatementValues> for ($id, $id) {
-                fn into_intern(self, cache: &mut StringCache) -> StatementValues {
+                fn into_intern(self, _: &mut StringCache) -> StatementValues {
                     StatementValues::$sub(ValueHolder::D(self.0, self.1))
                 }
             }
@@ -62,13 +71,13 @@ macro_rules! into_float_values {
     ($($id:ty => $sub:ident),+) => {
         $(
             impl IntoIntern<StatementValues> for $id {
-                fn into_intern(self, cache: &mut StringCache) -> StatementValues {
+                fn into_intern(self, _: &mut StringCache) -> StatementValues {
                     StatementValues::$sub(ValueHolder::S(NotNaN::from(self)))
                 }
             }
 
             impl IntoIntern<StatementValues> for ($id, $id) {
-                fn into_intern(self, cache: &mut StringCache) -> StatementValues {
+                fn into_intern(self, _: &mut StringCache) -> StatementValues {
                     StatementValues::$sub(ValueHolder::D(NotNaN::from(self.0), NotNaN::from(self.1)))
                 }
             }
@@ -250,7 +259,7 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
     }
 
 
-    fn collapse(mut self) -> R {
+    fn collapse(mut self) -> Result<R> {
         let hash_eq = I::create_hash_eq(&self.conditions, self.rule_builder.get_string_cache());
 
         if !self.conditions.is_empty() {
@@ -260,7 +269,288 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
             //let entry_point = self.rule_builder.condition_map
         }
 
-        self.rule_builder
+        Ok(self.rule_builder)
 
+    }
+}
+
+
+// TODO: Certainly there's a way to do this in a macro - https://users.rust-lang.org/t/cartesian-product-using-macros/10763/24
+// I will figure this out eventually :/
+impl<I: Insert> TryIntoIntern<AlphaTest<I>> for (Getters<I>, StatementConditions) {
+    fn try_into_intern(self, cache: &mut StringCache) -> Result<AlphaTest<I>> {
+        match self {
+            //I8
+            (Getters::I8(accessor), StatementConditions::Ne(_, StatementValues::I8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::I8(accessor), StatementConditions::Lt(_, StatementValues::I8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::I8(accessor), StatementConditions::Le(_, StatementValues::I8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::I8(accessor), StatementConditions::Gt(_, StatementValues::I8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::I8(accessor), StatementConditions::Ge(_, StatementValues::I8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::I8(accessor), StatementConditions::GtLt(_, StatementValues::I8(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::I8(accessor), StatementConditions::GeLt(_, StatementValues::I8(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::I8(accessor), StatementConditions::GtLe(_, StatementValues::I8(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::I8(accessor), StatementConditions::GeLe(_, StatementValues::I8(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I8(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //I16
+            (Getters::I16(accessor), StatementConditions::Ne(_, StatementValues::I16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::I16(accessor), StatementConditions::Lt(_, StatementValues::I16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::I16(accessor), StatementConditions::Le(_, StatementValues::I16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::I16(accessor), StatementConditions::Gt(_, StatementValues::I16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::I16(accessor), StatementConditions::Ge(_, StatementValues::I16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::I16(accessor), StatementConditions::GtLt(_, StatementValues::I16(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::I16(accessor), StatementConditions::GeLt(_, StatementValues::I16(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::I16(accessor), StatementConditions::GtLe(_, StatementValues::I16(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::I16(accessor), StatementConditions::GeLe(_, StatementValues::I16(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I16(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //I32
+            (Getters::I32(accessor), StatementConditions::Ne(_, StatementValues::I32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::I32(accessor), StatementConditions::Lt(_, StatementValues::I32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::I32(accessor), StatementConditions::Le(_, StatementValues::I32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::I32(accessor), StatementConditions::Gt(_, StatementValues::I32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::I32(accessor), StatementConditions::Ge(_, StatementValues::I32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::I32(accessor), StatementConditions::GtLt(_, StatementValues::I32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::I32(accessor), StatementConditions::GeLt(_, StatementValues::I32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::I32(accessor), StatementConditions::GtLe(_, StatementValues::I32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::I32(accessor), StatementConditions::GeLe(_, StatementValues::I32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I32(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //I64
+            (Getters::I64(accessor), StatementConditions::Ne(_, StatementValues::I64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::I64(accessor), StatementConditions::Lt(_, StatementValues::I64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::I64(accessor), StatementConditions::Le(_, StatementValues::I64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::I64(accessor), StatementConditions::Gt(_, StatementValues::I64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::I64(accessor), StatementConditions::Ge(_, StatementValues::I64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::I64(accessor), StatementConditions::GtLt(_, StatementValues::I64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::I64(accessor), StatementConditions::GeLt(_, StatementValues::I64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::I64(accessor), StatementConditions::GtLe(_, StatementValues::I64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::I64(accessor), StatementConditions::GeLe(_, StatementValues::I64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::I64(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //U8
+            (Getters::U8(accessor), StatementConditions::Ne(_, StatementValues::U8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::U8(accessor), StatementConditions::Lt(_, StatementValues::U8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::U8(accessor), StatementConditions::Le(_, StatementValues::U8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::U8(accessor), StatementConditions::Gt(_, StatementValues::U8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::U8(accessor), StatementConditions::Ge(_, StatementValues::U8(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::U8(accessor), StatementConditions::GtLt(_, StatementValues::U8(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::U8(accessor), StatementConditions::GeLt(_, StatementValues::U8(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::U8(accessor), StatementConditions::GtLe(_, StatementValues::U8(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::U8(accessor), StatementConditions::GeLe(_, StatementValues::U8(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U8(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //U16
+            (Getters::U16(accessor), StatementConditions::Ne(_, StatementValues::U16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::U16(accessor), StatementConditions::Lt(_, StatementValues::U16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::U16(accessor), StatementConditions::Le(_, StatementValues::U16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::U16(accessor), StatementConditions::Gt(_, StatementValues::U16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::U16(accessor), StatementConditions::Ge(_, StatementValues::U16(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::U16(accessor), StatementConditions::GtLt(_, StatementValues::U16(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::U16(accessor), StatementConditions::GeLt(_, StatementValues::U16(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::U16(accessor), StatementConditions::GtLe(_, StatementValues::U16(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::U16(accessor), StatementConditions::GeLe(_, StatementValues::U16(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U16(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //U32
+            (Getters::U32(accessor), StatementConditions::Ne(_, StatementValues::U32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::U32(accessor), StatementConditions::Lt(_, StatementValues::U32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::U32(accessor), StatementConditions::Le(_, StatementValues::U32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::U32(accessor), StatementConditions::Gt(_, StatementValues::U32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::U32(accessor), StatementConditions::Ge(_, StatementValues::U32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::U32(accessor), StatementConditions::GtLt(_, StatementValues::U32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::U32(accessor), StatementConditions::GeLt(_, StatementValues::U32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::U32(accessor), StatementConditions::GtLe(_, StatementValues::U32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::U32(accessor), StatementConditions::GeLe(_, StatementValues::U32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U32(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //U64
+            (Getters::U64(accessor), StatementConditions::Ne(_, StatementValues::U64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::U64(accessor), StatementConditions::Lt(_, StatementValues::U64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::U64(accessor), StatementConditions::Le(_, StatementValues::U64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::U64(accessor), StatementConditions::Gt(_, StatementValues::U64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::U64(accessor), StatementConditions::Ge(_, StatementValues::U64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::U64(accessor), StatementConditions::GtLt(_, StatementValues::U64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::U64(accessor), StatementConditions::GeLt(_, StatementValues::U64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::U64(accessor), StatementConditions::GtLe(_, StatementValues::U64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::U64(accessor), StatementConditions::GeLe(_, StatementValues::U64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::U64(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //ISIZE
+            (Getters::ISIZE(accessor), StatementConditions::Ne(_, StatementValues::ISIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::ISIZE(accessor), StatementConditions::Lt(_, StatementValues::ISIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::ISIZE(accessor), StatementConditions::Le(_, StatementValues::ISIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::ISIZE(accessor), StatementConditions::Gt(_, StatementValues::ISIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::ISIZE(accessor), StatementConditions::Ge(_, StatementValues::ISIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::ISIZE(accessor), StatementConditions::GtLt(_, StatementValues::ISIZE(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::ISIZE(accessor), StatementConditions::GeLt(_, StatementValues::ISIZE(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::ISIZE(accessor), StatementConditions::GtLe(_, StatementValues::ISIZE(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::ISIZE(accessor), StatementConditions::GeLe(_, StatementValues::ISIZE(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::ISIZE(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //USIZE
+            (Getters::USIZE(accessor), StatementConditions::Ne(_, StatementValues::USIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::S(to)), OrdTest::Ne)),
+            (Getters::USIZE(accessor), StatementConditions::Lt(_, StatementValues::USIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::S(to)), OrdTest::Lt)),
+            (Getters::USIZE(accessor), StatementConditions::Le(_, StatementValues::USIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::S(to)), OrdTest::Le)),
+            (Getters::USIZE(accessor), StatementConditions::Gt(_, StatementValues::USIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::S(to)), OrdTest::Gt)),
+            (Getters::USIZE(accessor), StatementConditions::Ge(_, StatementValues::USIZE(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::S(to)), OrdTest::Ge)),
+            (Getters::USIZE(accessor), StatementConditions::GtLt(_, StatementValues::USIZE(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::D(from, to)), OrdTest::GtLt)),
+            (Getters::USIZE(accessor), StatementConditions::GeLt(_, StatementValues::USIZE(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::D(from, to)), OrdTest::GeLt)),
+            (Getters::USIZE(accessor), StatementConditions::GtLe(_, StatementValues::USIZE(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::D(from, to)), OrdTest::GtLe)),
+            (Getters::USIZE(accessor), StatementConditions::GeLe(_, StatementValues::USIZE(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Ord(OrdData::USIZE(accessor, CLimits::D(from, to)), OrdTest::GeLe)),
+            //F32
+            (Getters::F32(accessor), StatementConditions::Eq(_, StatementValues::F32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::S(to)), FlTest::ApproxEq)),
+            (Getters::F32(accessor), StatementConditions::Ne(_, StatementValues::F32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::S(to)), FlTest::ApproxNe)),
+            (Getters::F32(accessor), StatementConditions::Lt(_, StatementValues::F32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::S(to)), FlTest::Lt)),
+            (Getters::F32(accessor), StatementConditions::Le(_, StatementValues::F32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::S(to)), FlTest::Le)),
+            (Getters::F32(accessor), StatementConditions::Gt(_, StatementValues::F32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::S(to)), FlTest::Gt)),
+            (Getters::F32(accessor), StatementConditions::Ge(_, StatementValues::F32(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::S(to)), FlTest::Ge)),
+            (Getters::F32(accessor), StatementConditions::GtLt(_, StatementValues::F32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::D(from, to)), FlTest::GtLt)),
+            (Getters::F32(accessor), StatementConditions::GeLt(_, StatementValues::F32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::D(from, to)), FlTest::GeLt)),
+            (Getters::F32(accessor), StatementConditions::GtLe(_, StatementValues::F32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::D(from, to)), FlTest::GtLe)),
+            (Getters::F32(accessor), StatementConditions::GeLe(_, StatementValues::F32(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Fl(FlData::F32(accessor, FLimits::D(from, to)), FlTest::GeLe)),
+            //F64
+            (Getters::F64(accessor), StatementConditions::Eq(_, StatementValues::F64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::S(to)), FlTest::ApproxEq)),
+            (Getters::F64(accessor), StatementConditions::Ne(_, StatementValues::F64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::S(to)), FlTest::ApproxNe)),
+            (Getters::F64(accessor), StatementConditions::Lt(_, StatementValues::F64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::S(to)), FlTest::Lt)),
+            (Getters::F64(accessor), StatementConditions::Le(_, StatementValues::F64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::S(to)), FlTest::Le)),
+            (Getters::F64(accessor), StatementConditions::Gt(_, StatementValues::F64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::S(to)), FlTest::Gt)),
+            (Getters::F64(accessor), StatementConditions::Ge(_, StatementValues::F64(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::S(to)), FlTest::Ge)),
+            (Getters::F64(accessor), StatementConditions::GtLt(_, StatementValues::F64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::D(from, to)), FlTest::GtLt)),
+            (Getters::F64(accessor), StatementConditions::GeLt(_, StatementValues::F64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::D(from, to)), FlTest::GeLt)),
+            (Getters::F64(accessor), StatementConditions::GtLe(_, StatementValues::F64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::D(from, to)), FlTest::GtLe)),
+            (Getters::F64(accessor), StatementConditions::GeLe(_, StatementValues::F64(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Fl(FlData::F64(accessor, FLimits::D(from, to)), FlTest::GeLe)),
+            //STR::REF
+            (Getters::STR(accessor), StatementConditions::Ne(_, StatementValues::STR(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::Ne)),
+            (Getters::STR(accessor), StatementConditions::Lt(_, StatementValues::STR(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::Lt)),
+            (Getters::STR(accessor), StatementConditions::Le(_, StatementValues::STR(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::Le)),
+            (Getters::STR(accessor), StatementConditions::Gt(_, StatementValues::STR(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::Gt)),
+            (Getters::STR(accessor), StatementConditions::Ge(_, StatementValues::STR(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::Ge)),
+            (Getters::STR(accessor), StatementConditions::GtLt(_, StatementValues::STR(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::D(from, to)), StrTest::GtLt)),
+            (Getters::STR(accessor), StatementConditions::GeLt(_, StatementValues::STR(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::D(from, to)), StrTest::GeLt)),
+            (Getters::STR(accessor), StatementConditions::GtLe(_, StatementValues::STR(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::D(from, to)), StrTest::GtLe)),
+            (Getters::STR(accessor), StatementConditions::GeLe(_, StatementValues::STR(ValueHolder::D(from, to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::D(from, to)), StrTest::GeLe)),
+            (Getters::STR(accessor), StatementConditions::Contains(_, StatementValues::STR(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::Contains)),
+            (Getters::STR(accessor), StatementConditions::StartsWith(_, StatementValues::STR(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::StartsWith)),
+            (Getters::STR(accessor), StatementConditions::EndsWith(_, StatementValues::STR(ValueHolder::S(to)))) =>
+                Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::EndsWith)),
+            _ => bail!("Something went wrong during transformation! - Data - {:?}", self)
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConditionDesc {
+    pub(crate) id: ConditionId,
+    pub(crate) field: Option<SymbolId>,
+    pub(crate) dependents: HashSet<StatementId>
+}
+
+impl ConditionDesc {
+    fn new(id: ConditionId, field: Option<SymbolId>) -> ConditionDesc {
+        ConditionDesc{id, field, dependents: Default::default()}
     }
 }

@@ -1,6 +1,11 @@
 #![feature(plugin)]
 #![plugin(interpolate_idents)]
 
+#![recursion_limit = "1024"]
+
+#[macro_use]
+extern crate error_chain;
+
 extern crate num;
 
 #[macro_use]
@@ -23,6 +28,7 @@ pub mod serial;
 pub mod builder;
 pub mod builders;
 pub mod iter;
+pub mod errors;
 
 #[macro_export]
 macro_rules! create_type {

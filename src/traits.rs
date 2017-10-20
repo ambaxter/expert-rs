@@ -1,11 +1,13 @@
 use std;
 use std::any::TypeId;
 use std::hash::Hash;
-use builders::statement::StatementConditions;
+use builders::statement::{ConditionDesc, StatementConditions};
+use network::tests::AlphaTest;
 use ::builder::StatementCondition;
 use runtime::memory::StringCache;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
+use std::fmt;
 use builders::ids::*;
 
 pub trait Introspect {
@@ -29,6 +31,30 @@ pub enum Getters<I: Insert> {
     STR(fn(&I) -> &str),
 }
 
+impl<I: Insert> Debug for Getters<I> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Getters::*;
+        write!(f, "Getters(")?;
+        match self {
+            &I8(accessor) => write!(f, "I8({:#x})", accessor as usize)?,
+            &I16(accessor) => write!(f, "I16({:#x})", accessor as usize)?,
+            &I32(accessor) => write!(f, "I32({:#x})", accessor as usize)?,
+            &I64(accessor) => write!(f, "I64({:#x})", accessor as usize)?,
+            &U8(accessor) => write!(f, "U8({:#x})", accessor as usize)?,
+            &U16(accessor) => write!(f, "U16({:#x})", accessor as usize)?,
+            &U32(accessor) => write!(f, "U32({:#x})", accessor as usize)?,
+            &U64(accessor) => write!(f, "U64({:#x})", accessor as usize)?,
+            &ISIZE(accessor) => write!(f, "ISIZE({:#x})", accessor as usize)?,
+            &USIZE(accessor) => write!(f, "USIZE({:#x})", accessor as usize)?,
+            &F32(accessor) => write!(f, "F32({:#x})", accessor as usize)?,
+            &F64(accessor) => write!(f, "F64({:#x})", accessor as usize)?,
+            &STR(accessor) => write!(f, "STR({:#x})", accessor as usize)?,
+            _ => {}
+        }
+        write!(f, ")")
+    }
+}
+
 pub trait Insert : Introspect + Eq + Hash
     where Self: std::marker::Sized {
     type HashEq: Hash + Eq + Clone + Debug;
@@ -41,7 +67,7 @@ pub trait NetworkBuilder {
     fn next_rule_id(&mut self) -> RuleId;
     fn next_statement_id(&mut self) -> StatementId;
     fn next_condition_id(&mut self) -> ConditionId;
-    fn get_conditions<I: Insert>(&mut self) ->&mut HashSet<I::HashEq>;
+    fn get_conditions<I: Insert>(&mut self) -> &mut HashMap<I::HashEq, HashMap<AlphaTest<I>, ConditionDesc>>;
     fn get_string_cache(&mut self) -> &mut StringCache;
 
 }
@@ -49,7 +75,7 @@ pub trait NetworkBuilder {
 pub trait RuleBuilder {
     fn next_statement_id(&mut self) -> StatementId;
     fn next_condition_id(&mut self) -> ConditionId;
-    fn get_conditions<I: Insert>(&mut self) ->&mut HashSet<I::HashEq>;
+    fn get_conditions<I: Insert>(&mut self) -> &mut HashMap<I::HashEq, HashMap<AlphaTest<I>, ConditionDesc>>;
     fn get_statement_ids(&mut self) -> &mut Vec<StatementId>;
     fn get_string_cache(&mut self) -> &mut StringCache;
 }

@@ -15,7 +15,11 @@ extern crate ordered_float;
 #[macro_use]
 extern crate expert;
 
+extern crate parking_lot;
+
 use itertools::Itertools;
+
+use parking_lot::Mutex;
 
 use std::mem;
 use std::any::TypeId;
@@ -161,6 +165,12 @@ create_type!(Knowledge; inserts => [Aspect]; returns => []);
 fn main() {
     use expert::builder::KnowledgeBuilder;
     use expert::builder::CData;
+
+    let default = vec![false, true, false];
+    let mut test_into = Vec::with_capacity(default.len());
+    for c in default.iter().cloned().map(|c| Mutex::new(c)) {
+        test_into.push(c);
+    }
 
     let mut builder: KnowledgeBuilder<Aspect> = KnowledgeBuilder::new()
         .rule("test1")
