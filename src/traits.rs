@@ -64,17 +64,15 @@ pub trait Insert : Introspect + Eq + Hash
 }
 
 pub trait NetworkBuilder {
-    fn next_rule_id(&mut self) -> RuleId;
-    fn next_statement_id(&mut self) -> StatementId;
-    fn next_condition_id(&mut self) -> ConditionId;
+    fn get_id_generator(&mut self) -> &mut BuilderIdGen;
     fn get_conditions<I: Insert>(&mut self) -> &mut HashMap<I::HashEq, HashMap<AlphaTest<I>, ConditionDesc>>;
     fn get_string_cache(&mut self) -> &mut StringCache;
 
 }
 
 pub trait RuleBuilder {
-    fn next_statement_id(&mut self) -> StatementId;
-    fn next_condition_id(&mut self) -> ConditionId;
+    fn get_for_condition_collapse<I: Insert>(&mut self, hash_eq: I::HashEq) -> (&mut StringCache, &mut BuilderIdGen, &mut HashMap<AlphaTest<I>, ConditionDesc>);
+    fn get_id_generator(&mut self) -> &mut BuilderIdGen;
     fn get_conditions<I: Insert>(&mut self) -> &mut HashMap<I::HashEq, HashMap<AlphaTest<I>, ConditionDesc>>;
     fn get_statement_ids(&mut self) -> &mut Vec<StatementId>;
     fn get_string_cache(&mut self) -> &mut StringCache;

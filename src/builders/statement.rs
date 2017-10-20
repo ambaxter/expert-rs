@@ -48,6 +48,10 @@ pub trait TryIntoIntern<T> {
     fn try_into_intern(self, cache: &mut StringCache) -> Result<T>;
 }
 
+pub trait TryInto<T> {
+    fn try_into(self) -> Result<T>;
+}
+
 
 macro_rules! into_values {
     ($($id:ty => $sub:ident),+) => {
@@ -262,13 +266,26 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
     fn collapse(mut self) -> Result<R> {
         let hash_eq = I::create_hash_eq(&self.conditions, self.rule_builder.get_string_cache());
 
-        if !self.conditions.is_empty() {
-            let statement_id = self.rule_builder.next_statement_id();
+        {
+            let (cache, id_gen, entry_point) = self.rule_builder.get_for_condition_collapse::<I>(hash_eq);
+            let hash_eq_statement_id = id_gen.next_statement_id();
 
-            //TODO: Left off here
-            //let entry_point = self.rule_builder.condition_map
+            entry_point.entry(AlphaTest::HashEq).or_insert_with(|| ConditionDesc::new(id_gen.next_condition_id(), None))
+                .dependents.insert(hash_eq_statement_id);
+
+            for c in self.conditions
+                .into_iter()
+                .filter(|c| !c.is_hash_eq()) {
+
+                let field_sym = c.field();
+                let getter = cache.resolve(field_sym)
+                    .and_then(|s| I ::getter(s)).unwrap();
+                let test = (getter, c).try_into()?;
+                entry_point.entry(test).or_insert_with(|| ConditionDesc::new(id_gen.next_condition_id(), Some(field_sym)))
+                    .dependents.insert(hash_eq_statement_id);
+            }
+
         }
-
         Ok(self.rule_builder)
 
     }
@@ -277,8 +294,8 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
 
 // TODO: Certainly there's a way to do this in a macro - https://users.rust-lang.org/t/cartesian-product-using-macros/10763/24
 // I will figure this out eventually :/
-impl<I: Insert> TryIntoIntern<AlphaTest<I>> for (Getters<I>, StatementConditions) {
-    fn try_into_intern(self, cache: &mut StringCache) -> Result<AlphaTest<I>> {
+impl<I: Insert> TryInto<AlphaTest<I>> for (Getters<I>, StatementConditions) {
+    fn try_into(self) -> Result<AlphaTest<I>> {
         match self {
             //I8
             (Getters::I8(accessor), StatementConditions::Ne(_, StatementValues::I8(ValueHolder::S(to)))) =>
