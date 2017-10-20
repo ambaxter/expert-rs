@@ -267,11 +267,12 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
         let hash_eq = I::create_hash_eq(&self.conditions, self.rule_builder.get_string_cache());
 
         {
+            let statement_id = self.rule_builder.get_id_generator().next_statement_id();
+            self.rule_builder.get_statement_ids().insert(statement_id);
             let (cache, id_gen, entry_point) = self.rule_builder.get_for_condition_collapse::<I>(hash_eq);
-            let hash_eq_statement_id = id_gen.next_statement_id();
 
             entry_point.entry(AlphaTest::HashEq).or_insert_with(|| ConditionDesc::new(id_gen.next_condition_id(), None))
-                .dependents.insert(hash_eq_statement_id);
+                .dependents.insert(statement_id);
 
             for c in self.conditions
                 .into_iter()
@@ -282,7 +283,7 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
                     .and_then(|s| I ::getter(s)).unwrap();
                 let test = (getter, c).try_into()?;
                 entry_point.entry(test).or_insert_with(|| ConditionDesc::new(id_gen.next_condition_id(), Some(field_sym)))
-                    .dependents.insert(hash_eq_statement_id);
+                    .dependents.insert(statement_id);
             }
 
         }
