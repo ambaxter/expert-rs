@@ -32,7 +32,7 @@ pub mod errors;
 
 #[macro_export]
 macro_rules! create_type {
-    ($base:ident; inserts => [$($input_type:ident),+]; returns => [$($return_type:ident),*]) => {
+    ($base:ident; [$($input_type:ident),+]) => {
         interpolate_idents!{
 
             struct [$base RuleBuilder] {
@@ -40,6 +40,10 @@ macro_rules! create_type {
             }
 
             struct [$base Builder] {
+
+            }
+
+            struct [$base Rule] {
 
             }
 

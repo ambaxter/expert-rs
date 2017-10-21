@@ -44,10 +44,6 @@ pub trait IntoIntern<T> {
     fn into_intern(self, cache: &mut StringCache) -> T;
 }
 
-pub trait TryIntoIntern<T> {
-    fn try_into_intern(self, cache: &mut StringCache) -> Result<T>;
-}
-
 pub trait TryInto<T> {
     fn try_into(self) -> Result<T>;
 }
@@ -280,15 +276,14 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
 
                 let field_sym = c.field();
                 let getter = cache.resolve(field_sym)
-                    .and_then(|s| I ::getter(s)).unwrap();
+                    .and_then(|s| I ::getter(s))
+                    .ok_or(format!("Type has no getter {:?}", cache.resolve(field_sym)))?;
                 let test = (getter, c).try_into()?;
                 entry_point.entry(test).or_insert_with(|| ConditionDesc::new(id_gen.next_condition_id(), Some(field_sym)))
                     .dependents.insert(statement_id);
             }
-
         }
         Ok(self.rule_builder)
-
     }
 }
 

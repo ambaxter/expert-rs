@@ -35,7 +35,7 @@ use expert::runtime::memory::MemoryId;
 use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
 use expert::traits::ReteIntrospection;
-use expert::traits::{Introspect, Insert, Getters};
+use expert::traits::{Introspect, Insert, Getters, FieldValue};
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 struct Aspect {
@@ -89,16 +89,13 @@ impl Insert for Aspect {
         let mut o_aspect_type = None;
         let mut o_impact = None;
 
-        for c in conditions.iter().filter(|c| c.is_hash_eq()) {
-            match c {
-                &Eq(field, U64(S(to))) => {
-                    match cache.resolve(field) {
-                        Some("id") => o_id = Some(to),
-                        Some("aspect_type") => o_aspect_type = Some(to),
-                        Some("impact") => o_impact = Some(to),
-                        _ => {}
-                    }
-                },
+        for c in conditions.iter()
+            .filter(|c| c.is_hash_eq()) {
+            let field = c.field();
+            match (cache.resolve(field), c) {
+                (Some("id"), &Eq(_, U64(S(to)))) => o_id = Some(to),
+                (Some("aspect_type"), &Eq(_, U64(S(to)))) => o_aspect_type = Some(to),
+                (Some("impact"), &Eq(_, U64(S(to)))) => o_impact = Some(to),
                 _ => continue
             }
         }
@@ -106,6 +103,28 @@ impl Insert for Aspect {
     }
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>> {
         Box::new(iproduct!(OptionIter::some(self.id), OptionIter::some(self.aspect_type), OptionIter::some(self.impact)))
+    }
+    fn new_from_fields(fields: &[FieldValue], cache: &StringCache) -> Self {
+        use self::FieldValue::*;
+        let mut o_id = None;
+        let mut o_aspect_type = None;
+        let mut o_impact = None;
+
+        for f in fields.iter() {
+            let field = f.field();
+            match (cache.resolve(field), f) {
+                (Some("id"), &U64(_, val)) => o_id = Some(val),
+                (Some("aspect_type"), &U64(_, val)) => o_aspect_type = Some(val),
+                (Some("impact"), &U64(_, val)) => o_impact = Some(val),
+                _ => {}
+            }
+        }
+
+        Aspect {
+            id: o_id.unwrap_or(0),
+            aspect_type: o_aspect_type.unwrap_or(1),
+            impact: o_impact.unwrap_or(2)
+        }
     }
 }
 
@@ -160,7 +179,7 @@ enum BetaJoin {
     //ANY(Vec<MemoryId>)
 }
 
-create_type!(Knowledge; inserts => [Aspect]; returns => []);
+create_type!(Knowledge; [Aspect]);
 
 fn main() {
     use expert::builder::KnowledgeBuilder;

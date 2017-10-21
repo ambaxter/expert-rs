@@ -4,14 +4,53 @@ use std::hash::Hash;
 use builders::statement::{ConditionDesc, StatementConditions};
 use network::tests::AlphaTest;
 use ::builder::StatementCondition;
-use runtime::memory::StringCache;
+use runtime::memory::{SymbolId, StringCache};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::fmt;
+use ordered_float::NotNaN;
 use builders::ids::*;
 
 pub trait Introspect {
     fn static_type_id() -> TypeId;
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, Ord, PartialOrd, PartialEq)]
+pub enum FieldValue {
+    I8(SymbolId, i8),
+    I16(SymbolId, i16),
+    I32(SymbolId, i32),
+    I64(SymbolId, i64),
+    U8(SymbolId, u8),
+    U16(SymbolId, u16),
+    U32(SymbolId, u32),
+    U64(SymbolId, u64),
+    ISIZE(SymbolId, isize),
+    USIZE(SymbolId, usize),
+    F32(SymbolId, NotNaN<f32>),
+    F64(SymbolId, NotNaN<f64>),
+    STR(SymbolId, SymbolId),
+}
+
+impl FieldValue {
+    pub fn field(&self) -> SymbolId {
+        use self::FieldValue::*;
+        match self {
+            &I8(field, _) => field,
+            &I16(field, _) => field,
+            &I32(field, _) => field,
+            &I64(field, _) => field,
+            &U8(field, _) => field,
+            &U16(field, _) => field,
+            &U32(field, _) => field,
+            &U64(field, _) => field,
+            &ISIZE(field, _) => field,
+            &USIZE(field, _) => field,
+            &F32(field, _) => field,
+            &F64(field, _) => field,
+            &STR(field, _) => field,
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -59,6 +98,7 @@ pub trait Insert : Introspect + Eq + Hash
     where Self: std::marker::Sized {
     type HashEq: Hash + Eq + Clone + Debug;
     fn create_hash_eq(conditions: &Vec<StatementConditions>, cache: &StringCache) -> Self::HashEq;
+    fn new_from_fields(fields: &[FieldValue], cache: &StringCache) -> Self;
     fn getter(field: &str) -> Option<Getters<Self>>;
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
 }
