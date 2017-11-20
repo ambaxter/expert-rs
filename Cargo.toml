@@ -10,5 +10,6 @@ string-interner = "0.6"
 ordered-float = "0.5"
 float-cmp = "0.2"
 interpolate_idents = "0.1.8"
-error-chain = "0.11"
 parking_lot = {version = "0.4", features = ["nightly"]}
+failure = "0.1.0"
+failure_derive = "0.1.0"

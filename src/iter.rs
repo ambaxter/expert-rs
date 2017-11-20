@@ -35,3 +35,40 @@ impl<T: Copy> Iterator for OptionIter<T> {
         None
     }
 }
+
+/* Thanks bluss! - owe you alcohol of choice
+
+pub fn product<I, F>(mut iterators: Vec<I>, mut cb: F)
+    where I: Iterator + Clone,
+          F: FnMut(&[I::Item])
+{
+    inner(&mut Vec::with_capacity(iterators.len()),
+          &iterators.clone(), &mut iterators, &mut cb)
+}
+
+fn inner<I, F>(cur: &mut Vec<I::Item>,
+               orig: &[I], iters: &mut [I], cb: &mut F)
+    where I: Iterator + Clone,
+          F: FnMut(&[I::Item])
+{
+    if let Some((front, rest)) = iters.split_first_mut() {
+        for elt in &mut *front {
+            cur.push(elt);
+            inner(cur, &orig[1..], rest, cb);
+            cur.pop();
+        }
+        if !cur.is_empty() {
+            *front = orig[0].clone();
+        }
+    } else {
+        cb(cur.as_slice())
+    }
+}
+
+
+fn main() {
+    let iter = vec![0..3, 1..2, 0..5, 0..3];
+
+    product(iter, |elems| println!("{:?}", elems));
+}
+*/

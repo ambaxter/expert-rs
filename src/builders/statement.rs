@@ -5,7 +5,7 @@ use runtime::memory::{StringCache, SymbolId};
 use builders::ids::{StatementId, ConditionId};
 use network::tests::{CLimits, OrdTest, OrdData, FLimits, FlData, FlTest, StrData, StrTest, AlphaTest};
 use std::collections::HashSet;
-use errors::Result;
+use ::Result;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq, Debug)]
 pub enum ValueHolder<T> {
@@ -277,7 +277,7 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
                 let field_sym = c.field();
                 let getter = cache.resolve(field_sym)
                     .and_then(|s| I ::getter(s))
-                    .ok_or(format!("Type has no getter {:?}", cache.resolve(field_sym)))?;
+                    .ok_or(format_err!("Type has no getter {:?}", cache.resolve(field_sym)))?;
                 let test = (getter, c).try_into()?;
                 entry_point.entry(test).or_insert_with(|| ConditionDesc::new(id_gen.next_condition_id(), Some(field_sym)))
                     .dependents.insert(statement_id);
@@ -550,7 +550,7 @@ impl<I: Insert> TryInto<AlphaTest<I>> for (Getters<I>, StatementConditions) {
                 Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::StartsWith)),
             (Getters::STR(accessor), StatementConditions::EndsWith(_, StatementValues::STR(ValueHolder::S(to)))) =>
                 Ok(AlphaTest::Str(StrData::REF(accessor, CLimits::S(to)), StrTest::EndsWith)),
-            _ => bail!("Something went wrong during transformation! - Data - {:?}", self)
+            _ => Err(format_err!("Something went wrong during transformation! - Data - {:?}", self))
         }
     }
 }

@@ -4,7 +4,10 @@
 #![recursion_limit = "1024"]
 
 #[macro_use]
-extern crate error_chain;
+extern crate failure_derive;
+
+#[macro_use]
+extern crate failure;
 
 extern crate num;
 
@@ -29,6 +32,10 @@ pub mod builder;
 pub mod builders;
 pub mod iter;
 pub mod errors;
+
+use failure::Error;
+
+type Result<T> = std::result::Result<T, Error>;
 
 #[macro_export]
 macro_rules! create_type {
