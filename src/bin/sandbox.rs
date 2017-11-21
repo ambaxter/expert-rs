@@ -35,7 +35,7 @@ use expert::runtime::memory::MemoryId;
 use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
 use expert::traits::ReteIntrospection;
-use expert::traits::{Introspect, Insert, Getters, FieldValue};
+use expert::traits::{Introspect, Fact, Getters, FieldValue};
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 struct Aspect {
@@ -68,7 +68,7 @@ impl Introspect for Aspect {
     }
 }
 
-impl Insert for Aspect {
+impl Fact for Aspect {
     type HashEq = (Option<u64>, Option<u64>, Option<u64>);
 
     fn getter(field: &str) -> Option<Getters<Self>> {
@@ -179,7 +179,7 @@ enum BetaJoin {
     //ANY(Vec<MemoryId>)
 }
 
-create_type!(Knowledge; [Aspect]);
+expert!(Knowledge; [Aspect]);
 
 fn main() {
     use expert::builder::KnowledgeBuilder;

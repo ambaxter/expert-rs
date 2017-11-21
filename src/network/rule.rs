@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use traits::{Insert, FieldValue};
+use traits::{Fact, FieldValue};
 use std::any::TypeId;
 
 use runtime::memory::SymbolId;

@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
-use traits::{Insert, RuleBuilder, Getters};
+use traits::{Fact, RuleBuilder, Getters};
 use ordered_float::NotNaN;
 use runtime::memory::{StringCache, SymbolId};
 use builders::ids::{StatementId, ConditionId};
 use network::tests::{CLimits, OrdTest, OrdData, FLimits, FlData, FlTest, StrData, StrTest, AlphaTest};
 use std::collections::HashSet;
 use ::Result;
+use failure::ResultExt;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq, Debug)]
 pub enum ValueHolder<T> {
@@ -15,6 +16,7 @@ pub enum ValueHolder<T> {
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq, Debug)]
 pub enum StatementValues {
+    BOOL(ValueHolder<bool>),
     I8(ValueHolder<i8>),
     I16(ValueHolder<i16>),
     I32(ValueHolder<i32>),
@@ -83,6 +85,12 @@ macro_rules! into_float_values {
             }
         )*
     };
+}
+
+impl IntoIntern<StatementValues> for bool {
+    fn into_intern(self, _: &mut StringCache) -> StatementValues {
+        StatementValues::BOOL(ValueHolder::S(self))
+    }
 }
 
 into_values!(
@@ -155,13 +163,13 @@ impl StatementConditions {
     }
 }
 
-pub struct StatementBuilder<I: Insert, R: RuleBuilder> {
+pub struct StatementBuilder<I: Fact, R: RuleBuilder> {
     statement_type: PhantomData<I>,
     rule_builder: R,
     conditions: Vec<StatementConditions>
 }
 
-impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
+impl<I: Fact, R: RuleBuilder> StatementBuilder<I, R> {
 
     pub fn eq<S: Into<String> + AsRef<str>, T: IntoIntern<StatementValues>>(&mut self, field: S, to: T) {
         let field_symbol = self.rule_builder.get_string_cache().get_or_intern(field);
@@ -278,7 +286,8 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
                 let getter = cache.resolve(field_sym)
                     .and_then(|s| I ::getter(s))
                     .ok_or(format_err!("Type has no getter {:?}", cache.resolve(field_sym)))?;
-                let test = (getter, c).try_into()?;
+                let test = (getter, c).try_into()
+                    .context(format_err!("Field {:?}", cache.resolve(field_sym)))?;
                 entry_point.entry(test).or_insert_with(|| ConditionDesc::new(id_gen.next_condition_id(), Some(field_sym)))
                     .dependents.insert(statement_id);
             }
@@ -290,7 +299,7 @@ impl<I: Insert, R: RuleBuilder> StatementBuilder<I, R> {
 
 // TODO: Certainly there's a way to do this in a macro - https://users.rust-lang.org/t/cartesian-product-using-macros/10763/24
 // I will figure this out eventually :/
-impl<I: Insert> TryInto<AlphaTest<I>> for (Getters<I>, StatementConditions) {
+impl<I: Fact> TryInto<AlphaTest<I>> for (Getters<I>, StatementConditions) {
     fn try_into(self) -> Result<AlphaTest<I>> {
         match self {
             //I8

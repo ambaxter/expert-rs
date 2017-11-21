@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::fmt;
 use std::fmt::Debug;
-use traits::Insert;
+use traits::Fact;
 use ordered_float::NotNaN;
 use runtime::memory::SymbolId;
 use num::Float;
@@ -15,7 +15,7 @@ pub enum CLimits<T: Hash + Eq + Ord + Clone> {
 }
 
 #[derive(Clone)]
-pub enum OrdData<T: Insert>{
+pub enum OrdData<T: Fact>{
     I8(fn(&T) -> &i8, CLimits<i8>),
     I16(fn(&T) -> &i16, CLimits<i16>),
     I32(fn(&T) -> &i32, CLimits<i32>),
@@ -28,7 +28,7 @@ pub enum OrdData<T: Insert>{
     USIZE(fn(&T) -> &usize, CLimits<usize>),
 }
 
-impl<T: Insert> OrdData<T> {
+impl<T: Fact> OrdData<T> {
     fn hash_self<H: Hasher, L: Hash>(ord: usize, accessor: usize, limits: &L, state: &mut H) {
         ord.hash(state);
         accessor.hash(state);
@@ -36,7 +36,7 @@ impl<T: Insert> OrdData<T> {
     }
 }
 
-impl<T: Insert> Hash for OrdData<T> {
+impl<T: Fact> Hash for OrdData<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         use self::OrdData::*;
         match self {
@@ -74,7 +74,7 @@ impl<T: Insert> Hash for OrdData<T> {
     }
 }
 
-impl<T: Insert> PartialEq for OrdData<T> {
+impl<T: Fact> PartialEq for OrdData<T> {
     fn eq(&self, other: &Self) -> bool {
         use self::OrdData::*;
         match (self, other) {
@@ -113,7 +113,7 @@ impl<T: Insert> PartialEq for OrdData<T> {
     }
 }
 
-impl<T: Insert> Eq for OrdData<T> {}
+impl<T: Fact> Eq for OrdData<T> {}
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum OrdTest {
@@ -187,12 +187,12 @@ impl<T: Float> Hash for FLimits<T> {
 }
 
 #[derive(Clone)]
-pub enum FlData<T: Insert>{
+pub enum FlData<T: Fact>{
     F32(fn(&T) -> &f32, FLimits<f32>),
     F64(fn(&T) -> &f64, FLimits<f64>),
 }
 
-impl<T: Insert> FlData<T> {
+impl<T: Fact> FlData<T> {
     fn hash_self<H: Hasher, L: Hash>(ord: usize, accessor: usize, limits: &L, state: &mut H) {
         ord.hash(state);
         accessor.hash(state);
@@ -200,7 +200,7 @@ impl<T: Insert> FlData<T> {
     }
 }
 
-impl<T: Insert> Hash for FlData<T> {
+impl<T: Fact> Hash for FlData<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         use self::FlData::*;
         match self {
@@ -214,7 +214,7 @@ impl<T: Insert> Hash for FlData<T> {
     }
 }
 
-impl<T: Insert> PartialEq for FlData<T> {
+impl<T: Fact> PartialEq for FlData<T> {
     fn eq(&self, other: &Self) -> bool {
         use self::FlData::*;
         match (self, other) {
@@ -230,7 +230,7 @@ impl<T: Insert> PartialEq for FlData<T> {
     }
 }
 
-impl<T: Insert> Eq for FlData<T> {}
+impl<T: Fact> Eq for FlData<T> {}
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum FlTest {
@@ -287,11 +287,11 @@ impl FlTest {
 }
 
 #[derive(Clone)]
-pub enum StrData<T: Insert> {
+pub enum StrData<T: Fact> {
     REF(fn(&T) -> &str, CLimits<SymbolId>),
 }
 
-impl<T: Insert> StrData<T> {
+impl<T: Fact> StrData<T> {
     fn hash_self<H: Hasher, L: Hash>(ord: usize, accessor: usize, limits: &L, state: &mut H) {
         ord.hash(state);
         accessor.hash(state);
@@ -299,7 +299,7 @@ impl<T: Insert> StrData<T> {
     }
 }
 
-impl<T: Insert> Hash for StrData<T> {
+impl<T: Fact> Hash for StrData<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         use self::StrData::*;
         match self {
@@ -310,7 +310,7 @@ impl<T: Insert> Hash for StrData<T> {
     }
 }
 
-impl<T: Insert> PartialEq for StrData<T> {
+impl<T: Fact> PartialEq for StrData<T> {
     fn eq(&self, other: &Self) -> bool {
         use self::StrData::*;
         match (self, other) {
@@ -323,7 +323,7 @@ impl<T: Insert> PartialEq for StrData<T> {
 }
 
 
-impl<T: Insert> Eq for StrData<T> {}
+impl<T: Fact> Eq for StrData<T> {}
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
 pub enum StrTest {
@@ -404,14 +404,14 @@ impl StrTest {
 }
 
 #[derive(Hash, Eq, PartialEq)]
-pub enum AlphaTest<T: Insert> {
+pub enum AlphaTest<T: Fact> {
     HashEq,
     Ord(OrdData<T>, OrdTest),
     Fl(FlData<T>, FlTest),
     Str(StrData<T>, StrTest),
 }
 
-impl<T: Insert> AlphaTest<T> {
+impl<T: Fact> AlphaTest<T> {
     pub fn is_hash_eq(&self) -> bool {
         use self::AlphaTest::*;
         match self {
@@ -421,7 +421,7 @@ impl<T: Insert> AlphaTest<T> {
     }
 }
 
-impl<T: Insert> Debug for AlphaTest<T> {
+impl<T: Fact> Debug for AlphaTest<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::AlphaTest::*;
         write!(f, "Test{{");

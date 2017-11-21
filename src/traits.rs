@@ -17,6 +17,7 @@ pub trait Introspect {
 
 #[derive(Copy, Clone, Debug, Hash, Eq, Ord, PartialOrd, PartialEq)]
 pub enum FieldValue {
+    BOOL(SymbolId, bool),
     I8(SymbolId, i8),
     I16(SymbolId, i16),
     I32(SymbolId, i32),
@@ -36,6 +37,7 @@ impl FieldValue {
     pub fn field(&self) -> SymbolId {
         use self::FieldValue::*;
         match self {
+            &BOOL(field, _) => field,
             &I8(field, _) => field,
             &I16(field, _) => field,
             &I32(field, _) => field,
@@ -54,7 +56,8 @@ impl FieldValue {
 }
 
 #[derive(Copy, Clone)]
-pub enum Getters<I: Insert> {
+pub enum Getters<I: Fact> {
+    BOOL(fn(&I) -> &bool),
     I8(fn(&I) -> &i8),
     I16(fn(&I) -> &i16),
     I32(fn(&I) -> &i32),
@@ -70,11 +73,12 @@ pub enum Getters<I: Insert> {
     STR(fn(&I) -> &str),
 }
 
-impl<I: Insert> Debug for Getters<I> {
+impl<I: Fact> Debug for Getters<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Getters::*;
         write!(f, "Getters(")?;
         match self {
+            &BOOL(accessor) => write!(f, "BOOL({:#x})", accessor as usize)?,
             &I8(accessor) => write!(f, "I8({:#x})", accessor as usize)?,
             &I16(accessor) => write!(f, "I16({:#x})", accessor as usize)?,
             &I32(accessor) => write!(f, "I32({:#x})", accessor as usize)?,
@@ -94,7 +98,7 @@ impl<I: Insert> Debug for Getters<I> {
     }
 }
 
-pub trait Insert : Introspect + Eq + Hash
+pub trait Fact: Introspect + Eq + Hash
     where Self: std::marker::Sized {
     type HashEq: Hash + Eq + Clone + Debug;
     fn create_hash_eq(conditions: &Vec<StatementConditions>, cache: &StringCache) -> Self::HashEq;
@@ -105,15 +109,15 @@ pub trait Insert : Introspect + Eq + Hash
 
 pub trait NetworkBuilder {
     fn get_id_generator(&mut self) -> &mut BuilderIdGen;
-    fn get_conditions<I: Insert>(&mut self) -> &mut HashMap<I::HashEq, HashMap<AlphaTest<I>, ConditionDesc>>;
+    fn get_conditions<I: Fact>(&mut self) -> &mut HashMap<I::HashEq, HashMap<AlphaTest<I>, ConditionDesc>>;
     fn get_string_cache(&mut self) -> &mut StringCache;
 
 }
 
 pub trait RuleBuilder {
-    fn get_for_condition_collapse<I: Insert>(&mut self, hash_eq: I::HashEq) -> (&mut StringCache, &mut BuilderIdGen, &mut HashMap<AlphaTest<I>, ConditionDesc>);
+    fn get_for_condition_collapse<I: Fact>(&mut self, hash_eq: I::HashEq) -> (&mut StringCache, &mut BuilderIdGen, &mut HashMap<AlphaTest<I>, ConditionDesc>);
     fn get_id_generator(&mut self) -> &mut BuilderIdGen;
-    fn get_conditions<I: Insert>(&mut self) -> &mut HashMap<I::HashEq, HashMap<AlphaTest<I>, ConditionDesc>>;
+    fn get_conditions<I: Fact>(&mut self) -> &mut HashMap<I::HashEq, HashMap<AlphaTest<I>, ConditionDesc>>;
     fn get_statement_ids(&mut self) -> &mut HashSet<StatementId>;
     fn get_string_cache(&mut self) -> &mut StringCache;
 }
