@@ -572,7 +572,7 @@ pub struct ConditionDesc {
 }
 
 impl ConditionDesc {
-    fn new(id: ConditionId, field: Option<SymbolId>) -> ConditionDesc {
+    pub fn new(id: ConditionId, field: Option<SymbolId>) -> ConditionDesc {
         ConditionDesc{id, field, dependents: Default::default()}
     }
 }
