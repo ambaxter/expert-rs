@@ -1,7 +1,14 @@
 [package]
 name = "expert"
-version = "0.1.0"
-authors = ["abaxter <ambaxter@users.noreply.github.com>"]
+version = "0.0.1"
+authors = ["Adam Baxter <ambaxter@users.noreply.github.com>"]
+license = "MIT/Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/ambaxter/expert-rs.git"
+homepage = "https://github.com/ambaxter/expert-rs"
+description = "A cache-friendly, typesafe expert/business rules system"
+categories = ["algorithms", "data-structures"]
+keywords = ["rete", "expert", "business", "rules", "brms"]
 
 [dependencies]
 num = "0.1"
