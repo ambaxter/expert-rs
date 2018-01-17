@@ -5,23 +5,70 @@ use traits::Fact;
 use ordered_float::NotNaN;
 use runtime::memory::{StringCache, SymbolId};
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq)]
-pub enum DynId {
-    Local(usize),
-    Global(usize)
+pub trait DynId { }
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct LocalD {
+    id: usize
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
-pub enum Limit<T: Hash + Eq + Ord + Clone> {
+impl DynId for LocalD {}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub struct GlobalD {
+    id: usize
+}
+
+impl DynId for GlobalD {}
+
+pub trait RuleContext<I: DynId> {
+    fn resolve_i8(&self, id: I) -> &i8;
+    fn resolve_i16(&self, id: I) -> &i16;
+    fn resolve_i32(&self, id: I) -> &i32;
+    fn resolve_i64(&self, id: I) -> &i64;
+    fn resolve_u8(&self, id: I) -> &u8;
+    fn resolve_u16(&self, id: I) -> &u16;
+    fn resolve_u32(&self, id: I) -> &u32;
+    fn resolve_u64(&self, id: I) -> &u64;
+    fn resolve_isize(&self, id: I) -> &isize;
+    fn resolve_usize(&self, id: I) -> &usize;
+    fn resolve_f32(&self, id: I) -> &NotNaN<f32>;
+    fn resolve_f64(&self, id: I) -> &NotNaN<f64>;
+    fn resolve_str(&self, id: I) -> &str;
+}
+
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum SLimit<T: Hash + Eq + Ord + Copy + Clone> {
     St(T),
-    Dyn(DynId)
+    Local(LocalD),
+    Global(GlobalD),
 }
 
-#[derive(Clone, Hash, Eq, PartialEq)]
-pub enum Limits<T: Hash + Eq + Ord + Clone> {
-    S(Limit<T>),
-    D(Limit<T>, Limit<T>)
+impl<T: Hash + Eq + Ord + Copy + Clone> SLimit<T> {
+    pub fn resolve(&self, local_context: &RuleContext<LocalD>, global_context: &RuleContext<GlobalD>) -> &T {
+        use self::SLimit::*;
+        match self {
+            &St(ref to) => to,
+            &Local(ref local) => RuleContext::resolve_str(local_context, local),
+            &Global(ref global) => RuleContext::resolve_str(global_context, global)
+        }
+    }
 }
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum DLimit<T: Hash + Eq + Ord + Copy + Clone> {
+    St(T, T),
+    StLocal(T, LocalD),
+    StGlobal(T, GlobalD),
+    LocalSt(LocalD, T),
+    GlobalSt(GlobalD, T),
+    Local(LocalD, LocalD),
+    LocalGlobal(LocalD, GlobalD),
+    GlobalLocal(GlobalD, LocalD),
+    Global(GlobalD, GlobalD),
+}
+
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum PartialOrdTest {
@@ -114,65 +161,48 @@ impl ArrayTest {
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum NumTest {
-    ORD(PartialOrdTest),
-    BTWN(BetweenTest),
-    EQ(EqTest)
+pub enum NumTest<T: Hash + Eq + Ord + Copy + Clone> {
+    ORD(PartialOrdTest, SLimit<T>),
+    BTWN(BetweenTest, DLimit<T>),
+    EQ(EqTest, SLimit<T>)
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum FlTest {
-    ORD(PartialOrdTest),
-    BTWN(BetweenTest),
-    APPROXEQ(ApproxEqTest)
+pub enum FlTest<T: Hash + Eq + Ord + Copy + Clone> {
+    ORD(PartialOrdTest, SLimit<T>),
+    BTWN(BetweenTest, DLimit<T>),
+    APPROXEQ(ApproxEqTest, SLimit<T>)
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum StrTest {
-    ORD(PartialOrdTest),
-    BTWN(BetweenTest),
-    EQ(EqTest),
-    ARRAY(ArrayTest)
-}
-
-pub trait LocalRuleContext {
-    fn resolve_i8(&self, id: DynId) -> &i8;
-    fn resolve_i16(&self, id: DynId) -> &i16;
-    fn resolve_i32(&self, id: DynId) -> &i32;
-    fn resolve_i64(&self, id: DynId) -> &i64;
-    fn resolve_u8(&self, id: DynId) -> &u8;
-    fn resolve_u16(&self, id: DynId) -> &u16;
-    fn resolve_u32(&self, id: DynId) -> &u32;
-    fn resolve_u64(&self, id: DynId) -> &u64;
-    fn resolve_isize(&self, id: DynId) -> &isize;
-    fn resolve_usize(&self, id: DynId) -> &usize;
-    fn resolve_f32(&self, id: DynId) -> &NotNaN<f32>;
-    fn resolve_f64(&self, id: DynId) -> &NotNaN<f64>;
-    fn resolve_str(&self, id: DynId) -> &str;
+pub enum StrTest<T: Hash + Eq + Ord + Copy + Clone> {
+    ORD(PartialOrdTest, SLimit<T>),
+    BTWN(BetweenTest, DLimit<T>),
+    EQ(EqTest, SLimit<T>),
+    ARRAY(ArrayTest, SLimit<T>)
 }
 
 pub enum TestData<T: Fact> {
-    I8(fn(&T) -> &i8, NumTest, Limits<i8>),
-    I16(fn(&T) -> &i16, NumTest, Limits<i16>),
-    I32(fn(&T) -> &i32, NumTest, Limits<i32>),
-    I64(fn(&T) -> &i64, NumTest, Limits<i64>),
-    U8(fn(&T) -> &u8, NumTest, Limits<u8>),
-    U16(fn(&T) -> &u16, NumTest, Limits<u16>),
-    U32(fn(&T) -> &u32, NumTest, Limits<u32>),
-    U64(fn(&T) -> &u64, NumTest, Limits<u64>),
-    ISIZE(fn(&T) -> &isize, NumTest, Limits<isize>),
-    USIZE(fn(&T) -> &usize, NumTest, Limits<usize>),
-    F32(fn(&T) -> &f32, FlTest, Limits<NotNaN<f32>>),
-    F64(fn(&T) -> &f64, FlTest, Limits<NotNaN<f64>>),
-    STR(fn(&T) -> &str, StrTest, Limits<SymbolId>),
+    I8(fn(&T) -> &i8, NumTest<i8>),
+    I16(fn(&T) -> &i16, NumTest<i16>),
+    I32(fn(&T) -> &i32, NumTest<i32>),
+    I64(fn(&T) -> &i64, NumTest<i64>),
+    U8(fn(&T) -> &u8, NumTest<u8>),
+    U16(fn(&T) -> &u16, NumTest<u16>),
+    U32(fn(&T) -> &u32, NumTest<u32>),
+    U64(fn(&T) -> &u64, NumTest<u64>),
+    ISIZE(fn(&T) -> &isize, NumTest<isize>),
+    USIZE(fn(&T) -> &usize, NumTest<usize>),
+    F32(fn(&T) -> &f32, FlTest<NotNaN<f32>>),
+    F64(fn(&T) -> &f64, FlTest<NotNaN<f64>>),
+    STR(fn(&T) -> &str, StrTest<SymbolId>),
 }
 
 impl<T: Fact> TestData<T> {
-    fn hash_self<H: Hasher, K: Hash, L: Hash>(ord: usize, accessor: usize, test: &K, limits: &L, state: &mut H) {
+    fn hash_self<H: Hasher, K: Hash>(ord: usize, accessor: usize, test: &K, state: &mut H) {
         ord.hash(state);
         accessor.hash(state);
         test.hash(state);
-        limits.hash(state);
     }
 
     pub fn test(&self, fact: &T, context: &LocalRuleContext, str_cache: &StringCache) -> bool {
@@ -186,7 +216,7 @@ impl<T: Fact> TestData<T> {
                     &Limit::Dyn(ref id) => context.resolve_i8(*id)
                 };
                 test.test(val, to)
-            },
+            },/*
             &I8(accessor, NumTest::BTWN(ref test), Limits::D(ref limit1, ref limit2)) => {
                 let val = accessor(fact);
                 let (from, to) = match (limit1, limit2) {
@@ -481,11 +511,12 @@ impl<T: Fact> TestData<T> {
                     &Limit::Dyn(ref id) => context.resolve_str(*id)
                 };
                 test.test(val, to)
-            },
+            },*/
             _ => false
         }
     }
 }
+
 
 macro_rules! test_hash {
     ($($t:ident => $ord:expr),+ ) => {
@@ -493,13 +524,14 @@ macro_rules! test_hash {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::TestData::*;
                     match self {
-                    $ ( & $ t(accessor, ref test, ref limits) => Self::hash_self(0, accessor as usize, test, limits, state),
+                    $ ( & $ t(accessor, ref test) => Self::hash_self($ord, accessor as usize, test, state),
                     )*
                 }
             }
         }
     };
 }
+
 
 test_hash!(I8 => 0, I16 => 1, I32 => 2, I64 => 3,
     U8 => 4, U16 => 5, U32 => 6, U64 => 7,
@@ -514,8 +546,8 @@ macro_rules! test_eq {
             fn eq(&self, other: &Self) -> bool {
                 use self::TestData::*;
                     match (self, other) {
-                    $( (&$t(accessor1, ref test1, ref limits1), &$t(accessor2, ref test2, ref limits2)) => {
-                        (accessor1 as usize) == (accessor2 as usize) && test1 == test2 && limits1 == limits2
+                    $( (&$t(accessor1, ref test1), &$t(accessor2, ref test2)) => {
+                        (accessor1 as usize) == (accessor2 as usize) && test1 == test2
                     },)*
                     _ => false
                 }

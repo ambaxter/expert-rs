@@ -184,6 +184,13 @@ expert!(Knowledge; [Aspect]);
 fn main() {
     use expert::builder::KnowledgeBuilder;
     use expert::builder::CData;
+    use ordered_float::NotNaN;
+    use expert::runtime::memory::SymbolId;
+
+    println!("TestData: {:?}", std::mem::size_of::<expert::network::node_cmp::TestData<Aspect>>());
+    println!("StrTest: {:?}", std::mem::size_of::<expert::network::node_cmp::StrTest<SymbolId>>());
+    println!("FlTest: {:?}", std::mem::size_of::<expert::network::node_cmp::FlTest<NotNaN<f64>>>());
+    println!("NumTest: {:?}", std::mem::size_of::<expert::network::node_cmp::NumTest<usize>>());
 
     let default = vec![false, true, false];
     let mut test_into = Vec::with_capacity(default.len());
