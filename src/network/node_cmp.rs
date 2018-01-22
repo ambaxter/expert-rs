@@ -7,19 +7,7 @@ use runtime::memory::{StringCache, SymbolId};
 
 pub trait DynId { }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct LocalD {
-    id: usize
-}
-
-impl DynId for LocalD {}
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct GlobalD {
-    id: usize
-}
-
-impl DynId for GlobalD {}
+impl DynId for SymbolId {}
 
 pub trait RuleContext<I: DynId> {
     fn resolve_i8(&self, id: I) -> &i8;
@@ -41,32 +29,34 @@ pub trait RuleContext<I: DynId> {
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum SLimit<T: Hash + Eq + Ord + Copy + Clone> {
     St(T),
-    Local(LocalD),
-    Global(GlobalD),
+    Local(SymbolId),
+    Global(SymbolId),
 }
+/*
+// Impl Specialization?
 
 impl<T: Hash + Eq + Ord + Copy + Clone> SLimit<T> {
-    pub fn resolve(&self, local_context: &RuleContext<LocalD>, global_context: &RuleContext<GlobalD>) -> &T {
+    pub fn resolve(&self, local_context: &RuleContext<SymbolId>, global_context: &RuleContext<SymbolId>) -> &str {
         use self::SLimit::*;
         match self {
             &St(ref to) => to,
-            &Local(ref local) => RuleContext::resolve_str(local_context, local),
-            &Global(ref global) => RuleContext::resolve_str(global_context, global)
+            &Local(ref local) => RuleContext::resolve_str(local_context, *local),
+            &Global(ref global) => RuleContext::resolve_str(global_context, *global)
         }
     }
-}
+}*/
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DLimit<T: Hash + Eq + Ord + Copy + Clone> {
     St(T, T),
-    StLocal(T, LocalD),
-    StGlobal(T, GlobalD),
-    LocalSt(LocalD, T),
-    GlobalSt(GlobalD, T),
-    Local(LocalD, LocalD),
-    LocalGlobal(LocalD, GlobalD),
-    GlobalLocal(GlobalD, LocalD),
-    Global(GlobalD, GlobalD),
+    StLocal(T, SymbolId),
+    StGlobal(T, SymbolId),
+    LocalSt(SymbolId, T),
+    GlobalSt(SymbolId, T),
+    Local(SymbolId, SymbolId),
+    LocalGlobal(SymbolId, SymbolId),
+    GlobalLocal(SymbolId, SymbolId),
+    Global(SymbolId, SymbolId),
 }
 
 
@@ -183,6 +173,8 @@ pub enum StrTest<T: Hash + Eq + Ord + Copy + Clone> {
 }
 
 pub enum TestData<T: Fact> {
+    // Add AlphaMemory
+    // Add bool
     I8(fn(&T) -> &i8, NumTest<i8>),
     I16(fn(&T) -> &i16, NumTest<i16>),
     I32(fn(&T) -> &i32, NumTest<i32>),
@@ -205,9 +197,10 @@ impl<T: Fact> TestData<T> {
         test.hash(state);
     }
 
-    pub fn test(&self, fact: &T, context: &LocalRuleContext, str_cache: &StringCache) -> bool {
+    pub fn test(&self, fact: &T, context: &RuleContext<SymbolId>, str_cache: &StringCache) -> bool {
         use self::TestData::*;
         match self {
+            /*
             // I8
             &I8(accessor, NumTest::ORD(ref test), Limits::S(ref limit)) => {
                 let val = accessor(fact);
@@ -216,7 +209,7 @@ impl<T: Fact> TestData<T> {
                     &Limit::Dyn(ref id) => context.resolve_i8(*id)
                 };
                 test.test(val, to)
-            },/*
+            },
             &I8(accessor, NumTest::BTWN(ref test), Limits::D(ref limit1, ref limit2)) => {
                 let val = accessor(fact);
                 let (from, to) = match (limit1, limit2) {

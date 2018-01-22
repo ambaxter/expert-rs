@@ -30,6 +30,7 @@ pub mod builder;
 pub mod builders;
 pub mod iter;
 pub mod errors;
+pub mod shared;
 
 pub use failure::Error;
 
