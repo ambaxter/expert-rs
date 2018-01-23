@@ -2,27 +2,28 @@ use std::hash::{Hash, Hasher};
 use num::{Integer, Float};
 use ordered_float::NotNaN;
 use float_cmp::ApproxEqUlps;
-use runtime::memory::SymbolId;
+use runtime::memory::{StringCache, SymbolId};
 use traits::Fact;
+use errors::CompileError;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum SLimit<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> {
     St(T),
     Local(S),
-    Global(S),
+    //Global(S),
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DLimit<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> {
     St(T, T),
     StLocal(T, S),
-    StGlobal(T, S),
+    //StGlobal(T, S),
     LocalSt(S, T),
-    GlobalSt(S, T),
+    //GlobalSt(S, T),
     Local(S, S),
-    LocalGlobal(S, S),
-    GlobalLocal(S, S),
-    Global(S, S),
+    //LocalGlobal(S, S),
+    //GlobalLocal(S, S),
+    //Global(S, S),
 }
 
 
@@ -122,7 +123,7 @@ pub enum BoolTest<S: Hash + Eq + Ord + Copy + Clone> {
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum NumTest<T: Integer + Hash + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> {
+pub enum IntTest<T: Integer + Hash + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> {
     ORD(PartialOrdTest, SLimit<T, S>),
     BTWN(BetweenTest, DLimit<T, S>),
     EQ(EqTest, SLimit<T, S>)
@@ -146,40 +147,67 @@ pub enum StrTest<S: Hash + Eq + Ord + Copy + Clone> {
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TestRepr<'a> {
     BOOL(&'a str, BoolTest<&'a str>),
-    I8(&'a str, NumTest<i8, &'a str>),
-    I16(&'a str, NumTest<i16, &'a str>),
-    I32(&'a str, NumTest<i32, &'a str>),
-    I64(&'a str, NumTest<i64, &'a str>),
-    U8(&'a str, NumTest<u8, &'a str>),
-    U16(&'a str, NumTest<u16, &'a str>),
-    U32(&'a str, NumTest<u32, &'a str>),
-    U64(&'a str, NumTest<u64, &'a str>),
-    ISIZE(&'a str, NumTest<isize, &'a str>),
-    USIZE(&'a str, NumTest<usize, &'a str>),
+    I8(&'a str, IntTest<i8, &'a str>),
+    I16(&'a str, IntTest<i16, &'a str>),
+    I32(&'a str, IntTest<i32, &'a str>),
+    I64(&'a str, IntTest<i64, &'a str>),
+    U8(&'a str, IntTest<u8, &'a str>),
+    U16(&'a str, IntTest<u16, &'a str>),
+    U32(&'a str, IntTest<u32, &'a str>),
+    U64(&'a str, IntTest<u64, &'a str>),
+    ISIZE(&'a str, IntTest<isize, &'a str>),
+    USIZE(&'a str, IntTest<usize, &'a str>),
     F32(&'a str, FlTest<NotNaN<f32>, &'a str>),
     F64(&'a str, FlTest<NotNaN<f64>, &'a str>),
     STR(&'a str, StrTest<&'a str>),
 }
 
+impl<'a> TestRepr<'a> {
+
+    pub fn field(&self) -> &str {
+        use self::TestRepr::*;
+        match self {
+            &BOOL(field, _) => field,
+            &I8(field, _) => field,
+            &I16(field, _) => field,
+            &I32(field, _) => field,
+            &I64(field, _) => field,
+            &U8(field, _) => field,
+            &U16(field, _) => field,
+            &U32(field, _) => field,
+            &U64(field, _) => field,
+            &ISIZE(field, _) => field,
+            &USIZE(field, _) => field,
+            &F32(field, _) => field,
+            &F64(field, _) => field,
+            &STR(field, _) => field,
+        }
+    }
+
+    pub fn intern<T: Fact>(&self, cache: &mut StringCache) -> Result<TestData<T>, CompileError> {
+        let getter = T::getter(self.field())
+            .ok_or_else(|| CompileError::MissingGetter {getter: self.field().to_owned()})?;
+
+    }
+}
+
 pub enum TestData<T: Fact> {
     // Add AlphaMemory?
     BOOL(fn(&T) -> &bool, BoolTest<SymbolId>),
-    I8(fn(&T) -> &i8, NumTest<i8, SymbolId>),
-    I16(fn(&T) -> &i16, NumTest<i16, SymbolId>),
-    I32(fn(&T) -> &i32, NumTest<i32, SymbolId>),
-    I64(fn(&T) -> &i64, NumTest<i64, SymbolId>),
-    U8(fn(&T) -> &u8, NumTest<u8, SymbolId>),
-    U16(fn(&T) -> &u16, NumTest<u16, SymbolId>),
-    U32(fn(&T) -> &u32, NumTest<u32, SymbolId>),
-    U64(fn(&T) -> &u64, NumTest<u64, SymbolId>),
-    ISIZE(fn(&T) -> &isize, NumTest<isize, SymbolId>),
-    USIZE(fn(&T) -> &usize, NumTest<usize, SymbolId>),
+    I8(fn(&T) -> &i8, IntTest<i8, SymbolId>),
+    I16(fn(&T) -> &i16, IntTest<i16, SymbolId>),
+    I32(fn(&T) -> &i32, IntTest<i32, SymbolId>),
+    I64(fn(&T) -> &i64, IntTest<i64, SymbolId>),
+    U8(fn(&T) -> &u8, IntTest<u8, SymbolId>),
+    U16(fn(&T) -> &u16, IntTest<u16, SymbolId>),
+    U32(fn(&T) -> &u32, IntTest<u32, SymbolId>),
+    U64(fn(&T) -> &u64, IntTest<u64, SymbolId>),
+    ISIZE(fn(&T) -> &isize, IntTest<isize, SymbolId>),
+    USIZE(fn(&T) -> &usize, IntTest<usize, SymbolId>),
     F32(fn(&T) -> &f32, FlTest<NotNaN<f32>, SymbolId>),
     F64(fn(&T) -> &f64, FlTest<NotNaN<f64>, SymbolId>),
     STR(fn(&T) -> &str, StrTest<SymbolId>),
 }
-
-
 
 macro_rules! test_hash {
     ($($t:ident => $ord:expr),+ ) => {
@@ -187,7 +215,7 @@ macro_rules! test_hash {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::TestData::*;
                     match self {
-                    $ ( & $ t(accessor, ref test) => Self::hash_self($ord, accessor as usize, test, state),
+                    $ ( & $ t(getter, ref test) => Self::hash_self($ord, getter as usize, test, state),
                     )*
                 }
             }
@@ -210,8 +238,8 @@ macro_rules! test_eq {
             fn eq(&self, other: &Self) -> bool {
                 use self::TestData::*;
                     match (self, other) {
-                    $( (&$t(accessor1, ref test1), &$t(accessor2, ref test2)) => {
-                        (accessor1 as usize) == (accessor2 as usize) && test1 == test2
+                    $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
+                        (getter1 as usize) == (getter2 as usize) && test1 == test2
                     },)*
                     _ => false
                 }
@@ -229,9 +257,9 @@ test_eq!(BOOL,
 impl<T: Fact> Eq for TestData<T> {}
 
 impl<T: Fact> TestData<T> {
-    fn hash_self<H: Hasher, K: Hash>(ord: usize, accessor: usize, test: &K, state: &mut H) {
+    fn hash_self<H: Hasher, K: Hash>(ord: usize, getter: usize, test: &K, state: &mut H) {
         ord.hash(state);
-        accessor.hash(state);
+        getter.hash(state);
         test.hash(state);
     }
 }
