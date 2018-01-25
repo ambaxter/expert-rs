@@ -3,10 +3,12 @@ use ordered_float::NotNaN;
 use num::Float;
 
 pub trait ToNotNaNPrimitive : ToPrimitive {
+    #[inline]
     fn to_nn_f32(&self) -> Option<NotNaN<f32>> {
         self.to_f32().map(|f| f.into())
     }
 
+    #[inline]
     fn to_nn_f64(&self) -> Option<NotNaN<f64>> {
         self.to_f64().map(|f| f.into())
     }
@@ -22,8 +24,8 @@ pub trait NotNaNCast: Sized + ToNotNaNPrimitive {
 }
 
 #[inline]
-pub fn cast<T: NotNaNCast, U: NotNaNCast>(n: T) -> Option<U> {
-    NotNaNCast::from(n)
+pub fn cast<T: NotNaNCast, U: NotNaNCast>(n: T) -> Option<U::Output>  {
+    <U as NotNaNCast>::from(n)
 }
 
 macro_rules! impl_nn_cast {
