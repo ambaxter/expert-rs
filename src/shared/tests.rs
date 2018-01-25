@@ -1,5 +1,7 @@
 use std::hash::{Hash, Hasher};
-use num::{Integer, Float};
+use std::string::ToString;
+use num::{Integer, Float, ToPrimitive, NumCast};
+use num::cast;
 use ordered_float::NotNaN;
 use float_cmp::ApproxEqUlps;
 use runtime::memory::{StringCache, SymbolId};
@@ -11,6 +13,19 @@ pub enum SLimit<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + C
     St(T),
     Local(S),
     //Global(S),
+}
+
+impl<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> SLimit<T, S> {
+    pub fn try_cast<I: Hash + Eq + Ord + Copy + Clone + NumCast>(self, from_type: &str, to_type: &str) -> Result<SLimit<I, S>, CompileError>
+        where T: NumCast + ToString {
+        use self::SLimit::*;
+        match self {
+            St(t) => cast::cast(t)
+                .map(|i| SLimit::St(i))
+                .ok_or_else(|| CompileError::BadCast{var: t.to_string(), from: from_type.into(), to: to_type.into()}),
+            Local(s) => Ok(SLimit::Local(s))
+        }
+    }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -26,6 +41,30 @@ pub enum DLimit<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + C
     //Global(S, S),
 }
 
+impl<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> DLimit<T, S> {
+    pub fn try_cast<I: Hash + Eq + Ord + Copy + Clone + NumCast>(self, from_type: &str, to_type: &str) -> Result<DLimit<I, S>, CompileError>
+        where T: NumCast + ToString, (T,T): ToString {
+        use self::DLimit::*;
+        match self {
+            St(from, to) => {
+                cast::cast(from)
+                    .and_then(|from_i| cast::cast(to).map(|to_i| DLimit::St(from_i, to_i)))
+                    .ok_or_else(|| CompileError::BadCast{var: (from, to).to_string(), from: from_type.into(), to: to_type.into()})
+            },
+            StLocal(from, to) => {
+                cast::cast(from)
+                    .map(|from_i| DLimit::StLocal(from_i, to))
+                    .ok_or_else(|| CompileError::BadCast{var: from.to_string(), from: from_type.into(), to: to_type.into()})
+            },
+            LocalSt(from, to) => {
+                cast::cast(to)
+                    .map(|to_i| DLimit::LocalSt(from, to_i))
+                    .ok_or_else(|| CompileError::BadCast{var: to.to_string(), from: from_type.into(), to: to_type.into()})
+            }
+            Local(from, to) => Ok(DLimit::Local(from, to))
+        }
+    }
+}
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum PartialOrdTest {
@@ -183,12 +222,13 @@ impl<'a> TestRepr<'a> {
             &STR(field, _) => field,
         }
     }
-
+/*
     pub fn intern<T: Fact>(&self, cache: &mut StringCache) -> Result<TestData<T>, CompileError> {
         let getter = T::getter(self.field())
             .ok_or_else(|| CompileError::MissingGetter {getter: self.field().to_owned()})?;
 
-    }
+    }*/
+
 }
 
 pub enum TestData<T: Fact> {
