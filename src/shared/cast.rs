@@ -70,8 +70,8 @@ pub trait NNCast: Sized + ToNNPrimitive {
 }
 
 #[inline]
-pub fn cast<T: ToNNPrimitive, U: NNCast>(n: T) -> Option<U::Output> {
-    <U as NNCast>::from(n)
+pub fn unpack_cast<T: UnpackPrimitive, U: NNCast>(n: T) -> Option<U::Output> {
+    <U as NNCast>::from(n.unpack())
 }
 
 macro_rules! impl_nn_cast {
@@ -107,12 +107,15 @@ impl_nn_cast!(f64, NotNaN<f64>, to_nn_f64);
 
 #[cfg(test)]
 mod tests {
-
-    use ::shared::cast::{NNCast, cast};
+    use ordered_float::NotNaN;
+    use float_cmp::ApproxEqUlps;
+    use ::shared::cast::unpack_cast;
 
     #[test]
-    fn test() {
-        assert_eq!(Some(2u8), cast(2u16));
+    fn test_unpack_cast() {
+        assert_eq!(Some(2u8), unpack_cast::<u16, u8>(2u16));
+        assert_eq!(Some(2u8), unpack_cast::<NotNaN<f64>, u8>(2.1f64.into()));
+        assert!(2.0f64.approx_eq_ulps(&unpack_cast::<u8, f64>(2u8).unwrap(), 2));
     }
 
 }

@@ -15,7 +15,7 @@ num = "0.1"
 itertools = "0.6"
 string-interner = "0.6"
 ordered-float = "0.5"
-float-cmp = "0.2"
+float-cmp = "0.3"
 #interpolate_idents = "0.1.8"
 parking_lot = {version = "0.4", features = ["nightly"]}
 failure = "0.1"

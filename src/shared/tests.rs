@@ -232,7 +232,6 @@ impl<'a> TestRepr<'a> {
 }
 
 pub enum TestData<T: Fact> {
-    // Add AlphaMemory?
     BOOL(fn(&T) -> &bool, BoolTest<SymbolId>),
     I8(fn(&T) -> &i8, IntTest<i8, SymbolId>),
     I16(fn(&T) -> &i16, IntTest<i16, SymbolId>),
@@ -302,4 +301,9 @@ impl<T: Fact> TestData<T> {
         getter.hash(state);
         test.hash(state);
     }
+}
+
+#[cfg(test)]
+mod tests {
+
 }
