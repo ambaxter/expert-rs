@@ -1,6 +1,4 @@
 #![feature(conservative_impl_trait)]
-#![feature(plugin)]
-#![plugin(interpolate_idents)]
 
 
 extern crate num;
@@ -178,8 +176,6 @@ enum BetaJoin {
     ALL(Vec<MemoryId>),
     //ANY(Vec<MemoryId>)
 }
-
-expert!(Knowledge; [Aspect]);
 
 fn main() {
     use expert::builder::KnowledgeBuilder;

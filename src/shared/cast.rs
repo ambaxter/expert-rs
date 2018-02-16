@@ -1,8 +1,54 @@
-use num::{NumCast, ToPrimitive};
+use num::{NumCast, Float, ToPrimitive};
 use ordered_float::NotNaN;
-use num::Float;
+use std::ops::Deref;
 
-pub trait ToNotNaNPrimitive : ToPrimitive {
+// Since I can't implement ToPrimitive for NotNaN, we need to unpack NotNaN (and everything else)
+pub trait UnpackPrimitive {
+    type Output: ToNNPrimitive;
+
+    fn unpack(&self) -> Self::Output;
+}
+
+macro_rules! impl_unpack_prim {
+    ($T:ty) => {
+        impl UnpackPrimitive for $T {
+            type Output = $T;
+
+            #[inline]
+            fn unpack(&self) -> Self::Output {
+                *self
+            }
+        }
+    }
+}
+
+macro_rules! impl_unpack_nnprim {
+    ($T:ty) => {
+        impl<T> UnpackPrimitive for $T
+            where T: Float + ToNNPrimitive {
+            type Output = T;
+
+            #[inline]
+            fn unpack(&self) -> Self::Output {
+                *self.deref()
+            }
+        }
+    }
+}
+
+impl_unpack_prim!(i8);
+impl_unpack_prim!(i16);
+impl_unpack_prim!(i32);
+impl_unpack_prim!(i64);
+impl_unpack_prim!(isize);
+impl_unpack_prim!(u8);
+impl_unpack_prim!(u16);
+impl_unpack_prim!(u32);
+impl_unpack_prim!(u64);
+impl_unpack_prim!(usize);
+impl_unpack_nnprim!(NotNaN<T>);
+
+pub trait ToNNPrimitive: ToPrimitive {
     #[inline]
     fn to_nn_f32(&self) -> Option<NotNaN<f32>> {
         self.to_f32().map(|f| f.into())
@@ -16,27 +62,27 @@ pub trait ToNotNaNPrimitive : ToPrimitive {
 
 
 /// An interface for casting between machine scalars.
-pub trait NotNaNCast: Sized + ToNotNaNPrimitive {
+pub trait NNCast: Sized + ToNNPrimitive {
     type Output;
     /// Creates a number from another value that can be converted into
     /// a primitive via the `ToPrimitive` trait.
-    fn from<T: ToNotNaNPrimitive>(n: T) -> Option<Self::Output>;
+    fn from<T: ToNNPrimitive>(n: T) -> Option<Self::Output>;
 }
 
 #[inline]
-pub fn cast<T: NotNaNCast, U: NotNaNCast>(n: T) -> Option<U::Output>  {
-    <U as NotNaNCast>::from(n)
+pub fn cast<T: ToNNPrimitive, U: NNCast>(n: T) -> Option<U::Output> {
+    <U as NNCast>::from(n)
 }
 
 macro_rules! impl_nn_cast {
     ($T:ty, $O:ty, $conv:ident) => (
-        impl ToNotNaNPrimitive for $T {}
+        impl ToNNPrimitive for $T {}
 
-        impl NotNaNCast for $T {
+        impl NNCast for $T {
             type Output = $O;
             #[inline]
             #[allow(deprecated)]
-            fn from<N: ToNotNaNPrimitive>(n: N) -> Option<Self::Output> {
+            fn from<N: ToNNPrimitive>(n: N) -> Option<Self::Output> {
                 // `$conv` could be generated using `concat_idents!`, but that
                 // macro seems to be broken at the moment
                 n.$conv()
@@ -57,3 +103,16 @@ impl_nn_cast!(i64, i64, to_i64);
 impl_nn_cast!(isize, isize, to_isize);
 impl_nn_cast!(f32, NotNaN<f32>, to_nn_f32);
 impl_nn_cast!(f64, NotNaN<f64>, to_nn_f64);
+
+
+#[cfg(test)]
+mod tests {
+
+    use ::shared::cast::{NNCast, cast};
+
+    #[test]
+    fn test() {
+        assert_eq!(Some(2u8), cast(2u16));
+    }
+
+}

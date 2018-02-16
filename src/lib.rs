@@ -1,6 +1,3 @@
-#![feature(plugin)]
-#![plugin(interpolate_idents)]
-
 #[macro_use]
 extern crate failure_derive;
 
@@ -36,6 +33,7 @@ pub use failure::Error;
 
 type Result<T> = std::result::Result<T, Error>;
 
+/*
 #[macro_export]
 macro_rules! expert {
     ($base:ident; [$($input_type:ident),+]) => {
@@ -82,3 +80,4 @@ macro_rules! expert {
         }
     }
 }
+*/
