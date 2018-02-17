@@ -16,6 +16,15 @@ pub enum SLimit<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + C
 }
 
 impl<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> SLimit<T, S> {
+
+    pub fn resolve(&self) -> T {
+        use self::SLimit::*;
+        match self {
+            &St(to) => to,
+            &Local(to) => unreachable!(),
+        }
+    }
+
     pub fn try_cast<I: Hash + Eq + Ord + Copy + Clone + NumCast>(self, from_type: &str, to_type: &str) -> Result<SLimit<I, S>, CompileError>
         where T: NumCast + ToString {
         use self::SLimit::*;
@@ -42,6 +51,15 @@ pub enum DLimit<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + C
 }
 
 impl<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> DLimit<T, S> {
+
+    pub fn resolve(&self) -> (T, T) {
+        use self::DLimit::*;
+        match self {
+            &St(from, to) => (from, to),
+            _ => unreachable!()
+        }
+    }
+
     pub fn try_cast<I: Hash + Eq + Ord + Copy + Clone + NumCast>(self, from_type: &str, to_type: &str) -> Result<DLimit<I, S>, CompileError>
         where T: NumCast + ToString, (T,T): ToString {
         use self::DLimit::*;
@@ -156,9 +174,22 @@ impl ArrayTest {
     }
 }
 
+pub trait TestValue<T> {
+    fn test_value(&self, val: &T) -> bool;
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BoolTest<S: Hash + Eq + Ord + Copy + Clone> {
     EQ(EqTest, SLimit<bool, S>)
+}
+
+impl<S: Hash + Eq + Ord + Copy + Clone> TestValue<bool> for BoolTest<S> {
+    fn test_value(&self, val: &bool) -> bool {
+        use self::BoolTest::*;
+        match self {
+            &EQ(ref test, ref limit) => test.test(val, &limit.resolve())
+        }
+    }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -250,7 +281,7 @@ pub enum TestData<T: Fact> {
 
 macro_rules! test_hash {
     ($($t:ident => $ord:expr),+ ) => {
-        impl<T:Fact>Hash for TestData<T> {
+        impl <T:Fact> Hash for TestData<T> {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::TestData::*;
                     match self {
@@ -306,4 +337,10 @@ impl<T: Fact> TestData<T> {
 #[cfg(test)]
 mod tests {
 
+    #[test]
+    pub fn bool_test() {
+        use shared::tests::{EqTest, SLimit, BoolTest, TestValue};
+        let t: BoolTest<&str> = BoolTest::EQ(EqTest::Ne, SLimit::St(true));
+        assert!(t.test_value(&false));
+    }
 }
