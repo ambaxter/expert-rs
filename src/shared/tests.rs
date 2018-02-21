@@ -300,11 +300,22 @@ impl<'a> TestRepr<'a> {
         }
     }
 
-    pub fn compile<T: Fact>(&self) -> Result<TestData<T>, CompileError> {
+    pub fn compile<T: Fact>(&self, cache: &mut StringCache) -> Result<TestData<T>, CompileError> {
         let getter = T::getter(self.field())
             .ok_or_else(|| CompileError::MissingGetter { getter: self.field().to_owned() })?;
         match (&getter, self) {
-            //(&Getters::BOOL(accessor), TestRepr::BOOL(_, ref test)) => Ok(TestData::Bool(accessor, test.com))
+            (&Getters::BOOL(accessor), &TestRepr::BOOL(_, ref test)) =>
+                Ok(TestData::BOOL(accessor, test.intern(cache))),
+            (&Getters::NUMBER(accessor), &TestRepr::NUMBER(_, ref test)) =>
+                Ok(TestData::NUMBER(accessor, test.intern(cache))),
+            (&Getters::STR(accessor), &TestRepr::STR(_, ref test)) =>
+                Ok(TestData::STR(accessor, test.intern(cache))),
+            (&Getters::TIME(accessor), &TestRepr::TIME(_, ref test)) =>
+                Ok(TestData::TIME(accessor, test.intern(cache))),
+            (&Getters::DATE(accessor), &TestRepr::DATE(_, ref test)) =>
+                Ok(TestData::DATE(accessor, test.intern(cache))),
+            (&Getters::DATETIME(accessor), &TestRepr::DATETIME(_, ref test)) =>
+                Ok(TestData::DATETIME(accessor, test.intern(cache))),
             _ => Err(CompileError::IncorrectGetter {
                 getter: self.field().to_owned(),
                 to: self.field_type().to_owned(),

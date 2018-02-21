@@ -15,6 +15,7 @@ extern crate ordered_float;
 
 extern crate float_cmp;
 
+#[macro_use]
 extern crate decimal;
 extern crate chrono;
 extern crate ord_subset;
