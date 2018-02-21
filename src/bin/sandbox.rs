@@ -177,6 +177,29 @@ enum BetaJoin {
     //ANY(Vec<MemoryId>)
 }
 
+#[derive(Debug, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
+pub struct ATestAspect {
+    test: String
+}
+
+impl expert::shared::fact::Introspect for ATestAspect {
+    fn static_type_id() -> TypeId {
+        TypeId::of::<Self>()
+    }
+}
+
+impl expert::shared::fact::Fact for ATestAspect {
+    type HashEq = ();
+
+    fn getter(field: &str) -> Option<expert::shared::fact::Getters<Self>> {
+        unimplemented!()
+    }
+
+    fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>> {
+        unimplemented!()
+    }
+}
+
 fn main() {
     use expert::builder::KnowledgeBuilder;
     use expert::builder::CData;
@@ -187,6 +210,8 @@ fn main() {
     println!("StrTest: {:?}", std::mem::size_of::<expert::network::node_cmp::StrTest<SymbolId>>());
     println!("FlTest: {:?}", std::mem::size_of::<expert::network::node_cmp::FlTest<NotNaN<f64>>>());
     println!("NumTest: {:?}", std::mem::size_of::<expert::network::node_cmp::NumTest<usize>>());
+
+    println!("New TestData: {:?}", std::mem::size_of::<expert::shared::tests::TestData<ATestAspect>>());
 
     let default = vec![false, true, false];
     let mut test_into = Vec::with_capacity(default.len());

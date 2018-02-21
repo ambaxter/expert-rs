@@ -15,6 +15,10 @@ extern crate ordered_float;
 
 extern crate float_cmp;
 
+extern crate decimal;
+extern crate chrono;
+extern crate ord_subset;
+
 #[macro_use]
 mod macros;
 

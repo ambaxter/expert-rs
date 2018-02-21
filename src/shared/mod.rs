@@ -1,2 +1,2 @@
-pub mod cast;
+pub mod fact;
 pub mod tests;

@@ -5,96 +5,101 @@ use num::cast;
 use ordered_float::NotNaN;
 use float_cmp::ApproxEqUlps;
 use runtime::memory::{StringCache, SymbolId};
-use traits::Fact;
+use ::shared::fact::{Getters, Fact};
 use errors::CompileError;
+use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
+use ord_subset::OrdVar;
+use decimal::d128;
+use std::fmt;
+use std::fmt::Debug;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum SLimit<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> {
+pub enum SLimit<T, S> {
     St(T),
     Local(S),
-    //Global(S),
 }
 
-impl<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> SLimit<T, S> {
+impl<T, S> SLimit<T, S>
+    where S: Clone + Into<String> + AsRef<str>, T: Clone {
 
-    pub fn resolve(&self) -> T {
+    pub fn intern(&self, cache: &mut StringCache) -> SLimit<T, SymbolId> {
         use self::SLimit::*;
         match self {
-            &St(to) => to,
-            &Local(to) => unreachable!(),
+            &St(ref t) => St(t.clone()),
+            &Local(ref s) => Local(cache.get_or_intern(s.clone()))
         }
     }
+}
 
-    pub fn try_cast<I: Hash + Eq + Ord + Copy + Clone + NumCast>(self, from_type: &str, to_type: &str) -> Result<SLimit<I, S>, CompileError>
-        where T: NumCast + ToString {
+impl<S> SLimit<S, S>
+    where S: Clone + Into<String> + AsRef<str> {
+
+    pub fn intern_all(&self, cache: &mut StringCache) -> SLimit<SymbolId, SymbolId> {
         use self::SLimit::*;
         match self {
-            St(t) => cast::cast(t)
-                .map(|i| SLimit::St(i))
-                .ok_or_else(|| CompileError::BadCast{var: t.to_string(), from: from_type.into(), to: to_type.into()}),
-            Local(s) => Ok(SLimit::Local(s))
+            &St(ref t) => St(cache.get_or_intern(t.clone())),
+            &Local(ref s) => Local(cache.get_or_intern(s.clone()))
         }
     }
+}
+
+
+pub trait STest<T: ?Sized>{
+    fn test(&self, val: &T, to: &T) -> bool;
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum DLimit<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> {
+pub enum DLimit<T, S> {
     St(T, T),
     StLocal(T, S),
-    //StGlobal(T, S),
     LocalSt(S, T),
-    //GlobalSt(S, T),
     Local(S, S),
-    //LocalGlobal(S, S),
-    //GlobalLocal(S, S),
-    //Global(S, S),
 }
 
-impl<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> DLimit<T, S> {
+impl<T, S> DLimit<T, S>
+    where S: Clone + Into<String> + AsRef<str>, T: Clone {
 
-    pub fn resolve(&self) -> (T, T) {
+    pub fn intern(&self, cache: &mut StringCache) -> DLimit<T, SymbolId> {
         use self::DLimit::*;
         match self {
-            &St(from, to) => (from, to),
-            _ => unreachable!()
+            &St(ref t1, ref t2) => St(t1.clone(), t2.clone()),
+            &StLocal(ref t, ref s) => StLocal(t.clone(), cache.get_or_intern(s.clone())),
+            &LocalSt(ref s, ref t) => LocalSt(cache.get_or_intern(s.clone()), t.clone()),
+            &Local(ref s1, ref s2) => Local(cache.get_or_intern(s1.clone()), cache.get_or_intern(s2.clone())),
         }
     }
+}
 
-    pub fn try_cast<I: Hash + Eq + Ord + Copy + Clone + NumCast>(self, from_type: &str, to_type: &str) -> Result<DLimit<I, S>, CompileError>
-        where T: NumCast + ToString, (T,T): ToString {
+impl<S> DLimit<S, S>
+    where S: Clone + Into<String> + AsRef<str> {
+
+    pub fn intern_all(&self, cache: &mut StringCache) -> DLimit<SymbolId, SymbolId> {
         use self::DLimit::*;
         match self {
-            St(from, to) => {
-                cast::cast(from)
-                    .and_then(|from_i| cast::cast(to).map(|to_i| DLimit::St(from_i, to_i)))
-                    .ok_or_else(|| CompileError::BadCast{var: (from, to).to_string(), from: from_type.into(), to: to_type.into()})
-            },
-            StLocal(from, to) => {
-                cast::cast(from)
-                    .map(|from_i| DLimit::StLocal(from_i, to))
-                    .ok_or_else(|| CompileError::BadCast{var: from.to_string(), from: from_type.into(), to: to_type.into()})
-            },
-            LocalSt(from, to) => {
-                cast::cast(to)
-                    .map(|to_i| DLimit::LocalSt(from, to_i))
-                    .ok_or_else(|| CompileError::BadCast{var: to.to_string(), from: from_type.into(), to: to_type.into()})
-            }
-            Local(from, to) => Ok(DLimit::Local(from, to))
+            &St(ref t1, ref t2) => St(cache.get_or_intern(t1.clone()), cache.get_or_intern(t2.clone())),
+            &StLocal(ref t, ref s) => StLocal(cache.get_or_intern(t.clone()), cache.get_or_intern(s.clone())),
+            &LocalSt(ref s, ref t) => LocalSt(cache.get_or_intern(s.clone()), cache.get_or_intern(t.clone())),
+            &Local(ref s1, ref s2) => Local(cache.get_or_intern(s1.clone()), cache.get_or_intern(s2.clone())),
         }
     }
+}
+
+pub trait DTest<T: ?Sized>{
+    fn test(&self, val: &T, from: &T, to: &T) -> bool;
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum PartialOrdTest {
+pub enum OrdTest {
     Lt,
     Le,
     Gt,
     Ge,
 }
 
-impl PartialOrdTest {
-    pub fn test<T: PartialOrd + ?Sized>(&self, val: &T, to: &T) -> bool {
-        use self::PartialOrdTest::*;
+impl<T> STest<T> for OrdTest
+    where T: Ord + ?Sized{
+    fn test(&self, val: &T, to: &T) -> bool {
+        use self::OrdTest::*;
         match self {
             &Lt => val < to,
             &Le => val <= to,
@@ -112,26 +117,15 @@ pub enum BetweenTest {
     GeLe
 }
 
-impl BetweenTest {
-    pub fn test<T: PartialOrd + ?Sized>(&self, val: &T, from: &T, to: &T) -> bool {
-        use self::BetweenTest::*;
-        match self {
-            &GtLt => val > from && val < to,
-            &GeLt => val >= from && val < to,
-            &GtLe => val > from && val <= to,
-            &GeLe => val >= from && val <= to,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum EqTest {
     Eq,
     Ne
 }
 
-impl EqTest {
-    pub fn test<T: Eq + ?Sized>(&self, val: &T, to: &T) -> bool {
+impl<T> STest<T> for EqTest
+    where T: Eq + ?Sized {
+    fn test(&self, val: &T, to: &T) -> bool {
         use self::EqTest::*;
         match self {
             &Eq => val == to,
@@ -141,142 +135,201 @@ impl EqTest {
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum ApproxEqTest {
-    ApproxEq,
-    ApproxNe,
-}
-
-impl ApproxEqTest {
-    pub fn test<T: Float>(&self, val: &T, to: &T) -> bool {
-        use self::ApproxEqTest::*;
-        match self {
-            &ApproxEq => val.to_f64().unwrap().approx_eq_ulps(&to.to_f64().unwrap(), 2),
-            &ApproxNe => val.to_f64().unwrap().approx_ne_ulps(&to.to_f64().unwrap(), 2),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum ArrayTest {
+pub enum StrArrayTest {
     Contains,
     StartsWith,
     EndsWith
 }
 
-impl ArrayTest {
-    pub fn test(&self, val: &str, to: &str) -> bool {
-        use self::ArrayTest::*;
+impl<T> STest<T> for StrArrayTest
+    where T: AsRef<str> + ?Sized {
+    fn test(&self, val: &T, to: &T) -> bool {
+        use self::StrArrayTest::*;
         match self {
-            &Contains => val.contains(to),
-            &StartsWith => val.starts_with(to),
-            &EndsWith => val.ends_with(to)
+            &Contains => val.as_ref().contains(to.as_ref()),
+            &StartsWith => val.as_ref().starts_with(to.as_ref()),
+            &EndsWith => val.as_ref().ends_with(to.as_ref())
         }
     }
 }
 
-pub trait TestValue<T> {
-    fn test_value(&self, val: &T) -> bool;
-}
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum BoolTest<S: Hash + Eq + Ord + Copy + Clone> {
+pub enum BoolTest<S> {
     EQ(EqTest, SLimit<bool, S>)
 }
 
-impl<S: Hash + Eq + Ord + Copy + Clone> TestValue<bool> for BoolTest<S> {
-    fn test_value(&self, val: &bool) -> bool {
+impl<S> BoolTest<S>
+    where S: Clone + Into<String> + AsRef<str> {
+    pub fn intern(&self, cache: &mut StringCache) -> BoolTest<SymbolId> {
         use self::BoolTest::*;
         match self {
-            &EQ(ref test, ref limit) => test.test(val, &limit.resolve())
+            &EQ(test, ref limit) => EQ(test, limit.intern(cache))
         }
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum IntTest<T: Integer + Hash + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> {
-    ORD(PartialOrdTest, SLimit<T, S>),
-    BTWN(BetweenTest, DLimit<T, S>),
-    EQ(EqTest, SLimit<T, S>)
+pub enum NumberTest<S> {
+    ORD(OrdTest, SLimit<OrdVar<d128>, S>),
+    BTWN(BetweenTest, DLimit<OrdVar<d128>, S>),
+    EQ(EqTest, SLimit<OrdVar<d128>, S>)
+}
+
+impl<S> NumberTest<S>
+    where S: Clone + Into<String> + AsRef<str> {
+    pub fn intern(&self, cache: &mut StringCache) -> NumberTest<SymbolId> {
+        use self::NumberTest::*;
+        match self {
+            &ORD(test, ref limit) => ORD(test, limit.intern(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.intern(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.intern(cache)),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum FlTest<T: Hash + Eq + Ord + Copy + Clone, S: Hash + Eq + Ord + Copy + Clone> {
-    ORD(PartialOrdTest, SLimit<T, S>),
-    BTWN(BetweenTest, DLimit<T, S>),
-    APPROXEQ(ApproxEqTest, SLimit<T, S>)
-}
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum StrTest<S: Hash + Eq + Ord + Copy + Clone> {
-    ORD(PartialOrdTest, SLimit<S, S>),
+pub enum StrTest<S> {
+    ORD(OrdTest, SLimit<S, S>),
     BTWN(BetweenTest, DLimit<S, S>),
     EQ(EqTest, SLimit<S, S>),
-    ARRAY(ArrayTest, SLimit<S, S>)
+    StrArrayTest(StrArrayTest, SLimit<S, S>)
+}
+
+impl<S> StrTest<S>
+    where S: Clone + Into<String> + AsRef<str> {
+    pub fn intern(&self, cache: &mut StringCache) -> StrTest<SymbolId> {
+        use self::StrTest::*;
+        match self {
+            &ORD(test, ref limit) => ORD(test, limit.intern_all(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.intern_all(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.intern_all(cache)),
+            &StrArrayTest(test, ref limit) => StrArrayTest(test, limit.intern_all(cache)),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum TimeTest<S> {
+    ORD(OrdTest, SLimit<NaiveTime, S>),
+    BTWN(BetweenTest, DLimit<NaiveTime, S>),
+    EQ(EqTest, SLimit<NaiveTime, S>)
+}
+
+impl<S> TimeTest<S>
+    where S: Clone + Into<String> + AsRef<str> {
+    pub fn intern(&self, cache: &mut StringCache) -> TimeTest<SymbolId> {
+        use self::TimeTest::*;
+        match self {
+            &ORD(test, ref limit) => ORD(test, limit.intern(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.intern(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.intern(cache)),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum DateTest<S> {
+    ORD(OrdTest, SLimit<Date<Utc>, S>),
+    BTWN(BetweenTest, DLimit<Date<Utc>, S>),
+    EQ(EqTest, SLimit<Date<Utc>, S>)
+}
+
+impl<S> DateTest<S>
+    where S: Clone + Into<String> + AsRef<str> {
+    pub fn intern(&self, cache: &mut StringCache) -> DateTest<SymbolId> {
+        use self::DateTest::*;
+        match self {
+            &ORD(test, ref limit) => ORD(test, limit.intern(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.intern(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.intern(cache)),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum DateTimeTest<S> {
+    ORD(OrdTest, SLimit<DateTime<Utc>, S>),
+    BTWN(BetweenTest, DLimit<DateTime<Utc>, S>),
+    EQ(EqTest, SLimit<DateTime<Utc>, S>)
+}
+
+impl<S> DateTimeTest<S>
+    where S: Clone + Into<String> + AsRef<str> {
+    pub fn intern(&self, cache: &mut StringCache) -> DateTimeTest<SymbolId> {
+        use self::DateTimeTest::*;
+        match self {
+            &ORD(test, ref limit) => ORD(test, limit.intern(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.intern(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.intern(cache)),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TestRepr<'a> {
     BOOL(&'a str, BoolTest<&'a str>),
-    I8(&'a str, IntTest<i8, &'a str>),
-    I16(&'a str, IntTest<i16, &'a str>),
-    I32(&'a str, IntTest<i32, &'a str>),
-    I64(&'a str, IntTest<i64, &'a str>),
-    U8(&'a str, IntTest<u8, &'a str>),
-    U16(&'a str, IntTest<u16, &'a str>),
-    U32(&'a str, IntTest<u32, &'a str>),
-    U64(&'a str, IntTest<u64, &'a str>),
-    ISIZE(&'a str, IntTest<isize, &'a str>),
-    USIZE(&'a str, IntTest<usize, &'a str>),
-    F32(&'a str, FlTest<NotNaN<f32>, &'a str>),
-    F64(&'a str, FlTest<NotNaN<f64>, &'a str>),
+    NUMBER(&'a str, NumberTest<&'a str>),
     STR(&'a str, StrTest<&'a str>),
+    TIME(&'a str, TimeTest<&'a str>),
+    DATE(&'a str, DateTest<&'a str>),
+    DATETIME(&'a str, DateTimeTest<&'a str>),
 }
 
 impl<'a> TestRepr<'a> {
-
     pub fn field(&self) -> &str {
         use self::TestRepr::*;
         match self {
             &BOOL(field, _) => field,
-            &I8(field, _) => field,
-            &I16(field, _) => field,
-            &I32(field, _) => field,
-            &I64(field, _) => field,
-            &U8(field, _) => field,
-            &U16(field, _) => field,
-            &U32(field, _) => field,
-            &U64(field, _) => field,
-            &ISIZE(field, _) => field,
-            &USIZE(field, _) => field,
-            &F32(field, _) => field,
-            &F64(field, _) => field,
+            &NUMBER(field, _) => field,
             &STR(field, _) => field,
+            &TIME(field, _) => field,
+            &DATE(field, _) => field,
+            &DATETIME(field, _) => field,
         }
     }
-/*
-    pub fn intern<T: Fact>(&self, cache: &mut StringCache) -> Result<TestData<T>, CompileError> {
+
+    pub fn field_type(&self) -> &'static str {
+        use self::TestRepr::*;
+        match self {
+            &BOOL(..) => "BOOL",
+            &NUMBER(..) => "NUMBER",
+            &STR(..) => "STR",
+            &TIME(..) => "TIME",
+            &DATE(..) => "DATE",
+            &DATETIME(..) => "DATETIME",
+        }
+    }
+
+    pub fn compile<T: Fact>(&self) -> Result<TestData<T>, CompileError> {
         let getter = T::getter(self.field())
-            .ok_or_else(|| CompileError::MissingGetter {getter: self.field().to_owned()})?;
-
-    }*/
-
+            .ok_or_else(|| CompileError::MissingGetter { getter: self.field().to_owned() })?;
+        match (&getter, self) {
+            //(&Getters::BOOL(accessor), TestRepr::BOOL(_, ref test)) => Ok(TestData::Bool(accessor, test.com))
+            _ => Err(CompileError::IncorrectGetter {
+                getter: self.field().to_owned(),
+                to: self.field_type().to_owned(),
+                from: format!("{:?}", getter),
+            }),
+        }
+    }
 }
 
+#[derive(Copy, Clone)]
 pub enum TestData<T: Fact> {
     BOOL(fn(&T) -> &bool, BoolTest<SymbolId>),
-    I8(fn(&T) -> &i8, IntTest<i8, SymbolId>),
-    I16(fn(&T) -> &i16, IntTest<i16, SymbolId>),
-    I32(fn(&T) -> &i32, IntTest<i32, SymbolId>),
-    I64(fn(&T) -> &i64, IntTest<i64, SymbolId>),
-    U8(fn(&T) -> &u8, IntTest<u8, SymbolId>),
-    U16(fn(&T) -> &u16, IntTest<u16, SymbolId>),
-    U32(fn(&T) -> &u32, IntTest<u32, SymbolId>),
-    U64(fn(&T) -> &u64, IntTest<u64, SymbolId>),
-    ISIZE(fn(&T) -> &isize, IntTest<isize, SymbolId>),
-    USIZE(fn(&T) -> &usize, IntTest<usize, SymbolId>),
-    F32(fn(&T) -> &f32, FlTest<NotNaN<f32>, SymbolId>),
-    F64(fn(&T) -> &f64, FlTest<NotNaN<f64>, SymbolId>),
+    NUMBER(fn(&T) -> &OrdVar<d128>, NumberTest<SymbolId>),
     STR(fn(&T) -> &str, StrTest<SymbolId>),
+    TIME(fn(&T) -> &NaiveTime, TimeTest<SymbolId>),
+    DATE(fn(&T) -> &Date<Utc>, DateTest<SymbolId>),
+    DATETIME(fn(&T) -> &DateTime<Utc>, DateTimeTest<SymbolId>),
+}
+
+impl<T: Fact> TestData<T> {
+    fn hash_self<H: Hasher, K: Hash>(ord: usize, getter: usize, test: &K, state: &mut H) {
+        ord.hash(state);
+        getter.hash(state);
+        test.hash(state);
+    }
 }
 
 macro_rules! test_hash {
@@ -293,14 +346,10 @@ macro_rules! test_hash {
     };
 }
 
-
-test_hash!(BOOL => 0,
-    I8 => 1, I16 => 2, I32 => 3, I64 => 4,
-    U8 => 5, U16 => 6, U32 => 7, U64 => 8,
-    ISIZE => 9, USIZE => 10,
-    F32 => 11, F64 => 12,
-    STR => 13
-);
+test_hash!(
+        BOOL => 0, NUMBER => 1, STR => 2, TIME => 3,
+        DATE => 4, DATETIME => 5
+    );
 
 macro_rules! test_eq {
     ($($t:ident),+ ) => {
@@ -318,21 +367,33 @@ macro_rules! test_eq {
     };
 }
 
-test_eq!(BOOL,
-    I8, I16, I32, I64,
-    U8, U16, U32, U64,
-    F32, F64,
-    STR);
+test_eq!(BOOL, NUMBER, STR, TIME, DATE, DATETIME);
 
 impl<T: Fact> Eq for TestData<T> {}
 
-impl<T: Fact> TestData<T> {
-    fn hash_self<H: Hasher, K: Hash>(ord: usize, getter: usize, test: &K, state: &mut H) {
-        ord.hash(state);
-        getter.hash(state);
-        test.hash(state);
+
+impl<I: Fact> Debug for TestData<I> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::TestData::*;
+        write!(f, "Getters(")?;
+        match self {
+            &BOOL(accessor, test) => write!(f, "BOOL({:#x}) - {:?}", accessor as usize, test)?,
+            &NUMBER(accessor, test) => write!(f, "NUMBER({:#x}) - {:?}", accessor as usize, test)?,
+            &STR(accessor, test) => write!(f, "STR({:#x}) - {:?}", accessor as usize, test)?,
+            &TIME(accessor, test) => write!(f, "TIME({:#x}) - {:?}", accessor as usize, test)?,
+            &DATE(accessor, test) => write!(f, "DATE({:#x}) - {:?}", accessor as usize, test)?,
+            &DATETIME(accessor, test) => write!(f, "DATETIME({:#x}) - {:?}", accessor as usize, test)?,
+            _ => {}
+        }
+        write!(f, ")")
     }
 }
+
+/*
+
+
+
+
 
 #[cfg(test)]
 mod tests {
@@ -343,4 +404,4 @@ mod tests {
         let t: BoolTest<&str> = BoolTest::EQ(EqTest::Ne, SLimit::St(true));
         assert!(t.test_value(&false));
     }
-}
+}*/

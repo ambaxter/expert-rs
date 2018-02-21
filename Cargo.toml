@@ -1,6 +1,6 @@
 [package]
 name = "expert"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Adam Baxter <ambaxter@users.noreply.github.com>"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
@@ -20,3 +20,6 @@ float-cmp = "0.3"
 parking_lot = {version = "0.4", features = ["nightly"]}
 failure = "0.1"
 failure_derive = "0.1"
+decimal = "^2"
+chrono = "0.4"
+ord_subset = "^3"
