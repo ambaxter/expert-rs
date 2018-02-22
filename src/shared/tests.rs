@@ -13,16 +13,29 @@ use decimal::d128;
 use std::fmt;
 use std::fmt::Debug;
 
+pub trait StringIntern {
+    type Output;
+
+    fn string_intern(&self, u: &mut StringCache) -> Self::Output;
+}
+
+pub trait StringInternAll {
+    type Output;
+
+    fn string_intern_all(&self, u: &mut StringCache) -> Self::Output;
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum SLimit<T, S> {
     St(T),
     Local(S),
 }
 
-impl<T, S> SLimit<T, S>
+impl<T, S> StringIntern for SLimit<T, S>
     where S: Clone + Into<String> + AsRef<str>, T: Clone {
+    type Output = SLimit<T, SymbolId>;
 
-    pub fn intern(&self, cache: &mut StringCache) -> SLimit<T, SymbolId> {
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::SLimit::*;
         match self {
             &St(ref t) => St(t.clone()),
@@ -31,10 +44,11 @@ impl<T, S> SLimit<T, S>
     }
 }
 
-impl<S> SLimit<S, S>
+impl<S> StringInternAll for SLimit<S, S>
     where S: Clone + Into<String> + AsRef<str> {
+    type Output = SLimit<SymbolId, SymbolId>;
 
-    pub fn intern_all(&self, cache: &mut StringCache) -> SLimit<SymbolId, SymbolId> {
+    fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output {
         use self::SLimit::*;
         match self {
             &St(ref t) => St(cache.get_or_intern(t.clone())),
@@ -56,10 +70,11 @@ pub enum DLimit<T, S> {
     Local(S, S),
 }
 
-impl<T, S> DLimit<T, S>
+impl<T, S> StringIntern for DLimit<T, S>
     where S: Clone + Into<String> + AsRef<str>, T: Clone {
+    type Output = DLimit<T, SymbolId>;
 
-    pub fn intern(&self, cache: &mut StringCache) -> DLimit<T, SymbolId> {
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DLimit::*;
         match self {
             &St(ref t1, ref t2) => St(t1.clone(), t2.clone()),
@@ -70,10 +85,11 @@ impl<T, S> DLimit<T, S>
     }
 }
 
-impl<S> DLimit<S, S>
+impl<S> StringInternAll for DLimit<S, S>
     where S: Clone + Into<String> + AsRef<str> {
+    type Output = DLimit<SymbolId, SymbolId>;
 
-    pub fn intern_all(&self, cache: &mut StringCache) -> DLimit<SymbolId, SymbolId> {
+    fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output {
         use self::DLimit::*;
         match self {
             &St(ref t1, ref t2) => St(cache.get_or_intern(t1.clone()), cache.get_or_intern(t2.clone())),
@@ -158,12 +174,14 @@ pub enum BoolTest<S> {
     EQ(EqTest, SLimit<bool, S>)
 }
 
-impl<S> BoolTest<S>
+impl<S> StringIntern for BoolTest<S>
     where S: Clone + Into<String> + AsRef<str> {
-    pub fn intern(&self, cache: &mut StringCache) -> BoolTest<SymbolId> {
+    type Output = BoolTest<SymbolId>;
+
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::BoolTest::*;
         match self {
-            &EQ(test, ref limit) => EQ(test, limit.intern(cache))
+            &EQ(test, ref limit) => EQ(test, limit.string_intern(cache))
         }
     }
 }
@@ -175,14 +193,16 @@ pub enum NumberTest<S> {
     EQ(EqTest, SLimit<OrdVar<d128>, S>)
 }
 
-impl<S> NumberTest<S>
+impl<S> StringIntern for NumberTest<S>
     where S: Clone + Into<String> + AsRef<str> {
-    pub fn intern(&self, cache: &mut StringCache) -> NumberTest<SymbolId> {
+    type Output = NumberTest<SymbolId>;
+
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::NumberTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.intern(cache)),
-            &BTWN(test, ref limit) => BTWN(test, limit.intern(cache)),
-            &EQ(test, ref limit) => EQ(test, limit.intern(cache)),
+            &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.string_intern(cache)),
         }
     }
 }
@@ -195,15 +215,17 @@ pub enum StrTest<S> {
     StrArrayTest(StrArrayTest, SLimit<S, S>)
 }
 
-impl<S> StrTest<S>
+impl<S> StringIntern for StrTest<S>
     where S: Clone + Into<String> + AsRef<str> {
-    pub fn intern(&self, cache: &mut StringCache) -> StrTest<SymbolId> {
+    type Output = StrTest<SymbolId>;
+
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::StrTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.intern_all(cache)),
-            &BTWN(test, ref limit) => BTWN(test, limit.intern_all(cache)),
-            &EQ(test, ref limit) => EQ(test, limit.intern_all(cache)),
-            &StrArrayTest(test, ref limit) => StrArrayTest(test, limit.intern_all(cache)),
+            &ORD(test, ref limit) => ORD(test, limit.string_intern_all(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.string_intern_all(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.string_intern_all(cache)),
+            &StrArrayTest(test, ref limit) => StrArrayTest(test, limit.string_intern_all(cache)),
         }
     }
 }
@@ -215,14 +237,16 @@ pub enum TimeTest<S> {
     EQ(EqTest, SLimit<NaiveTime, S>)
 }
 
-impl<S> TimeTest<S>
+impl<S> StringIntern for TimeTest<S>
     where S: Clone + Into<String> + AsRef<str> {
-    pub fn intern(&self, cache: &mut StringCache) -> TimeTest<SymbolId> {
+    type Output = TimeTest<SymbolId>;
+
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::TimeTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.intern(cache)),
-            &BTWN(test, ref limit) => BTWN(test, limit.intern(cache)),
-            &EQ(test, ref limit) => EQ(test, limit.intern(cache)),
+            &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.string_intern(cache)),
         }
     }
 }
@@ -234,14 +258,16 @@ pub enum DateTest<S> {
     EQ(EqTest, SLimit<Date<Utc>, S>)
 }
 
-impl<S> DateTest<S>
+impl<S> StringIntern for DateTest<S>
     where S: Clone + Into<String> + AsRef<str> {
-    pub fn intern(&self, cache: &mut StringCache) -> DateTest<SymbolId> {
+    type Output = DateTest<SymbolId>;
+
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.intern(cache)),
-            &BTWN(test, ref limit) => BTWN(test, limit.intern(cache)),
-            &EQ(test, ref limit) => EQ(test, limit.intern(cache)),
+            &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.string_intern(cache)),
         }
     }
 }
@@ -253,14 +279,16 @@ pub enum DateTimeTest<S> {
     EQ(EqTest, SLimit<DateTime<Utc>, S>)
 }
 
-impl<S> DateTimeTest<S>
+impl<S> StringIntern for  DateTimeTest<S>
     where S: Clone + Into<String> + AsRef<str> {
-    pub fn intern(&self, cache: &mut StringCache) -> DateTimeTest<SymbolId> {
+    type Output = DateTimeTest<SymbolId>;
+
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTimeTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.intern(cache)),
-            &BTWN(test, ref limit) => BTWN(test, limit.intern(cache)),
-            &EQ(test, ref limit) => EQ(test, limit.intern(cache)),
+            &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
+            &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
+            &EQ(test, ref limit) => EQ(test, limit.string_intern(cache)),
         }
     }
 }
@@ -305,17 +333,17 @@ impl<'a> TestRepr<'a> {
             .ok_or_else(|| CompileError::MissingGetter { getter: self.field().to_owned() })?;
         match (&getter, self) {
             (&Getters::BOOL(accessor), &TestRepr::BOOL(_, ref test)) =>
-                Ok(TestData::BOOL(accessor, test.intern(cache))),
+                Ok(TestData::BOOL(accessor, test.string_intern(cache))),
             (&Getters::NUMBER(accessor), &TestRepr::NUMBER(_, ref test)) =>
-                Ok(TestData::NUMBER(accessor, test.intern(cache))),
+                Ok(TestData::NUMBER(accessor, test.string_intern(cache))),
             (&Getters::STR(accessor), &TestRepr::STR(_, ref test)) =>
-                Ok(TestData::STR(accessor, test.intern(cache))),
+                Ok(TestData::STR(accessor, test.string_intern(cache))),
             (&Getters::TIME(accessor), &TestRepr::TIME(_, ref test)) =>
-                Ok(TestData::TIME(accessor, test.intern(cache))),
+                Ok(TestData::TIME(accessor, test.string_intern(cache))),
             (&Getters::DATE(accessor), &TestRepr::DATE(_, ref test)) =>
-                Ok(TestData::DATE(accessor, test.intern(cache))),
+                Ok(TestData::DATE(accessor, test.string_intern(cache))),
             (&Getters::DATETIME(accessor), &TestRepr::DATETIME(_, ref test)) =>
-                Ok(TestData::DATETIME(accessor, test.intern(cache))),
+                Ok(TestData::DATETIME(accessor, test.string_intern(cache))),
             _ => Err(CompileError::IncorrectGetter {
                 getter: self.field().to_owned(),
                 to: self.field_type().to_owned(),
@@ -400,19 +428,12 @@ impl<I: Fact> Debug for TestData<I> {
     }
 }
 
-/*
-
-
-
-
-
 #[cfg(test)]
 mod tests {
 
     #[test]
-    pub fn bool_test() {
-        use shared::tests::{EqTest, SLimit, BoolTest, TestValue};
-        let t: BoolTest<&str> = BoolTest::EQ(EqTest::Ne, SLimit::St(true));
-        assert!(t.test_value(&false));
+    pub fn str_test() {
+        use shared::tests::SLimit;
+        let s: SLimit<&'static str, &'static str> = SLimit::St("Test");
     }
-}*/
+}
