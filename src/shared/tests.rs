@@ -13,6 +13,16 @@ use decimal::d128;
 use std::fmt;
 use std::fmt::Debug;
 
+pub trait IsHashEq {
+    fn is_hash_eq(&self) -> bool;
+}
+
+pub trait CloneHashEq {
+    type Output;
+
+    fn clone_hash_eq(&self) -> Self::Output;
+}
+
 pub trait StringIntern {
     type Output;
 
@@ -29,6 +39,29 @@ pub trait StringInternAll {
 pub enum SLimit<T, S> {
     St(T),
     Local(S),
+}
+
+impl<T, S> CloneHashEq for SLimit<T, S>
+    where T: Clone {
+    type Output = T;
+
+    fn clone_hash_eq(&self) -> Self::Output {
+        use self::SLimit::*;
+        match self {
+            &St(ref t) => t.clone(),
+            &Local(ref s) => unreachable!("clone_hash_eq on a local variable")
+        }
+    }
+}
+
+impl<T, S> IsHashEq for SLimit<T, S> {
+    fn is_hash_eq(&self) -> bool {
+        use self::SLimit::*;
+        match self {
+            &St(_) => true,
+            &Local(_) => false,
+        }
+    }
 }
 
 impl<T, S> StringIntern for SLimit<T, S>
@@ -56,7 +89,6 @@ impl<S> StringInternAll for SLimit<S, S>
         }
     }
 }
-
 
 pub trait STest<T: ?Sized>{
     fn test(&self, val: &T, to: &T) -> bool;
@@ -150,6 +182,16 @@ impl<T> STest<T> for EqTest
     }
 }
 
+impl IsHashEq for EqTest {
+    fn is_hash_eq(&self) -> bool {
+        use self::EqTest::*;
+        match self {
+            &Eq => true,
+            &Ne => false,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum StrArrayTest {
     Contains,
@@ -186,6 +228,27 @@ impl<S> StringIntern for BoolTest<S>
     }
 }
 
+impl<S> IsHashEq for BoolTest<S> {
+    fn is_hash_eq(&self) -> bool {
+        use self::BoolTest::*;
+        match self {
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq()
+        }
+    }
+}
+
+
+impl<S> CloneHashEq for BoolTest<S> {
+    type Output = bool;
+
+    fn clone_hash_eq(&self) -> Self::Output {
+        use self::BoolTest::*;
+        match self {
+            &EQ(_, ref limit) => limit.clone_hash_eq(),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum NumberTest<S> {
     ORD(OrdTest, SLimit<OrdVar<d128>, S>),
@@ -203,6 +266,28 @@ impl<S> StringIntern for NumberTest<S>
             &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
             &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
             &EQ(test, ref limit) => EQ(test, limit.string_intern(cache)),
+        }
+    }
+}
+
+impl<S> IsHashEq for NumberTest<S> {
+    fn is_hash_eq(&self) -> bool {
+        use self::NumberTest::*;
+        match self {
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            _ => false
+        }
+    }
+}
+
+impl<S> CloneHashEq for NumberTest<S> {
+    type Output = OrdVar<d128>;
+
+    fn clone_hash_eq(&self) -> Self::Output {
+        use self::NumberTest::*;
+        match self {
+            &EQ(_, ref limit) => limit.clone_hash_eq(),
+            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
         }
     }
 }
@@ -230,6 +315,29 @@ impl<S> StringIntern for StrTest<S>
     }
 }
 
+impl<S> IsHashEq for StrTest<S> {
+    fn is_hash_eq(&self) -> bool {
+        use self::StrTest::*;
+        match self {
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            _ => false
+        }
+    }
+}
+
+impl<S> CloneHashEq for StrTest<S>
+    where S: Clone {
+    type Output = S;
+
+    fn clone_hash_eq(&self) -> Self::Output {
+        use self::StrTest::*;
+        match self {
+            &EQ(_, ref limit) => limit.clone_hash_eq(),
+            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TimeTest<S> {
     ORD(OrdTest, SLimit<NaiveTime, S>),
@@ -247,6 +355,28 @@ impl<S> StringIntern for TimeTest<S>
             &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
             &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
             &EQ(test, ref limit) => EQ(test, limit.string_intern(cache)),
+        }
+    }
+}
+
+impl<S> IsHashEq for TimeTest<S> {
+    fn is_hash_eq(&self) -> bool {
+        use self::TimeTest::*;
+        match self {
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            _ => false
+        }
+    }
+}
+
+impl<S> CloneHashEq for TimeTest<S> {
+    type Output = NaiveTime;
+
+    fn clone_hash_eq(&self) -> Self::Output {
+        use self::TimeTest::*;
+        match self {
+            &EQ(_, ref limit) => limit.clone_hash_eq(),
+            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
         }
     }
 }
@@ -272,6 +402,28 @@ impl<S> StringIntern for DateTest<S>
     }
 }
 
+impl<S> IsHashEq for DateTest<S> {
+    fn is_hash_eq(&self) -> bool {
+        use self::DateTest::*;
+        match self {
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            _ => false
+        }
+    }
+}
+
+impl<S> CloneHashEq for DateTest<S> {
+    type Output = Date<Utc>;
+
+    fn clone_hash_eq(&self) -> Self::Output {
+        use self::DateTest::*;
+        match self {
+            &EQ(_, ref limit) => limit.clone_hash_eq(),
+            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTimeTest<S> {
     ORD(OrdTest, SLimit<DateTime<Utc>, S>),
@@ -292,6 +444,29 @@ impl<S> StringIntern for  DateTimeTest<S>
         }
     }
 }
+
+impl<S> IsHashEq for DateTimeTest<S> {
+    fn is_hash_eq(&self) -> bool {
+        use self::DateTimeTest::*;
+        match self {
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            _ => false
+        }
+    }
+}
+
+impl<S> CloneHashEq for DateTimeTest<S> {
+    type Output = DateTime<Utc>;
+
+    fn clone_hash_eq(&self) -> Self::Output {
+        use self::DateTimeTest::*;
+        match self {
+            &EQ(_, ref limit) => limit.clone_hash_eq(),
+            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
+        }
+    }
+}
+
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TestRepr<'a> {
