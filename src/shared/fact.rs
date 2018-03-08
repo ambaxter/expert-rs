@@ -6,7 +6,7 @@ use std::any::TypeId;
 use ord_subset::OrdVar;
 use decimal::d128;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
-use ::runtime::memory::StringCache;
+use ::runtime::memory::{StringCache, SymbolId};
 
 pub trait Introspect {
     fn static_type_id() -> TypeId;
@@ -38,6 +38,16 @@ impl<I: Fact> Debug for Getters<I> {
         write!(f, ")")
     }
 }
+
+pub enum HashEqField {
+    BOOL(usize, bool),
+    NUMBER(usize, OrdVar<d128>),
+    STR(usize, SymbolId),
+    TIME(usize, NaiveTime),
+    DATE(usize, Date<Utc>),
+    DATETIME(usize, DateTime<Utc>),
+}
+
 
 pub trait Fact: Introspect + Eq + Hash
     where Self: std::marker::Sized {
