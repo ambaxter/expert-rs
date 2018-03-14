@@ -17,6 +17,10 @@ pub trait IsHashEq {
     fn is_hash_eq(&self) -> bool;
 }
 
+pub trait IsStatic {
+    fn is_static(&self) -> bool;
+}
+
 pub trait CloneHashEq {
     type Output;
 
@@ -54,8 +58,8 @@ impl<T, S> CloneHashEq for SLimit<T, S>
     }
 }
 
-impl<T, S> IsHashEq for SLimit<T, S> {
-    fn is_hash_eq(&self) -> bool {
+impl<T, S> IsStatic for SLimit<T, S> {
+    fn is_static(&self) -> bool {
         use self::SLimit::*;
         match self {
             &St(_) => true,
@@ -128,6 +132,16 @@ impl<S> StringInternAll for DLimit<S, S>
             &StLocal(ref t, ref s) => StLocal(cache.get_or_intern(t.clone()), cache.get_or_intern(s.clone())),
             &LocalSt(ref s, ref t) => LocalSt(cache.get_or_intern(s.clone()), cache.get_or_intern(t.clone())),
             &Local(ref s1, ref s2) => Local(cache.get_or_intern(s1.clone()), cache.get_or_intern(s2.clone())),
+        }
+    }
+}
+
+impl<T, S> IsStatic for DLimit<T, S> {
+    fn is_static(&self) -> bool {
+        use self::DLimit::*;
+        match self {
+            &St(_, _) => true,
+            _ => false,
         }
     }
 }
@@ -232,11 +246,19 @@ impl<S> IsHashEq for BoolTest<S> {
     fn is_hash_eq(&self) -> bool {
         use self::BoolTest::*;
         match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq()
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static()
         }
     }
 }
 
+impl<S> IsStatic for BoolTest<S> {
+    fn is_static(&self) -> bool {
+        use self::BoolTest::*;
+        match self {
+            &EQ(_, ref limit) => limit.is_static()
+        }
+    }
+}
 
 impl<S> CloneHashEq for BoolTest<S> {
     type Output = bool;
@@ -274,8 +296,19 @@ impl<S> IsHashEq for NumberTest<S> {
     fn is_hash_eq(&self) -> bool {
         use self::NumberTest::*;
         match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
             _ => false
+        }
+    }
+}
+
+impl<S> IsStatic for NumberTest<S> {
+    fn is_static(&self) -> bool {
+        use self::NumberTest::*;
+        match self {
+            &ORD(_, ref limit) => limit.is_static(),
+            &BTWN(_, ref limit) => limit.is_static(),
+            &EQ(_, ref limit) => limit.is_static()
         }
     }
 }
@@ -319,8 +352,20 @@ impl<S> IsHashEq for StrTest<S> {
     fn is_hash_eq(&self) -> bool {
         use self::StrTest::*;
         match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
             _ => false
+        }
+    }
+}
+
+impl<S> IsStatic for StrTest<S> {
+    fn is_static(&self) -> bool {
+        use self::StrTest::*;
+        match self {
+            &ORD(_, ref limit) => limit.is_static(),
+            &BTWN(_, ref limit) => limit.is_static(),
+            &EQ(_, ref limit) => limit.is_static(),
+            &StrArrayTest(test, ref limit) => limit.is_static()
         }
     }
 }
@@ -363,8 +408,19 @@ impl<S> IsHashEq for TimeTest<S> {
     fn is_hash_eq(&self) -> bool {
         use self::TimeTest::*;
         match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
             _ => false
+        }
+    }
+}
+
+impl<S> IsStatic for TimeTest<S> {
+    fn is_static(&self) -> bool {
+        use self::TimeTest::*;
+        match self {
+            &ORD(_, ref limit) => limit.is_static(),
+            &BTWN(_, ref limit) => limit.is_static(),
+            &EQ(_, ref limit) => limit.is_static()
         }
     }
 }
@@ -406,11 +462,23 @@ impl<S> IsHashEq for DateTest<S> {
     fn is_hash_eq(&self) -> bool {
         use self::DateTest::*;
         match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
             _ => false
         }
     }
 }
+
+impl<S> IsStatic for DateTest<S> {
+    fn is_static(&self) -> bool {
+        use self::DateTest::*;
+        match self {
+            &ORD(_, ref limit) => limit.is_static(),
+            &BTWN(_, ref limit) => limit.is_static(),
+            &EQ(_, ref limit) => limit.is_static()
+        }
+    }
+}
+
 
 impl<S> CloneHashEq for DateTest<S> {
     type Output = Date<Utc>;
@@ -449,11 +517,23 @@ impl<S> IsHashEq for DateTimeTest<S> {
     fn is_hash_eq(&self) -> bool {
         use self::DateTimeTest::*;
         match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_hash_eq(),
+            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
             _ => false
         }
     }
 }
+
+impl<S> IsStatic for DateTimeTest<S> {
+    fn is_static(&self) -> bool {
+        use self::DateTimeTest::*;
+        match self {
+            &ORD(_, ref limit) => limit.is_static(),
+            &BTWN(_, ref limit) => limit.is_static(),
+            &EQ(_, ref limit) => limit.is_static()
+        }
+    }
+}
+
 
 impl<S> CloneHashEq for DateTimeTest<S> {
     type Output = DateTime<Utc>;
