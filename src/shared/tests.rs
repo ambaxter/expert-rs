@@ -330,7 +330,7 @@ pub enum StrTest<S> {
     ORD(OrdTest, SLimit<S, S>),
     BTWN(BetweenTest, DLimit<S, S>),
     EQ(EqTest, SLimit<S, S>),
-    StrArrayTest(StrArrayTest, SLimit<S, S>)
+    STR(StrArrayTest, SLimit<S, S>)
 }
 
 impl<S> StringIntern for StrTest<S>
@@ -343,7 +343,7 @@ impl<S> StringIntern for StrTest<S>
             &ORD(test, ref limit) => ORD(test, limit.string_intern_all(cache)),
             &BTWN(test, ref limit) => BTWN(test, limit.string_intern_all(cache)),
             &EQ(test, ref limit) => EQ(test, limit.string_intern_all(cache)),
-            &StrArrayTest(test, ref limit) => StrArrayTest(test, limit.string_intern_all(cache)),
+            &STR(test, ref limit) => STR(test, limit.string_intern_all(cache)),
         }
     }
 }
@@ -365,7 +365,7 @@ impl<S> IsStatic for StrTest<S> {
             &ORD(_, ref limit) => limit.is_static(),
             &BTWN(_, ref limit) => limit.is_static(),
             &EQ(_, ref limit) => limit.is_static(),
-            &StrArrayTest(test, ref limit) => limit.is_static()
+            &STR(test, ref limit) => limit.is_static()
         }
     }
 }
@@ -547,27 +547,53 @@ impl<S> CloneHashEq for DateTimeTest<S> {
     }
 }
 
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum TestRepr<'a> {
-    BOOL(&'a str, BoolTest<&'a str>),
-    NUMBER(&'a str, NumberTest<&'a str>),
-    STR(&'a str, StrTest<&'a str>),
-    TIME(&'a str, TimeTest<&'a str>),
-    DATE(&'a str, DateTest<&'a str>),
-    DATETIME(&'a str, DateTimeTest<&'a str>),
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+pub struct SDynLimit<S: Clone + Into<String> + AsRef<str>> {
+    limit: S
 }
 
-impl<'a> TestRepr<'a> {
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum SDynTests {
+    ORD(OrdTest),
+    EQ(EqTest),
+    STR(StrArrayTest)
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+pub struct DDynLimit<S: Clone + Into<String> + AsRef<str>> {
+    l: S,
+    r: S
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum DDynTests {
+    BTWN(BetweenTest)
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+pub enum TestRepr<S: Clone + Into<String> + AsRef<str>> {
+    BOOL(S, BoolTest<S>),
+    NUMBER(S, NumberTest<S>),
+    STR(S, StrTest<S>),
+    TIME(S, TimeTest<S>),
+    DATE(S, DateTest<S>),
+    DATETIME(S, DateTimeTest<S>),
+    SDYN(S, SDynTests, SDynLimit<S>),
+    DDYN(S, DDynTests, DDynLimit<S>),
+}
+
+impl<S: Clone + Into<String> + AsRef<str>> TestRepr<S> {
     pub fn field(&self) -> &str {
         use self::TestRepr::*;
         match self {
-            &BOOL(field, _) => field,
-            &NUMBER(field, _) => field,
-            &STR(field, _) => field,
-            &TIME(field, _) => field,
-            &DATE(field, _) => field,
-            &DATETIME(field, _) => field,
+            &BOOL(ref field, _) => field.as_ref(),
+            &NUMBER(ref field, _) => field.as_ref(),
+            &STR(ref field, _) => field.as_ref(),
+            &TIME(ref field, _) => field.as_ref(),
+            &DATE(ref field, _) => field.as_ref(),
+            &DATETIME(ref field, _) => field.as_ref(),
+            &SDYN(ref field, ..) => field.as_ref(),
+            &DDYN(ref field, ..) => field.as_ref(),
         }
     }
 
@@ -580,6 +606,8 @@ impl<'a> TestRepr<'a> {
             &TIME(..) => "TIME",
             &DATE(..) => "DATE",
             &DATETIME(..) => "DATETIME",
+            &SDYN(..) => "SDYN",
+            &DDYN(..) => "DDYN",
         }
     }
 
