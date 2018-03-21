@@ -12,6 +12,7 @@ use ord_subset::OrdVar;
 use decimal::d128;
 use std::fmt;
 use std::fmt::Debug;
+use string_interner::Symbol;
 
 pub trait IsHashEq {
     fn is_hash_eq(&self) -> bool;
@@ -30,13 +31,13 @@ pub trait CloneHashEq {
 pub trait StringIntern {
     type Output;
 
-    fn string_intern(&self, u: &mut StringCache) -> Self::Output;
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output;
 }
 
 pub trait StringInternAll {
     type Output;
 
-    fn string_intern_all(&self, u: &mut StringCache) -> Self::Output;
+    fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output;
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -548,8 +549,23 @@ impl<S> CloneHashEq for DateTimeTest<S> {
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
-pub struct SDynLimit<S: Clone + Into<String> + AsRef<str>> {
+pub struct SDynLimit<S> {
     limit: S
+}
+
+impl<S> StringIntern for SDynLimit<S>
+    where S: Clone + Into<String> + AsRef<str> {
+    type Output = SDynLimit<SymbolId>;
+
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
+        SDynLimit{limit: cache.get_or_intern(self.limit.clone())}
+    }
+}
+
+impl<T, S: Symbol> Into<SLimit<T, S>> for SDynLimit<S> {
+    fn into(self) -> SLimit<T, S> {
+        SLimit::Local(self.limit)
+    }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -560,9 +576,24 @@ pub enum SDynTests {
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
-pub struct DDynLimit<S: Clone + Into<String> + AsRef<str>> {
+pub struct DDynLimit<S> {
     l: S,
     r: S
+}
+
+impl<S> StringIntern for DDynLimit<S>
+    where S: Clone + Into<String> + AsRef<str> {
+    type Output = DDynLimit<SymbolId>;
+
+    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
+        DDynLimit{l: cache.get_or_intern(self.l.clone()), r: cache.get_or_intern(self.r.clone())}
+    }
+}
+
+impl<T, S: Symbol> Into<DLimit<T, S>> for DDynLimit<S> {
+    fn into(self) -> DLimit<T, S> {
+        DLimit::Local(self.l, self.r)
+    }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -615,18 +646,64 @@ impl<S: Clone + Into<String> + AsRef<str>> TestRepr<S> {
         let getter = T::getter(self.field())
             .ok_or_else(|| CompileError::MissingGetter { getter: self.field().to_owned() })?;
         match (&getter, self) {
+            // BOOL
             (&Getters::BOOL(accessor), &TestRepr::BOOL(_, ref test)) =>
                 Ok(TestData::BOOL(accessor, test.string_intern(cache))),
+            (&Getters::BOOL(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::BOOL(accessor, BoolTest::EQ(test, limit.string_intern(cache).into()))),
+
+            // NUMBER
             (&Getters::NUMBER(accessor), &TestRepr::NUMBER(_, ref test)) =>
                 Ok(TestData::NUMBER(accessor, test.string_intern(cache))),
+            (&Getters::NUMBER(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::NUMBER(accessor, NumberTest::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::NUMBER(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::NUMBER(accessor, NumberTest::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::NUMBER(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::NUMBER(accessor, NumberTest::BTWN(test, limit.string_intern(cache).into()))),
+
+            // STR
             (&Getters::STR(accessor), &TestRepr::STR(_, ref test)) =>
                 Ok(TestData::STR(accessor, test.string_intern(cache))),
+            (&Getters::STR(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::STR(accessor, StrTest::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::STR(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::STR(accessor, StrTest::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::STR(accessor), &TestRepr::SDYN(_, SDynTests::STR(test), ref limit)) =>
+                Ok(TestData::STR(accessor, StrTest::STR(test, limit.string_intern(cache).into()))),
+            (&Getters::STR(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::STR(accessor, StrTest::BTWN(test, limit.string_intern(cache).into()))),
+
+            //TIME
             (&Getters::TIME(accessor), &TestRepr::TIME(_, ref test)) =>
                 Ok(TestData::TIME(accessor, test.string_intern(cache))),
+            (&Getters::TIME(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::TIME(accessor, TimeTest::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::TIME(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::TIME(accessor, TimeTest::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::TIME(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::TIME(accessor, TimeTest::BTWN(test, limit.string_intern(cache).into()))),
+
+            // DATE
             (&Getters::DATE(accessor), &TestRepr::DATE(_, ref test)) =>
                 Ok(TestData::DATE(accessor, test.string_intern(cache))),
+            (&Getters::DATE(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::DATE(accessor, DateTest::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::DATE(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::DATE(accessor, DateTest::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::DATE(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::DATE(accessor, DateTest::BTWN(test, limit.string_intern(cache).into()))),
+
+            // DATETIME
             (&Getters::DATETIME(accessor), &TestRepr::DATETIME(_, ref test)) =>
                 Ok(TestData::DATETIME(accessor, test.string_intern(cache))),
+            (&Getters::DATETIME(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::DATETIME(accessor, DateTimeTest::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::DATETIME(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::DATETIME(accessor, DateTimeTest::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::DATETIME(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::DATETIME(accessor, DateTimeTest::BTWN(test, limit.string_intern(cache).into()))),
+
             _ => Err(CompileError::IncorrectGetter {
                 getter: self.field().to_owned(),
                 to: self.field_type().to_owned(),
