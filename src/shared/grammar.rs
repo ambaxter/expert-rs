@@ -24,7 +24,7 @@ pub trait IntoStrTest<S: Clone + Into<String> + AsRef<str>> {
 }
 
 pub trait IntoBtwnTest<S: Clone + Into<String> + AsRef<str>> {
-    fn into_btwn_test(self, field: S, test: OrdTest) -> TestRepr<S>;
+    fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S>;
 }
 
 macro_rules! into_eq_tests {
@@ -99,5 +99,12 @@ impl<S: Clone + Into<String> + AsRef<str>> IntoOrdTest<S> for d128 {
 impl<S: Clone + Into<String> + AsRef<str>> IntoOrdTest<S> for SDynLimit<S> {
     fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
         TestRepr::SDYN(field, SDynTests::ORD(test), self)
+    }
+}
+
+impl<S: Clone + Into<String> + AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, SDynLimit<S>) {
+    fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
+        let limit = DDynLimit{l: self.0.limit, r: self.1.limit};
+        TestRepr::DDYN(field, DDynTests::BTWN(test), limit)
     }
 }

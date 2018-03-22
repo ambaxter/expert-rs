@@ -550,7 +550,7 @@ impl<S> CloneHashEq for DateTimeTest<S> {
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct SDynLimit<S> {
-    limit: S
+    pub(crate) limit: S
 }
 
 impl<S> StringIntern for SDynLimit<S>
@@ -577,8 +577,8 @@ pub enum SDynTests {
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct DDynLimit<S> {
-    l: S,
-    r: S
+    pub(crate) l: S,
+    pub(crate) r: S
 }
 
 impl<S> StringIntern for DDynLimit<S>
