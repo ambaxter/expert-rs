@@ -70,27 +70,27 @@ impl<T, S> IsStatic for SLimit<T, S> {
 }
 
 impl<T, S> StringIntern for SLimit<T, S>
-    where S: Clone + Into<String> + AsRef<str>, T: Clone {
+    where S: AsRef<str>, T: Clone {
     type Output = SLimit<T, SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::SLimit::*;
         match self {
             &St(ref t) => St(t.clone()),
-            &Local(ref s) => Local(cache.get_or_intern(s.clone()))
+            &Local(ref s) => Local(cache.get_or_intern(s.as_ref().to_owned()))
         }
     }
 }
 
 impl<S> StringInternAll for SLimit<S, S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = SLimit<SymbolId, SymbolId>;
 
     fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output {
         use self::SLimit::*;
         match self {
-            &St(ref t) => St(cache.get_or_intern(t.clone())),
-            &Local(ref s) => Local(cache.get_or_intern(s.clone()))
+            &St(ref t) => St(cache.get_or_intern(t.as_ref().to_owned())),
+            &Local(ref s) => Local(cache.get_or_intern(s.as_ref().to_owned()))
         }
     }
 }
@@ -108,31 +108,31 @@ pub enum DLimit<T, S> {
 }
 
 impl<T, S> StringIntern for DLimit<T, S>
-    where S: Clone + Into<String> + AsRef<str>, T: Clone {
+    where S: AsRef<str>, T: Clone {
     type Output = DLimit<T, SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DLimit::*;
         match self {
             &St(ref t1, ref t2) => St(t1.clone(), t2.clone()),
-            &StLocal(ref t, ref s) => StLocal(t.clone(), cache.get_or_intern(s.clone())),
-            &LocalSt(ref s, ref t) => LocalSt(cache.get_or_intern(s.clone()), t.clone()),
-            &Local(ref s1, ref s2) => Local(cache.get_or_intern(s1.clone()), cache.get_or_intern(s2.clone())),
+            &StLocal(ref t, ref s) => StLocal(t.clone(), cache.get_or_intern(s.as_ref().to_owned())),
+            &LocalSt(ref s, ref t) => LocalSt(cache.get_or_intern(s.as_ref().to_owned()), t.clone()),
+            &Local(ref s1, ref s2) => Local(cache.get_or_intern(s1.as_ref().to_owned()), cache.get_or_intern(s2.as_ref().to_owned())),
         }
     }
 }
 
 impl<S> StringInternAll for DLimit<S, S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = DLimit<SymbolId, SymbolId>;
 
     fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output {
         use self::DLimit::*;
         match self {
-            &St(ref t1, ref t2) => St(cache.get_or_intern(t1.clone()), cache.get_or_intern(t2.clone())),
-            &StLocal(ref t, ref s) => StLocal(cache.get_or_intern(t.clone()), cache.get_or_intern(s.clone())),
-            &LocalSt(ref s, ref t) => LocalSt(cache.get_or_intern(s.clone()), cache.get_or_intern(t.clone())),
-            &Local(ref s1, ref s2) => Local(cache.get_or_intern(s1.clone()), cache.get_or_intern(s2.clone())),
+            &St(ref t1, ref t2) => St(cache.get_or_intern(t1.as_ref().to_owned()), cache.get_or_intern(t2.as_ref().to_owned())),
+            &StLocal(ref t, ref s) => StLocal(cache.get_or_intern(t.as_ref().to_owned()), cache.get_or_intern(s.as_ref().to_owned())),
+            &LocalSt(ref s, ref t) => LocalSt(cache.get_or_intern(s.as_ref().to_owned()), cache.get_or_intern(t.as_ref().to_owned())),
+            &Local(ref s1, ref s2) => Local(cache.get_or_intern(s1.as_ref().to_owned()), cache.get_or_intern(s2.as_ref().to_owned())),
         }
     }
 }
@@ -232,7 +232,7 @@ pub enum BoolTest<S> {
 }
 
 impl<S> StringIntern for BoolTest<S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = BoolTest<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
@@ -280,7 +280,7 @@ pub enum NumberTest<S> {
 }
 
 impl<S> StringIntern for NumberTest<S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = NumberTest<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
@@ -335,7 +335,7 @@ pub enum StrTest<S> {
 }
 
 impl<S> StringIntern for StrTest<S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = StrTest<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
@@ -392,7 +392,7 @@ pub enum TimeTest<S> {
 }
 
 impl<S> StringIntern for TimeTest<S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = TimeTest<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
@@ -446,7 +446,7 @@ pub enum DateTest<S> {
 }
 
 impl<S> StringIntern for DateTest<S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = DateTest<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
@@ -501,7 +501,7 @@ pub enum DateTimeTest<S> {
 }
 
 impl<S> StringIntern for  DateTimeTest<S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = DateTimeTest<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
@@ -554,11 +554,11 @@ pub struct SDynLimit<S> {
 }
 
 impl<S> StringIntern for SDynLimit<S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = SDynLimit<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
-        SDynLimit{limit: cache.get_or_intern(self.limit.clone())}
+        SDynLimit{limit: cache.get_or_intern(self.limit.as_ref().to_owned())}
     }
 }
 
@@ -582,11 +582,11 @@ pub struct DDynLimit<S> {
 }
 
 impl<S> StringIntern for DDynLimit<S>
-    where S: Clone + Into<String> + AsRef<str> {
+    where S: AsRef<str> {
     type Output = DDynLimit<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
-        DDynLimit{l: cache.get_or_intern(self.l.clone()), r: cache.get_or_intern(self.r.clone())}
+        DDynLimit{l: cache.get_or_intern(self.l.as_ref().to_owned()), r: cache.get_or_intern(self.r.as_ref().to_owned())}
     }
 }
 
@@ -602,7 +602,7 @@ pub enum DDynTests {
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
-pub enum TestRepr<S: Clone + Into<String> + AsRef<str>> {
+pub enum TestRepr<S: AsRef<str>> {
     BOOL(S, BoolTest<S>),
     NUMBER(S, NumberTest<S>),
     STR(S, StrTest<S>),
@@ -613,7 +613,7 @@ pub enum TestRepr<S: Clone + Into<String> + AsRef<str>> {
     DDYN(S, DDynTests, DDynLimit<S>),
 }
 
-impl<S: Clone + Into<String> + AsRef<str>> TestRepr<S> {
+impl<S: AsRef<str>> TestRepr<S> {
     pub fn field(&self) -> &str {
         use self::TestRepr::*;
         match self {
