@@ -7,6 +7,7 @@ use ord_subset::OrdVar;
 use decimal::d128;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ::runtime::memory::{StringCache, SymbolId};
+use ordered_float::NotNaN;
 
 pub trait Introspect {
     fn static_type_id() -> TypeId;
@@ -15,7 +16,17 @@ pub trait Introspect {
 #[derive(Copy, Clone)]
 pub enum Getters<I: Fact> {
     BOOL(fn(&I) -> &bool),
-    NUMBER(fn(&I) -> &OrdVar<d128>),
+    I8(fn(&I) -> &i8),
+    I16(fn(&I) -> &i16),
+    I32(fn(&I) -> &i32),
+    I64(fn(&I) -> &i64),
+    U8(fn(&I) -> &u8),
+    U16(fn(&I) -> &u16),
+    U32(fn(&I) -> &u32),
+    U64(fn(&I) -> &u64),
+    F32(fn(&I) -> &NotNaN<f32>),
+    F64(fn(&I) -> &NotNaN<f64>),
+    D128(fn(&I) -> &OrdVar<d128>),
     STR(fn(&I) -> &str),
     TIME(fn(&I) -> &NaiveTime),
     DATE(fn(&I) -> &Date<Utc>),
@@ -28,7 +39,17 @@ impl<I: Fact> Debug for Getters<I> {
         write!(f, "Getters(")?;
         match self {
             &BOOL(accessor) => write!(f, "BOOL({:#x})", accessor as usize)?,
-            &NUMBER(accessor) => write!(f, "NUMBER({:#x})", accessor as usize)?,
+            &I8(accessor) => write!(f, "I8({:#x})", accessor as usize)?,
+            &I16(accessor) => write!(f, "I16({:#x})", accessor as usize)?,
+            &I32(accessor) => write!(f, "I32({:#x})", accessor as usize)?,
+            &I64(accessor) => write!(f, "I64({:#x})", accessor as usize)?,
+            &U8(accessor) => write!(f, "U8({:#x})", accessor as usize)?,
+            &U16(accessor) => write!(f, "U16({:#x})", accessor as usize)?,
+            &U32(accessor) => write!(f, "U32({:#x})", accessor as usize)?,
+            &U64(accessor) => write!(f, "U64({:#x})", accessor as usize)?,
+            &F32(accessor) => write!(f, "F32({:#x})", accessor as usize)?,
+            &F64(accessor) => write!(f, "F64({:#x})", accessor as usize)?,
+            &D128(accessor) => write!(f, "D128({:#x})", accessor as usize)?,
             &STR(accessor) => write!(f, "STR({:#x})", accessor as usize)?,
             &TIME(accessor) => write!(f, "TIME({:#x})", accessor as usize)?,
             &DATE(accessor) => write!(f, "DATE({:#x})", accessor as usize)?,
@@ -41,13 +62,22 @@ impl<I: Fact> Debug for Getters<I> {
 
 pub enum HashEqField {
     BOOL(usize, bool),
-    NUMBER(usize, OrdVar<d128>),
+    I8(usize, i8),
+    I16(usize, i16),
+    I32(usize, i32),
+    I64(usize, i64),
+    U8(usize, u8),
+    U16(usize, u16),
+    U32(usize, u32),
+    U64(usize, u64),
+    F32(usize, NotNaN<f32>),
+    F64(usize, NotNaN<f64>),
+    D128(usize, OrdVar<d128>),
     STR(usize, SymbolId),
     TIME(usize, NaiveTime),
     DATE(usize, Date<Utc>),
     DATETIME(usize, DateTime<Utc>),
 }
-
 
 pub trait Fact: Introspect + Eq + Hash
     where Self: std::marker::Sized {

@@ -1,8 +1,15 @@
 use ::shared::tests::{
     EqTest, OrdTest, BetweenTest, TestRepr, SLimit, SDynLimit, DLimit, DDynLimit,
-    BoolTest, NumberTest, StrTest, TimeTest, DateTest, DateTimeTest, SDynTests, DDynTests
+    BoolTest,
+    I8Test, I16Test, I32Test, I64Test,
+    U8Test, U16Test, U32Test, U64Test,
+    F32Test, F64Test, D128Test,
+    StrTest,
+    TimeTest, DateTest, DateTimeTest,
+    SDynTests, DDynTests
 };
 use ord_subset::OrdVar;
+use ordered_float::NotNaN;
 use decimal::d128;
 use chrono::{Utc, NaiveTime, Date, DateTime};
 use std::borrow::Cow;
@@ -46,11 +53,54 @@ macro_rules! into_eq_tests {
 
 into_eq_tests!(
     bool => [BOOL, BoolTest],
-    OrdVar<d128> => [NUMBER, NumberTest],
+    i8 => [I8, I8Test],
+    i16 => [I16, I16Test],
+    i32 => [I32, I32Test],
+    i64 => [I64, I64Test],
+    u8 => [U8, U8Test],
+    u16 => [U16, U16Test],
+    u32 => [U32, U32Test],
+    u64 => [U64, U64Test],
+    OrdVar<d128> => [D128, D128Test],
     NaiveTime => [TIME, TimeTest],
     Date<Utc> => [DATE, DateTest],
     DateTime<Utc> => [DATETIME, DateTimeTest]
     );
+
+macro_rules! prim_into_approx_eq_tests {
+    ($($id:ty => [$sub:ident, $test:ident]),+) => {
+        $(
+            impl<S: AsRef<str>> IntoEqTest<S> for $id {
+                fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
+                    TestRepr::$sub(field, $test::APPROX_EQ(test.into(), SLimit::St(self.into())))
+                }
+            }
+        )*
+    };
+}
+
+prim_into_approx_eq_tests!(
+    f32 => [F32, F32Test],
+    f64 => [F64, F64Test]
+);
+
+macro_rules! into_approx_eq_tests {
+    ($($id:ty => [$sub:ident, $test:ident]),+) => {
+        $(
+            impl<S: AsRef<str>> IntoEqTest<S> for $id {
+                fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
+                    TestRepr::$sub(field, $test::APPROX_EQ(test.into(), SLimit::St(self)))
+                }
+            }
+        )*
+    };
+}
+
+into_approx_eq_tests!(
+    NotNaN<f32> => [F32, F32Test],
+    NotNaN<f64> => [F64, F64Test]
+);
+
 
 impl<S: AString> IntoEqTest<S> for S {
     fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
@@ -60,7 +110,7 @@ impl<S: AString> IntoEqTest<S> for S {
 
 impl<S: AsRef<str>> IntoEqTest<S> for d128 {
     fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-        TestRepr::NUMBER(field, NumberTest::EQ(test, SLimit::St(self.into())))
+        TestRepr::D128(field, D128Test::EQ(test, SLimit::St(self.into())))
     }
 }
 
@@ -85,7 +135,7 @@ macro_rules! into_ord_tests {
 }
 
 into_ord_tests!(
-    OrdVar<d128> => [NUMBER, NumberTest],
+    OrdVar<d128> => [D128, D128Test],
     NaiveTime => [TIME, TimeTest],
     Date<Utc> => [DATE, DateTest],
     DateTime<Utc> => [DATETIME, DateTimeTest]
@@ -99,7 +149,7 @@ impl<S: AString> IntoOrdTest<S> for S {
 
 impl<S: AsRef<str>> IntoOrdTest<S> for d128 {
     fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
-        TestRepr::NUMBER(field, NumberTest::ORD(test, SLimit::St(self.into())))
+        TestRepr::D128(field, D128Test::ORD(test, SLimit::St(self.into())))
     }
 }
 
@@ -138,7 +188,7 @@ macro_rules! into_btwn_tests {
 }
 
 into_btwn_tests!(
-    OrdVar<d128> => [NUMBER, NumberTest],
+    OrdVar<d128> => [D128, D128Test],
     NaiveTime => [TIME, TimeTest],
     Date<Utc> => [DATE, DateTest],
     DateTime<Utc> => [DATETIME, DateTimeTest]
@@ -164,19 +214,19 @@ impl<S: AString> IntoBtwnTest<S> for (S, SDynLimit<S>) {
 
 impl<S: AString> IntoBtwnTest<S> for (d128, d128) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::NUMBER(field, NumberTest::BTWN(test, DLimit::St(self.0.into(), self.1.into())))
+        TestRepr::D128(field, D128Test::BTWN(test, DLimit::St(self.0.into(), self.1.into())))
     }
 }
 
 impl<S: AString> IntoBtwnTest<S> for (SDynLimit<S>, d128) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::NUMBER(field, NumberTest::BTWN(test, DLimit::LocalSt(self.0.limit, self.1.into())))
+        TestRepr::D128(field, D128Test::BTWN(test, DLimit::LocalSt(self.0.limit, self.1.into())))
     }
 }
 
 impl<S: AString> IntoBtwnTest<S> for (d128, SDynLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::NUMBER(field, NumberTest::BTWN(test, DLimit::StLocal(self.0.into(), self.1.limit)))
+        TestRepr::D128(field, D128Test::BTWN(test, DLimit::StLocal(self.0.into(), self.1.limit)))
     }
 }
 

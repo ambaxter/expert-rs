@@ -3,7 +3,7 @@ use std::string::ToString;
 use num::{Integer, Float, ToPrimitive, NumCast};
 use num::cast;
 use ordered_float::NotNaN;
-use float_cmp::ApproxEqUlps;
+use float_cmp::{Ulps, ApproxEqUlps};
 use runtime::memory::{StringCache, SymbolId};
 use ::shared::fact::{Getters, Fact};
 use errors::CompileError;
@@ -207,6 +207,38 @@ impl IsHashEq for EqTest {
     }
 }
 
+impl Into<ApproxEqTest> for EqTest {
+    fn into(self) -> ApproxEqTest {
+        match self {
+            EqTest::Eq => ApproxEqTest::Eq,
+            EqTest::Ne => ApproxEqTest::Ne
+        }
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum ApproxEqTest {
+    Eq,
+    Ne
+}
+
+impl<T> STest<T> for ApproxEqTest
+    where T: ApproxEqUlps<Flt=T> + Ulps<U=i32> {
+    fn test(&self, val: &T, to: &T) -> bool {
+        use self::ApproxEqTest::*;
+        match self {
+            &Eq => val.approx_eq_ulps(to, 2),
+            &Ne => val.approx_ne_ulps(to, 2),
+        }
+    }
+}
+
+impl IsHashEq for ApproxEqTest {
+    fn is_hash_eq(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum StrArrayTest {
     Contains,
@@ -272,59 +304,137 @@ impl<S> CloneHashEq for BoolTest<S> {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum NumberTest<S> {
-    ORD(OrdTest, SLimit<OrdVar<d128>, S>),
-    BTWN(BetweenTest, DLimit<OrdVar<d128>, S>),
-    EQ(EqTest, SLimit<OrdVar<d128>, S>)
+macro_rules! number_test {
+    ($($id:ty => $test:ident),+) => {
+        $(
+            #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+            pub enum $test<S> {
+                ORD(OrdTest, SLimit<$id, S>),
+                BTWN(BetweenTest, DLimit<$id, S>),
+                EQ(EqTest, SLimit<$id, S>)
+            }
+
+
+            impl<S> StringIntern for $test<S>
+                where S: AsRef<str> {
+                type Output = $test<SymbolId>;
+
+                fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
+                    use self::$test::*;
+                    match self {
+                        &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
+                        &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
+                        &EQ(test, ref limit) => EQ(test, limit.string_intern(cache)),
+                    }
+                }
+            }
+
+            impl<S> IsHashEq for $test<S> {
+                fn is_hash_eq(&self) -> bool {
+                    use self::$test::*;
+                    match self {
+                        &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
+                        _ => false
+                    }
+                }
+            }
+
+            impl<S> IsStatic for $test<S> {
+                fn is_static(&self) -> bool {
+                    use self::$test::*;
+                    match self {
+                        &ORD(_, ref limit) => limit.is_static(),
+                        &BTWN(_, ref limit) => limit.is_static(),
+                        &EQ(_, ref limit) => limit.is_static()
+                    }
+                }
+            }
+
+            impl<S> CloneHashEq for $test<S> {
+                type Output = $id;
+
+                fn clone_hash_eq(&self) -> Self::Output {
+                    use self::$test::*;
+                    match self {
+                        &EQ(_, ref limit) => limit.clone_hash_eq(),
+                        _ => unreachable!("clone_hash_eq on non hash_eq tests"),
+                    }
+                }
+            }
+        )*
+    };
 }
 
-impl<S> StringIntern for NumberTest<S>
-    where S: AsRef<str> {
-    type Output = NumberTest<SymbolId>;
+macro_rules! float_test {
+    ($($id:ty => $test:ident),+) => {
+        $(
+            #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+            pub enum $test<S> {
+                ORD(OrdTest, SLimit<$id, S>),
+                BTWN(BetweenTest, DLimit<$id, S>),
+                APPROX_EQ(ApproxEqTest, SLimit<$id, S>)
+            }
 
-    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
-        use self::NumberTest::*;
-        match self {
-            &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
-            &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
-            &EQ(test, ref limit) => EQ(test, limit.string_intern(cache)),
-        }
-    }
+
+            impl<S> StringIntern for $test<S>
+                where S: AsRef<str> {
+                type Output = $test<SymbolId>;
+
+                fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
+                    use self::$test::*;
+                    match self {
+                        &ORD(test, ref limit) => ORD(test, limit.string_intern(cache)),
+                        &BTWN(test, ref limit) => BTWN(test, limit.string_intern(cache)),
+                        &APPROX_EQ(test, ref limit) => APPROX_EQ(test, limit.string_intern(cache)),
+                    }
+                }
+            }
+
+            impl<S> IsHashEq for $test<S> {
+                fn is_hash_eq(&self) -> bool {
+                    false
+                }
+            }
+
+            impl<S> IsStatic for $test<S> {
+                fn is_static(&self) -> bool {
+                    use self::$test::*;
+                    match self {
+                        &ORD(_, ref limit) => limit.is_static(),
+                        &BTWN(_, ref limit) => limit.is_static(),
+                        &APPROX_EQ(_, ref limit) => limit.is_static()
+                    }
+                }
+            }
+
+            impl<S> CloneHashEq for $test<S> {
+                type Output = $id;
+
+                fn clone_hash_eq(&self) -> Self::Output {
+                    unreachable!("clone_hash_eq on non hash_eq tests")
+                }
+            }
+        )*
+    };
 }
 
-impl<S> IsHashEq for NumberTest<S> {
-    fn is_hash_eq(&self) -> bool {
-        use self::NumberTest::*;
-        match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
-            _ => false
-        }
-    }
-}
+number_test!(
+    i8 => I8Test,
+    i16 => I16Test,
+    i32 => I32Test,
+    i64 => I64Test,
+    u8 => U8Test,
+    u16 => U16Test,
+    u32 => U32Test,
+    u64 => U64Test,
+    OrdVar<d128> => D128Test
+    );
 
-impl<S> IsStatic for NumberTest<S> {
-    fn is_static(&self) -> bool {
-        use self::NumberTest::*;
-        match self {
-            &ORD(_, ref limit) => limit.is_static(),
-            &BTWN(_, ref limit) => limit.is_static(),
-            &EQ(_, ref limit) => limit.is_static()
-        }
-    }
-}
+float_test!(
+    NotNaN<f32> => F32Test,
+    NotNaN<f64> => F64Test
+);
 
-impl<S> CloneHashEq for NumberTest<S> {
-    type Output = OrdVar<d128>;
-
-    fn clone_hash_eq(&self) -> Self::Output {
-        use self::NumberTest::*;
-        match self {
-            &EQ(_, ref limit) => limit.clone_hash_eq(),
-            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
-        }
-    }
-}
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum StrTest<S> {
@@ -604,7 +714,17 @@ pub enum DDynTests {
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TestRepr<S: AsRef<str>> {
     BOOL(S, BoolTest<S>),
-    NUMBER(S, NumberTest<S>),
+    I8(S, I8Test<S>),
+    I16(S, I16Test<S>),
+    I32(S, I32Test<S>),
+    I64(S, I64Test<S>),
+    U8(S, U8Test<S>),
+    U16(S, U16Test<S>),
+    U32(S, U32Test<S>),
+    U64(S, U64Test<S>),
+    F32(S, F32Test<S>),
+    F64(S, F64Test<S>),
+    D128(S, D128Test<S>),
     STR(S, StrTest<S>),
     TIME(S, TimeTest<S>),
     DATE(S, DateTest<S>),
@@ -618,7 +738,17 @@ impl<S: AsRef<str>> TestRepr<S> {
         use self::TestRepr::*;
         match self {
             &BOOL(ref field, _) => field.as_ref(),
-            &NUMBER(ref field, _) => field.as_ref(),
+            &I8(ref field, _) => field.as_ref(),
+            &I16(ref field, _) => field.as_ref(),
+            &I32(ref field, _) => field.as_ref(),
+            &I64(ref field, _) => field.as_ref(),
+            &U8(ref field, _) => field.as_ref(),
+            &U16(ref field, _) => field.as_ref(),
+            &U32(ref field, _) => field.as_ref(),
+            &U64(ref field, _) => field.as_ref(),
+            &F32(ref field, _) => field.as_ref(),
+            &F64(ref field, _) => field.as_ref(),
+            &D128(ref field, _) => field.as_ref(),
             &STR(ref field, _) => field.as_ref(),
             &TIME(ref field, _) => field.as_ref(),
             &DATE(ref field, _) => field.as_ref(),
@@ -632,7 +762,17 @@ impl<S: AsRef<str>> TestRepr<S> {
         use self::TestRepr::*;
         match self {
             &BOOL(..) => "BOOL",
-            &NUMBER(..) => "NUMBER",
+            &I8(..) => "I8",
+            &I16(..) => "I16",
+            &I32(..) => "I32",
+            &I64(..) => "I64",
+            &U8(..) => "U8",
+            &U16(..) => "U16",
+            &U32(..) => "U32",
+            &U64(..) => "U64",
+            &F32(..) => "F32",
+            &F64(..) => "F64",
+            &D128(..) => "D128",
             &STR(..) => "STR",
             &TIME(..) => "TIME",
             &DATE(..) => "DATE",
@@ -652,15 +792,117 @@ impl<S: AsRef<str>> TestRepr<S> {
             (&Getters::BOOL(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
                 Ok(TestData::BOOL(accessor, BoolTest::EQ(test, limit.string_intern(cache).into()))),
 
-            // NUMBER
-            (&Getters::NUMBER(accessor), &TestRepr::NUMBER(_, ref test)) =>
-                Ok(TestData::NUMBER(accessor, test.string_intern(cache))),
-            (&Getters::NUMBER(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(TestData::NUMBER(accessor, NumberTest::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::NUMBER(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(TestData::NUMBER(accessor, NumberTest::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::NUMBER(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(TestData::NUMBER(accessor, NumberTest::BTWN(test, limit.string_intern(cache).into()))),
+            // I8
+            (&Getters::I8(accessor), &TestRepr::I8(_, ref test)) =>
+                Ok(TestData::I8(accessor, test.string_intern(cache))),
+            (&Getters::I8(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::I8(accessor, I8Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::I8(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::I8(accessor, I8Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::I8(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::I8(accessor, I8Test::BTWN(test, limit.string_intern(cache).into()))),
+
+            // I16
+            (&Getters::I16(accessor), &TestRepr::I16(_, ref test)) =>
+                Ok(TestData::I16(accessor, test.string_intern(cache))),
+            (&Getters::I16(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::I16(accessor, I16Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::I16(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::I16(accessor, I16Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::I16(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::I16(accessor, I16Test::BTWN(test, limit.string_intern(cache).into()))),
+
+            // I32
+            (&Getters::I32(accessor), &TestRepr::I32(_, ref test)) =>
+                Ok(TestData::I32(accessor, test.string_intern(cache))),
+            (&Getters::I32(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::I32(accessor, I32Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::I32(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::I32(accessor, I32Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::I32(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::I32(accessor, I32Test::BTWN(test, limit.string_intern(cache).into()))),
+
+            // I64
+            (&Getters::I64(accessor), &TestRepr::I64(_, ref test)) =>
+                Ok(TestData::I64(accessor, test.string_intern(cache))),
+            (&Getters::I64(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::I64(accessor, I64Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::I64(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::I64(accessor, I64Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::I64(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::I64(accessor, I64Test::BTWN(test, limit.string_intern(cache).into()))),
+
+
+            // U8
+            (&Getters::U8(accessor), &TestRepr::U8(_, ref test)) =>
+                Ok(TestData::U8(accessor, test.string_intern(cache))),
+            (&Getters::U8(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::U8(accessor, U8Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::U8(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::U8(accessor, U8Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::U8(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::U8(accessor, U8Test::BTWN(test, limit.string_intern(cache).into()))),
+
+            // U16
+            (&Getters::U16(accessor), &TestRepr::U16(_, ref test)) =>
+                Ok(TestData::U16(accessor, test.string_intern(cache))),
+            (&Getters::U16(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::U16(accessor, U16Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::U16(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::U16(accessor, U16Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::U16(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::U16(accessor, U16Test::BTWN(test, limit.string_intern(cache).into()))),
+            
+            // U32
+            (&Getters::U32(accessor), &TestRepr::U32(_, ref test)) =>
+                Ok(TestData::U32(accessor, test.string_intern(cache))),
+            (&Getters::U32(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::U32(accessor, U32Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::U32(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::U32(accessor, U32Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::U32(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::U32(accessor, U32Test::BTWN(test, limit.string_intern(cache).into()))),
+
+            // U64
+            (&Getters::U64(accessor), &TestRepr::U64(_, ref test)) =>
+                Ok(TestData::U64(accessor, test.string_intern(cache))),
+            (&Getters::U64(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::U64(accessor, U64Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::U64(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::U64(accessor, U64Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::U64(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::U64(accessor, U64Test::BTWN(test, limit.string_intern(cache).into()))),
+            
+            // F32
+            (&Getters::F32(accessor), &TestRepr::F32(_, ref test)) =>
+                Ok(TestData::F32(accessor, test.string_intern(cache))),
+            (&Getters::F32(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::F32(accessor, F32Test::APPROX_EQ(test.into(), limit.string_intern(cache).into()))),
+            (&Getters::F32(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::F32(accessor, F32Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::F32(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::F32(accessor, F32Test::BTWN(test, limit.string_intern(cache).into()))),
+
+            // F64
+            (&Getters::F64(accessor), &TestRepr::F64(_, ref test)) =>
+                Ok(TestData::F64(accessor, test.string_intern(cache))),
+            (&Getters::F64(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::F64(accessor, F64Test::APPROX_EQ(test.into(), limit.string_intern(cache).into()))),
+            (&Getters::F64(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::F64(accessor, F64Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::F64(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::F64(accessor, F64Test::BTWN(test, limit.string_intern(cache).into()))),
+
+
+            // D128
+            (&Getters::D128(accessor), &TestRepr::D128(_, ref test)) =>
+                Ok(TestData::D128(accessor, test.string_intern(cache))),
+            (&Getters::D128(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
+                Ok(TestData::D128(accessor, D128Test::EQ(test, limit.string_intern(cache).into()))),
+            (&Getters::D128(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
+                Ok(TestData::D128(accessor, D128Test::ORD(test, limit.string_intern(cache).into()))),
+            (&Getters::D128(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
+                Ok(TestData::D128(accessor, D128Test::BTWN(test, limit.string_intern(cache).into()))),
 
             // STR
             (&Getters::STR(accessor), &TestRepr::STR(_, ref test)) =>
@@ -716,7 +958,17 @@ impl<S: AsRef<str>> TestRepr<S> {
 #[derive(Copy, Clone)]
 pub enum TestData<T: Fact> {
     BOOL(fn(&T) -> &bool, BoolTest<SymbolId>),
-    NUMBER(fn(&T) -> &OrdVar<d128>, NumberTest<SymbolId>),
+    I8(fn(&T) -> &i8, I8Test<SymbolId>),
+    I16(fn(&T) -> &i16, I16Test<SymbolId>),
+    I32(fn(&T) -> &i32, I32Test<SymbolId>),
+    I64(fn(&T) -> &i64, I64Test<SymbolId>),
+    U8(fn(&T) -> &u8, U8Test<SymbolId>),
+    U16(fn(&T) -> &u16, U16Test<SymbolId>),
+    U32(fn(&T) -> &u32, U32Test<SymbolId>),
+    U64(fn(&T) -> &u64, U64Test<SymbolId>),
+    F32(fn(&T) -> &NotNaN<f32>, F32Test<SymbolId>),
+    F64(fn(&T) -> &NotNaN<f64>, F64Test<SymbolId>),
+    D128(fn(&T) -> &OrdVar<d128>, D128Test<SymbolId>),
     STR(fn(&T) -> &str, StrTest<SymbolId>),
     TIME(fn(&T) -> &NaiveTime, TimeTest<SymbolId>),
     DATE(fn(&T) -> &Date<Utc>, DateTest<SymbolId>),
@@ -746,8 +998,12 @@ macro_rules! test_hash {
 }
 
 test_hash!(
-        BOOL => 0, NUMBER => 1, STR => 2, TIME => 3,
-        DATE => 4, DATETIME => 5
+        BOOL => 0,
+        I8 => 1, I16 => 2, I32 => 3, I64 => 4,
+        U8 => 5, U16 => 6, U32 => 7, U64 => 8,
+        F32 => 9, F64 => 10, D128 => 11,
+        STR => 12,
+        TIME => 13, DATE => 14, DATETIME => 15
     );
 
 macro_rules! test_eq {
@@ -766,7 +1022,14 @@ macro_rules! test_eq {
     };
 }
 
-test_eq!(BOOL, NUMBER, STR, TIME, DATE, DATETIME);
+test_eq!(
+    BOOL,
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    F32, F64, D128,
+    STR,
+    TIME, DATE, DATETIME
+    );
 
 impl<T: Fact> Eq for TestData<T> {}
 
@@ -777,7 +1040,17 @@ impl<I: Fact> Debug for TestData<I> {
         write!(f, "Getters(")?;
         match self {
             &BOOL(accessor, test) => write!(f, "BOOL({:#x}) - {:?}", accessor as usize, test)?,
-            &NUMBER(accessor, test) => write!(f, "NUMBER({:#x}) - {:?}", accessor as usize, test)?,
+            &I8(accessor, test) => write!(f, "I8({:#x}) - {:?}", accessor as usize, test)?,
+            &I16(accessor, test) => write!(f, "I16({:#x}) - {:?}", accessor as usize, test)?,
+            &I32(accessor, test) => write!(f, "I32({:#x}) - {:?}", accessor as usize, test)?,
+            &I64(accessor, test) => write!(f, "I64({:#x}) - {:?}", accessor as usize, test)?,
+            &U8(accessor, test) => write!(f, "U8({:#x}) - {:?}", accessor as usize, test)?,
+            &U16(accessor, test) => write!(f, "U16({:#x}) - {:?}", accessor as usize, test)?,
+            &U32(accessor, test) => write!(f, "U32({:#x}) - {:?}", accessor as usize, test)?,
+            &U64(accessor, test) => write!(f, "U64({:#x}) - {:?}", accessor as usize, test)?,
+            &F32(accessor, test) => write!(f, "F32({:#x}) - {:?}", accessor as usize, test)?,
+            &F64(accessor, test) => write!(f, "F64({:#x}) - {:?}", accessor as usize, test)?,
+            &D128(accessor, test) => write!(f, "D128({:#x}) - {:?}", accessor as usize, test)?,
             &STR(accessor, test) => write!(f, "STR({:#x}) - {:?}", accessor as usize, test)?,
             &TIME(accessor, test) => write!(f, "TIME({:#x}) - {:?}", accessor as usize, test)?,
             &DATE(accessor, test) => write!(f, "DATE({:#x}) - {:?}", accessor as usize, test)?,
