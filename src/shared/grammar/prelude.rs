@@ -13,6 +13,7 @@ use ordered_float::NotNaN;
 use decimal::d128;
 use chrono::{Utc, NaiveTime, Date, DateTime};
 use std::borrow::Cow;
+use shared::tests::StrArrayTest;
 
 pub trait AString: AsRef<str> {}
 
@@ -28,12 +29,12 @@ pub trait IntoOrdTest<S: AsRef<str>> {
     fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S>;
 }
 
-pub trait IntoStrTest<S: AsRef<str>> {
-    fn into_str_test(self, field: S, test: OrdTest) -> TestRepr<S>;
-}
-
 pub trait IntoBtwnTest<S: AsRef<str>> {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S>;
+}
+
+pub trait IntoStrTest<S: AsRef<str>> {
+    fn into_str_test(self, field: S, test: StrArrayTest) -> TestRepr<S>;
 }
 
 // Single values
@@ -67,7 +68,7 @@ into_eq_tests!(
     DateTime<Utc> => [DATETIME, DateTimeTest]
     );
 
-macro_rules! prim_into_approx_eq_tests {
+macro_rules! float_into_approx_eq_tests {
     ($($id:ty => [$sub:ident, $test:ident]),+) => {
         $(
             impl<S: AsRef<str>> IntoEqTest<S> for $id {
@@ -79,12 +80,12 @@ macro_rules! prim_into_approx_eq_tests {
     };
 }
 
-prim_into_approx_eq_tests!(
+float_into_approx_eq_tests!(
     f32 => [F32, F32Test],
     f64 => [F64, F64Test]
 );
 
-macro_rules! into_approx_eq_tests {
+macro_rules! nn_float_into_approx_eq_tests {
     ($($id:ty => [$sub:ident, $test:ident]),+) => {
         $(
             impl<S: AsRef<str>> IntoEqTest<S> for $id {
@@ -96,7 +97,7 @@ macro_rules! into_approx_eq_tests {
     };
 }
 
-into_approx_eq_tests!(
+nn_float_into_approx_eq_tests!(
     NotNaN<f32> => [F32, F32Test],
     NotNaN<f64> => [F64, F64Test]
 );
@@ -135,21 +136,43 @@ macro_rules! into_ord_tests {
 }
 
 into_ord_tests!(
+    i8 => [I8, I8Test],
+    i16 => [I16, I16Test],
+    i32 => [I32, I32Test],
+    i64 => [I64, I64Test],
+    u8 => [U8, U8Test],
+    u16 => [U16, U16Test],
+    u32 => [U32, U32Test],
+    u64 => [U64, U64Test],
+    NotNaN<f32> => [F32, F32Test],
+    NotNaN<f64> => [F64, F64Test],
     OrdVar<d128> => [D128, D128Test],
     NaiveTime => [TIME, TimeTest],
     Date<Utc> => [DATE, DateTest],
     DateTime<Utc> => [DATETIME, DateTimeTest]
     );
 
+macro_rules! float_into_ord_tests {
+    ($($id:ty => [$sub:ident, $test:ident]),+) => {
+        $(
+            impl<S: AsRef<str>> IntoOrdTest<S> for $id {
+                fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
+                    TestRepr::$sub(field, $test::ORD(test, SLimit::St(self.into())))
+                }
+            }
+        )*
+    };
+}
+
+float_into_ord_tests!(
+    f32 => [F32, F32Test],
+    f64 => [F64, F64Test],
+    d128 => [D128, D128Test]
+);
+
 impl<S: AString> IntoOrdTest<S> for S {
     fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
         TestRepr::STR(field, StrTest::ORD(test, SLimit::St(self)))
-    }
-}
-
-impl<S: AsRef<str>> IntoOrdTest<S> for d128 {
-    fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
-        TestRepr::D128(field, D128Test::ORD(test, SLimit::St(self.into())))
     }
 }
 
@@ -188,11 +211,51 @@ macro_rules! into_btwn_tests {
 }
 
 into_btwn_tests!(
+    i8 => [I8, I8Test],
+    i16 => [I16, I16Test],
+    i32 => [I32, I32Test],
+    i64 => [I64, I64Test],
+    u8 => [U8, U8Test],
+    u16 => [U16, U16Test],
+    u32 => [U32, U32Test],
+    u64 => [U64, U64Test],
+    NotNaN<f32> => [F32, F32Test],
+    NotNaN<f64> => [F64, F64Test],
     OrdVar<d128> => [D128, D128Test],
     NaiveTime => [TIME, TimeTest],
     Date<Utc> => [DATE, DateTest],
     DateTime<Utc> => [DATETIME, DateTimeTest]
     );
+
+macro_rules! float_into_btwn_tests {
+    ($($id:ty => [$sub:ident, $test:ident]),+) => {
+        $(
+            impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, $id) {
+                fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
+                    TestRepr::$sub(field, $test::BTWN(test, DLimit::St(self.0.into(), self.1.into())))
+                }
+            }
+
+            impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, $id) {
+                fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
+                    TestRepr::$sub(field, $test::BTWN(test, DLimit::LocalSt(self.0.limit, self.1.into())))
+                }
+            }
+
+            impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SDynLimit<S>) {
+                fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
+                    TestRepr::$sub(field, $test::BTWN(test, DLimit::StLocal(self.0.into(), self.1.limit)))
+                }
+            }
+        )*
+    };
+}
+
+float_into_btwn_tests!(
+    f32 => [F32, F32Test],
+    f64 => [F64, F64Test],
+    d128 => [D128, D128Test]
+);
 
 impl<S: AString> IntoBtwnTest<S> for (S, S) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
@@ -212,27 +275,15 @@ impl<S: AString> IntoBtwnTest<S> for (S, SDynLimit<S>) {
     }
 }
 
-impl<S: AString> IntoBtwnTest<S> for (d128, d128) {
-    fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::D128(field, D128Test::BTWN(test, DLimit::St(self.0.into(), self.1.into())))
-    }
-}
-
-impl<S: AString> IntoBtwnTest<S> for (SDynLimit<S>, d128) {
-    fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::D128(field, D128Test::BTWN(test, DLimit::LocalSt(self.0.limit, self.1.into())))
-    }
-}
-
-impl<S: AString> IntoBtwnTest<S> for (d128, SDynLimit<S>) {
-    fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::D128(field, D128Test::BTWN(test, DLimit::StLocal(self.0.into(), self.1.limit)))
-    }
-}
-
 impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, SDynLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
         let limit = DDynLimit{l: self.0.limit, r: self.1.limit};
         TestRepr::DDYN(field, DDynTests::BTWN(test), limit)
+    }
+}
+
+impl<S: AString> IntoStrTest<S> for S {
+    fn into_str_test(self, field: S, test: StrArrayTest) -> TestRepr<S> {
+        TestRepr::STR(field, StrTest::STR(test, SLimit::St(self.into())))
     }
 }

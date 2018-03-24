@@ -782,6 +782,8 @@ impl<S: AsRef<str>> TestRepr<S> {
         }
     }
 
+
+    //TODO: So much casting and coercion
     pub fn compile<T: Fact>(&self, cache: &mut StringCache) -> Result<TestData<T>, CompileError> {
         let getter = T::getter(self.field())
             .ok_or_else(|| CompileError::MissingGetter { getter: self.field().to_owned() })?;
