@@ -8,6 +8,7 @@ use decimal::d128;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ::runtime::memory::{StringCache, SymbolId};
 use ordered_float::NotNaN;
+use super::context::LocalContext;
 
 pub trait Introspect {
     fn static_type_id() -> TypeId;
@@ -86,3 +87,38 @@ pub trait Fact: Introspect + Eq + Hash
     fn getter(field: &str) -> Option<Getters<Self>>;
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
 }
+
+pub trait FactField {
+    fn resolve(context: &LocalContext, sym: SymbolId) -> &Self;
+}
+
+macro_rules! impl_fact_field {
+    ($($id:ty => $getter:ident),+) => {
+        $(
+            impl FactField for $id {
+                fn resolve(context: &LocalContext, sym: SymbolId) -> &Self {
+                    context.$getter(sym)
+                }
+            }
+        )*
+    };
+}
+
+impl_fact_field!(
+    bool => get_bool,
+    i8 => get_i8,
+    i16 => get_i16,
+    i32 => get_i32,
+    i64 => get_i64,
+    u8 => get_u8,
+    u16 => get_u16,
+    u32 => get_u32,
+    u64 => get_u64,
+    NotNaN<f32> => get_f32,
+    NotNaN<f64> => get_f64,
+    d128 => get_d128,
+    str => get_str,
+    NaiveTime => get_time,
+    Date<Utc> => get_date,
+    DateTime<Utc> => get_datetime
+);

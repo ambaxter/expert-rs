@@ -258,6 +258,7 @@ impl<T> STest<T> for StrArrayTest
     }
 }
 
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BoolTest<S> {
     EQ(EqTest, SLimit<bool, S>)
@@ -976,6 +977,14 @@ pub enum TestData<T: Fact> {
     DATE(fn(&T) -> &Date<Utc>, DateTest<SymbolId>),
     DATETIME(fn(&T) -> &DateTime<Utc>, DateTimeTest<SymbolId>),
 }
+
+// Actual test functions live in SLimit<T, S>, DLimit<T, S>
+// Passed &T from TestData.test() -> bool, &test type (where Test: STest or DTest)
+// new Trait FactTest for BoolTest and the likes
+// new Trait for field Types for accessing what's in the LocalContext
+// impl FieldTrait for u64 { fn get(&context, &str) -> &u64 {context.get_u64(str)} }
+// panic if not found
+
 
 impl<T: Fact> TestData<T> {
     fn hash_self<H: Hasher, K: Hash>(ord: usize, getter: usize, test: &K, state: &mut H) {
