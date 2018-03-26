@@ -89,14 +89,16 @@ pub trait Fact: Introspect + Eq + Hash
 }
 
 pub trait FactField {
-    fn resolve(context: &LocalContext, sym: SymbolId) -> &Self;
+    #[inline]
+    fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> &Self;
 }
 
 macro_rules! impl_fact_field {
     ($($id:ty => $getter:ident),+) => {
         $(
             impl FactField for $id {
-                fn resolve(context: &LocalContext, sym: SymbolId) -> &Self {
+                #[inline]
+                fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> &Self {
                     context.$getter(sym)
                 }
             }

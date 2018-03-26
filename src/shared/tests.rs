@@ -5,7 +5,7 @@ use num::cast;
 use ordered_float::NotNaN;
 use float_cmp::{Ulps, ApproxEqUlps};
 use runtime::memory::{StringCache, SymbolId};
-use ::shared::fact::{Getters, Fact};
+use ::shared::fact::{Getters, Fact, FactField};
 use errors::CompileError;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ord_subset::OrdVar;
@@ -13,6 +13,7 @@ use decimal::d128;
 use std::fmt;
 use std::fmt::Debug;
 use string_interner::Symbol;
+use shared::context::LocalContext;
 
 pub trait IsHashEq {
     fn is_hash_eq(&self) -> bool;
@@ -44,6 +45,18 @@ pub trait StringInternAll {
 pub enum SLimit<T, S> {
     St(T),
     Local(S),
+}
+
+impl<T> SLimit<T, SymbolId>
+    where T: FactField {
+
+    pub fn test_field<C: LocalContext, E: STest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+        use self::SLimit::*;
+        match self {
+            &St(ref to) => test.test(value, to),
+            &Local(ref s_to) => test.test(value, T::resolve(context, *s_to))
+        }
+    }
 }
 
 impl<T, S> CloneHashEq for SLimit<T, S>
@@ -105,6 +118,20 @@ pub enum DLimit<T, S> {
     StLocal(T, S),
     LocalSt(S, T),
     Local(S, S),
+}
+
+impl<T> DLimit<T, SymbolId>
+    where T: FactField {
+
+    pub fn test_field<C: LocalContext, E: DTest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+        use self::DLimit::*;
+        match self {
+            &St(ref from, ref to) => test.test(value, from, to),
+            &StLocal(ref from, ref s_to) => test.test(value, from, T::resolve(context, *s_to)),
+            &LocalSt(ref s_from, ref to) => test.test(value, T::resolve(context, *s_from), to),
+            &Local(ref s_from, ref s_to) => test.test(value, T::resolve(context, *s_from), T::resolve(context, *s_to))
+        }
+    }
 }
 
 impl<T, S> StringIntern for DLimit<T, S>
@@ -981,8 +1008,6 @@ pub enum TestData<T: Fact> {
 // Actual test functions live in SLimit<T, S>, DLimit<T, S>
 // Passed &T from TestData.test() -> bool, &test type (where Test: STest or DTest)
 // new Trait FactTest for BoolTest and the likes
-// new Trait for field Types for accessing what's in the LocalContext
-// impl FieldTrait for u64 { fn get(&context, &str) -> &u64 {context.get_u64(str)} }
 // panic if not found
 
 
