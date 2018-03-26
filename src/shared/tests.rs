@@ -5,7 +5,7 @@ use num::cast;
 use ordered_float::NotNaN;
 use float_cmp::{Ulps, ApproxEqUlps};
 use runtime::memory::{StringCache, SymbolId};
-use ::shared::fact::{Getters, Fact, FactField};
+use ::shared::fact::{Getters, Fact, FactField, RefField, CastField};
 use errors::CompileError;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ord_subset::OrdVar;
@@ -52,13 +52,25 @@ pub enum SLimit<T, S> {
 }
 
 impl<T> SLimit<T, SymbolId>
-    where T: FactField {
+    where T: RefField {
 
-    pub fn test_field<C: LocalContext, E: STest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+    pub fn test_field_ref<C: LocalContext, E: STest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
         use self::SLimit::*;
         match self {
             &St(ref to) => test.test(value, to),
             &Local(ref s_to) => test.test(value, T::resolve(context, *s_to))
+        }
+    }
+}
+
+impl<T> SLimit<T, SymbolId>
+    where T: CastField {
+
+    pub fn test_field_cast<C: LocalContext, E: STest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+        use self::SLimit::*;
+        match self {
+            &St(ref to) => test.test(value, to),
+            &Local(ref s_to) => test.test(value, &T::resolve(context, *s_to))
         }
     }
 }
@@ -125,15 +137,29 @@ pub enum DLimit<T, S> {
 }
 
 impl<T> DLimit<T, SymbolId>
-    where T: FactField {
+    where T: RefField {
 
-    pub fn test_field<C: LocalContext, E: DTest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+    pub fn test_field_ref<C: LocalContext, E: DTest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
         use self::DLimit::*;
         match self {
             &St(ref from, ref to) => test.test(value, from, to),
             &StLocal(ref from, ref s_to) => test.test(value, from, T::resolve(context, *s_to)),
             &LocalSt(ref s_from, ref to) => test.test(value, T::resolve(context, *s_from), to),
             &Local(ref s_from, ref s_to) => test.test(value, T::resolve(context, *s_from), T::resolve(context, *s_to))
+        }
+    }
+}
+
+impl<T> DLimit<T, SymbolId>
+    where T: CastField {
+
+    pub fn test_field_cast<C: LocalContext, E: DTest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+        use self::DLimit::*;
+        match self {
+            &St(ref from, ref to) => test.test(value, from, to),
+            &StLocal(ref from, ref s_to) => test.test(value, from, &T::resolve(context, *s_to)),
+            &LocalSt(ref s_from, ref to) => test.test(value, &T::resolve(context, *s_from), to),
+            &Local(ref s_from, ref s_to) => test.test(value, &T::resolve(context, *s_from), &T::resolve(context, *s_to))
         }
     }
 }
@@ -364,7 +390,7 @@ impl TestField<bool> for BoolTest<SymbolId> {
     fn test_field<C: LocalContext>(&self, value: &bool, context: &C) -> bool {
         use self::BoolTest::*;
         match self {
-            &EQ(ref test, ref limit) => limit.test_field(value, test, context)
+            &EQ(ref test, ref limit) => limit.test_field_ref(value, test, context)
         }
     }
 }
@@ -431,9 +457,9 @@ macro_rules! number_test {
                 fn test_field<C: LocalContext>(&self, value: &$id, context: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &ORD(ref test, ref limit) => limit.test_field(value, test, context),
-                        &EQ(ref test, ref limit) => limit.test_field(value, test, context),
-                        &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
+                        &ORD(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &EQ(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &BTWN(ref test, ref limit) => limit.test_field_cast(value, test, context),
 
                     }
                 }
@@ -496,9 +522,9 @@ macro_rules! float_test {
                 fn test_field<C: LocalContext>(&self, value: &$id, context: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &ORD(ref test, ref limit) => limit.test_field(value, test, context),
-                        &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
-                        &APPROX_EQ(ref test, ref limit) => limit.test_field(value, test, context),
+                        &ORD(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &BTWN(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &APPROX_EQ(ref test, ref limit) => limit.test_field_cast(value, test, context),
 
                     }
                 }
@@ -643,9 +669,9 @@ impl TestField<NaiveTime> for TimeTest<SymbolId> {
     fn test_field<C: LocalContext>(&self, value: &NaiveTime, context: &C) -> bool {
         use self::TimeTest::*;
         match self {
-            &ORD(ref test, ref limit) => limit.test_field(value, test, context),
-            &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
-            &EQ(ref test, ref limit) => limit.test_field(value, test, context)
+            &ORD(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &BTWN(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &EQ(ref test, ref limit) => limit.test_field_ref(value, test, context)
         }
     }
 }
@@ -709,9 +735,9 @@ impl TestField<Date<Utc>> for DateTest<SymbolId> {
     fn test_field<C: LocalContext>(&self, value: &Date<Utc>, context: &C) -> bool {
         use self::DateTest::*;
         match self {
-            &ORD(ref test, ref limit) => limit.test_field(value, test, context),
-            &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
-            &EQ(ref test, ref limit) => limit.test_field(value, test, context)
+            &ORD(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &BTWN(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &EQ(ref test, ref limit) => limit.test_field_ref(value, test, context)
         }
     }
 }
@@ -775,9 +801,9 @@ impl TestField<DateTime<Utc>> for DateTimeTest<SymbolId> {
     fn test_field<C: LocalContext>(&self, value: &DateTime<Utc>, context: &C) -> bool {
         use self::DateTimeTest::*;
         match self {
-            &ORD(ref test, ref limit) => limit.test_field(value, test, context),
-            &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
-            &EQ(ref test, ref limit) => limit.test_field(value, test, context)
+            &ORD(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &BTWN(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &EQ(ref test, ref limit) => limit.test_field_ref(value, test, context)
         }
     }
 }

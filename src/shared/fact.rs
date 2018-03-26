@@ -88,15 +88,24 @@ pub trait Fact: Introspect + Eq + Hash
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
 }
 
-pub trait FactField {
+pub trait FactField {}
+
+pub trait RefField : FactField {
     #[inline]
     fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> &Self;
 }
 
-macro_rules! impl_fact_field {
+pub trait CastField : FactField {
+    #[inline]
+    fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> Self;
+}
+
+macro_rules! impl_ref_field {
     ($($id:ty => $getter:ident),+) => {
         $(
-            impl FactField for $id {
+            impl FactField for $id {}
+
+            impl RefField for $id {
                 #[inline]
                 fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> &Self {
                     context.$getter(sym)
@@ -106,8 +115,30 @@ macro_rules! impl_fact_field {
     };
 }
 
-impl_fact_field!(
+macro_rules! impl_cast_field {
+    ($($id:ty => $getter:ident),+) => {
+        $(
+            impl FactField for $id {}
+
+            impl CastField for $id {
+                #[inline]
+                fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> Self {
+                    context.$getter(sym)
+                }
+            }
+        )*
+    };
+}
+
+impl_ref_field!(
     bool => get_bool,
+    str => get_str,
+    NaiveTime => get_time,
+    Date<Utc> => get_date,
+    DateTime<Utc> => get_datetime
+);
+
+impl_cast_field!(
     i8 => get_i8,
     i16 => get_i16,
     i32 => get_i32,
@@ -118,9 +149,5 @@ impl_fact_field!(
     u64 => get_u64,
     NotNaN<f32> => get_f32,
     NotNaN<f64> => get_f64,
-    OrdVar<d128> => get_d128,
-    str => get_str,
-    NaiveTime => get_time,
-    Date<Utc> => get_date,
-    DateTime<Utc> => get_datetime
+    OrdVar<d128> => get_d128
 );
