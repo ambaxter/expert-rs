@@ -118,7 +118,7 @@ impl_fact_field!(
     u64 => get_u64,
     NotNaN<f32> => get_f32,
     NotNaN<f64> => get_f64,
-    d128 => get_d128,
+    OrdVar<d128> => get_d128,
     str => get_str,
     NaiveTime => get_time,
     Date<Utc> => get_date,

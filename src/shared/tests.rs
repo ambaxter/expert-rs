@@ -41,6 +41,10 @@ pub trait StringInternAll {
     fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output;
 }
 
+pub trait STest<T: ?Sized>{
+    fn test(&self, val: &T, to: &T) -> bool;
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum SLimit<T, S> {
     St(T),
@@ -108,8 +112,8 @@ impl<S> StringInternAll for SLimit<S, S>
     }
 }
 
-pub trait STest<T: ?Sized>{
-    fn test(&self, val: &T, to: &T) -> bool;
+pub trait DTest<T: ?Sized>{
+    fn test(&self, val: &T, from: &T, to: &T) -> bool;
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -174,10 +178,6 @@ impl<T, S> IsStatic for DLimit<T, S> {
     }
 }
 
-pub trait DTest<T: ?Sized>{
-    fn test(&self, val: &T, from: &T, to: &T) -> bool;
-}
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum OrdTest {
     Lt,
@@ -206,6 +206,20 @@ pub enum BetweenTest {
     GtLe,
     GeLe
 }
+
+impl<T> DTest<T> for BetweenTest
+    where T: Ord + ?Sized{
+    fn test(&self, val: &T, from: &T, to: &T) -> bool {
+        use self::BetweenTest::*;
+        match self {
+            &GtLt => val > from && val < to,
+            &GeLt => val >= from && val < to,
+            &GtLe => val > from && val <= to,
+            &GeLe => val >= from && val <= to,
+        }
+    }
+}
+
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum EqTest {
@@ -249,13 +263,23 @@ pub enum ApproxEqTest {
     Ne
 }
 
-impl<T> STest<T> for ApproxEqTest
-    where T: ApproxEqUlps<Flt=T> + Ulps<U=i32> {
-    fn test(&self, val: &T, to: &T) -> bool {
+// TODO: I wish I could make this more generic. Revisit once impl specialization lands?
+impl STest<NotNaN<f32>> for ApproxEqTest {
+    fn test(&self, val: &NotNaN<f32>, to: &NotNaN<f32>) -> bool {
         use self::ApproxEqTest::*;
         match self {
-            &Eq => val.approx_eq_ulps(to, 2),
-            &Ne => val.approx_ne_ulps(to, 2),
+            &Eq => val.as_ref().approx_eq_ulps(to.as_ref(), 2),
+            &Ne => val.as_ref().approx_ne_ulps(to.as_ref(), 2),
+        }
+    }
+}
+
+impl STest<NotNaN<f64>> for ApproxEqTest {
+    fn test(&self, val: &NotNaN<f64>, to: &NotNaN<f64>) -> bool {
+        use self::ApproxEqTest::*;
+        match self {
+            &Eq => val.as_ref().approx_eq_ulps(to.as_ref(), 2),
+            &Ne => val.as_ref().approx_ne_ulps(to.as_ref(), 2),
         }
     }
 }
@@ -285,6 +309,10 @@ impl<T> STest<T> for StrArrayTest
     }
 }
 
+
+pub trait TestField<T: FactField> {
+    fn test_field<C: LocalContext>(&self, value: &T, context: &C) -> bool;
+}
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BoolTest<S> {
@@ -328,6 +356,15 @@ impl<S> CloneHashEq for BoolTest<S> {
         use self::BoolTest::*;
         match self {
             &EQ(_, ref limit) => limit.clone_hash_eq(),
+        }
+    }
+}
+
+impl TestField<bool> for BoolTest<SymbolId> {
+    fn test_field<C: LocalContext>(&self, value: &bool, context: &C) -> bool {
+        use self::BoolTest::*;
+        match self {
+            &EQ(ref test, ref limit) => limit.test_field(value, test, context)
         }
     }
 }
@@ -389,6 +426,18 @@ macro_rules! number_test {
                     }
                 }
             }
+
+            impl TestField<$id> for $test<SymbolId> {
+                fn test_field<C: LocalContext>(&self, value: &$id, context: &C) -> bool {
+                    use self::$test::*;
+                    match self {
+                        &ORD(ref test, ref limit) => limit.test_field(value, test, context),
+                        &EQ(ref test, ref limit) => limit.test_field(value, test, context),
+                        &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
+
+                    }
+                }
+            }
         )*
     };
 }
@@ -440,6 +489,18 @@ macro_rules! float_test {
 
                 fn clone_hash_eq(&self) -> Self::Output {
                     unreachable!("clone_hash_eq on non hash_eq tests")
+                }
+            }
+
+            impl TestField<$id> for $test<SymbolId> {
+                fn test_field<C: LocalContext>(&self, value: &$id, context: &C) -> bool {
+                    use self::$test::*;
+                    match self {
+                        &ORD(ref test, ref limit) => limit.test_field(value, test, context),
+                        &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
+                        &APPROX_EQ(ref test, ref limit) => limit.test_field(value, test, context),
+
+                    }
                 }
             }
         )*
@@ -1005,8 +1066,6 @@ pub enum TestData<T: Fact> {
     DATETIME(fn(&T) -> &DateTime<Utc>, DateTimeTest<SymbolId>),
 }
 
-// Actual test functions live in SLimit<T, S>, DLimit<T, S>
-// Passed &T from TestData.test() -> bool, &test type (where Test: STest or DTest)
 // new Trait FactTest for BoolTest and the likes
 // panic if not found
 
