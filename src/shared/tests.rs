@@ -583,6 +583,8 @@ impl<S> CloneHashEq for StrTest<S>
     }
 }
 
+//TODO: Handle StrTest
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TimeTest<S> {
     ORD(OrdTest, SLimit<NaiveTime, S>),
@@ -633,6 +635,17 @@ impl<S> CloneHashEq for TimeTest<S> {
         match self {
             &EQ(_, ref limit) => limit.clone_hash_eq(),
             _ => unreachable!("clone_hash_eq on non hash_eq tests"),
+        }
+    }
+}
+
+impl TestField<NaiveTime> for TimeTest<SymbolId> {
+    fn test_field<C: LocalContext>(&self, value: &NaiveTime, context: &C) -> bool {
+        use self::TimeTest::*;
+        match self {
+            &ORD(ref test, ref limit) => limit.test_field(value, test, context),
+            &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
+            &EQ(ref test, ref limit) => limit.test_field(value, test, context)
         }
     }
 }
@@ -692,6 +705,17 @@ impl<S> CloneHashEq for DateTest<S> {
     }
 }
 
+impl TestField<Date<Utc>> for DateTest<SymbolId> {
+    fn test_field<C: LocalContext>(&self, value: &Date<Utc>, context: &C) -> bool {
+        use self::DateTest::*;
+        match self {
+            &ORD(ref test, ref limit) => limit.test_field(value, test, context),
+            &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
+            &EQ(ref test, ref limit) => limit.test_field(value, test, context)
+        }
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTimeTest<S> {
     ORD(OrdTest, SLimit<DateTime<Utc>, S>),
@@ -743,6 +767,17 @@ impl<S> CloneHashEq for DateTimeTest<S> {
         match self {
             &EQ(_, ref limit) => limit.clone_hash_eq(),
             _ => unreachable!("clone_hash_eq on non hash_eq tests"),
+        }
+    }
+}
+
+impl TestField<DateTime<Utc>> for DateTimeTest<SymbolId> {
+    fn test_field<C: LocalContext>(&self, value: &DateTime<Utc>, context: &C) -> bool {
+        use self::DateTimeTest::*;
+        match self {
+            &ORD(ref test, ref limit) => limit.test_field(value, test, context),
+            &BTWN(ref test, ref limit) => limit.test_field(value, test, context),
+            &EQ(ref test, ref limit) => limit.test_field(value, test, context)
         }
     }
 }
