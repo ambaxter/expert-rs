@@ -35,23 +35,24 @@ pub trait StringIntern {
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output;
 }
 
-pub trait StringInternAll {
-    type Output;
-
-    fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output;
-}
-
 pub trait MapStatic<T, U> {
     type Output;
 
-    fn map_static<F>(&self, mut func: F) -> Self::Output
+    fn map_static<F>(&self, func: F) -> Self::Output
         where F: FnMut(&T) -> U;
 }
 
 pub trait MapDynamic<T, U> {
     type Output;
 
-    fn map_dynamic<F>(&self, mut func: F) -> Self::Output
+    fn map_dynamic<F>(&self, func: F) -> Self::Output
+        where F: FnMut(&T) -> U;
+}
+
+pub trait MapAll<T, U> {
+    type Output;
+
+    fn map_all<F>(&self, func: F) -> Self::Output
         where F: FnMut(&T) -> U;
 }
 
@@ -142,28 +143,16 @@ impl<T, U, S> MapDynamic<S, U> for SLimit<T, S>
     }
 }
 
-impl<T, S> StringIntern for SLimit<T, S>
-    where S: AsRef<str>, T: Clone {
-    type Output = SLimit<T, SymbolId>;
+impl<T, U> MapAll<T, U> for SLimit<T, T> {
+    type Output = SLimit<U, U>;
 
-    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
+    fn map_all<F>(&self, mut func: F) -> Self::Output
+        where F: FnMut(&T) -> U {
+
         use self::SLimit::*;
         match self {
-            &St(ref t) => St(t.clone()),
-            &Dyn(ref s) => Dyn(cache.get_or_intern(s.as_ref().to_owned()))
-        }
-    }
-}
-
-impl<S> StringInternAll for SLimit<S, S>
-    where S: AsRef<str> {
-    type Output = SLimit<SymbolId, SymbolId>;
-
-    fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output {
-        use self::SLimit::*;
-        match self {
-            &St(ref t) => St(cache.get_or_intern(t.as_ref().to_owned())),
-            &Dyn(ref s) => Dyn(cache.get_or_intern(s.as_ref().to_owned()))
+            &St(ref t) => St(func(t)),
+            &Dyn(ref s) => Dyn(func(s))
         }
     }
 }
@@ -208,36 +197,6 @@ impl<T> DLimit<T, SymbolId>
     }
 }
 
-impl<T, S> StringIntern for DLimit<T, S>
-    where S: AsRef<str>, T: Clone {
-    type Output = DLimit<T, SymbolId>;
-
-    fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
-        use self::DLimit::*;
-        match self {
-            &St(ref from, ref to) => St(from.clone(), to.clone()),
-            &StDyn(ref from, ref s_to) => StDyn(from.clone(), cache.get_or_intern(s_to.as_ref().to_owned())),
-            &DynSt(ref s_from, ref to) => DynSt(cache.get_or_intern(s_from.as_ref().to_owned()), to.clone()),
-            &Dyn(ref s_from, ref s_to) => Dyn(cache.get_or_intern(s_from.as_ref().to_owned()), cache.get_or_intern(s_to.as_ref().to_owned())),
-        }
-    }
-}
-
-impl<S> StringInternAll for DLimit<S, S>
-    where S: AsRef<str> {
-    type Output = DLimit<SymbolId, SymbolId>;
-
-    fn string_intern_all(&self, cache: &mut StringCache) -> Self::Output {
-        use self::DLimit::*;
-        match self {
-            &St(ref from, ref to) => St(cache.get_or_intern(from.as_ref().to_owned()), cache.get_or_intern(to.as_ref().to_owned())),
-            &StDyn(ref from, ref s_to) => StDyn(cache.get_or_intern(from.as_ref().to_owned()), cache.get_or_intern(s_to.as_ref().to_owned())),
-            &DynSt(ref s_from, ref to) => DynSt(cache.get_or_intern(s_from.as_ref().to_owned()), cache.get_or_intern(to.as_ref().to_owned())),
-            &Dyn(ref s_from, ref s_to) => Dyn(cache.get_or_intern(s_from.as_ref().to_owned()), cache.get_or_intern(s_to.as_ref().to_owned())),
-        }
-    }
-}
-
 impl<T, S> IsStatic for DLimit<T, S> {
     fn is_static(&self) -> bool {
         use self::DLimit::*;
@@ -278,6 +237,22 @@ impl<T, U, S> MapDynamic<S, U> for DLimit<T, S>
             &StDyn(ref t, ref s) => StDyn(t.clone(), func(s)),
             &DynSt(ref s, ref t) => DynSt(func(s), t.clone()),
             &Dyn(ref s1, ref s2) => Dyn(func(s1), func(s2)),
+        }
+    }
+}
+
+impl<T, U> MapAll<T, U> for DLimit<T, T> {
+    type Output = DLimit<U, U>;
+
+    fn map_all<F>(&self, mut func: F) -> Self::Output
+        where F: FnMut(&T) -> U {
+
+        use self::DLimit::*;
+        match self {
+            &St(ref from, ref to) => St(func(from), func(to)),
+            &StDyn(ref from, ref s_to) => StDyn(func(from), func(s_to)),
+            &DynSt(ref s_from, ref to) => DynSt(func(s_from), func(to)),
+            &Dyn(ref s_from, ref s_to) => Dyn(func(s_from), func(s_to)),
         }
     }
 }
@@ -644,10 +619,10 @@ impl<S> StringIntern for StrTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::StrTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.string_intern_all(cache)),
-            &BTWN(test, ref limit) => BTWN(test, limit.string_intern_all(cache)),
-            &EQ(test, ref limit) => EQ(test, limit.string_intern_all(cache)),
-            &STR(test, ref limit) => STR(test, limit.string_intern_all(cache)),
+            &ORD(test, ref limit) => ORD(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &BTWN(test, ref limit) => BTWN(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &EQ(test, ref limit) => EQ(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &STR(test, ref limit) => STR(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
         }
     }
 }
@@ -961,7 +936,7 @@ pub enum TestRepr<S: AsRef<str>> {
     DDYN(S, DDynTests, DDynLimit<S>),
 }
 
-impl<S: AsRef<str>> TestRepr<S> {
+impl<S: AsRef<str>> TestRepr<S>  {
     pub fn field(&self) -> &str {
         use self::TestRepr::*;
         match self {
