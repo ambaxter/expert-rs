@@ -687,15 +687,24 @@ impl<S> CloneHashEq for StrTest<S>
     }
 }
 
+//TODO: This ended up being pretty painful. Is there a better way to handle this?
 impl TestField<str> for StrTest<SymbolId> {
     fn test_field<C: LocalContext>(&self, value: &str, context: &C) -> bool {
         use self::StrTest::*;
         let string_cache = context.get_string_cache();
         match self {
-            &ORD(ref test, ref limit) => limit.map_static(|s| string_cache.resolve(*s).unwrap()).test_field_str(&value, test, context),
-            &BTWN(ref test, ref limit) => limit.map_static(|s| string_cache.resolve(*s).unwrap()).test_field_str(&value, test, context),
-            &EQ(ref test, ref limit) => limit.map_static(|s| string_cache.resolve(*s).unwrap()).test_field_str(&value, test, context),
-            &STR(ref test, ref limit) => limit.map_static(|s| string_cache.resolve(*s).unwrap()).test_field_str(&value, test, context),
+            &ORD(ref test, ref limit) => limit
+                .map_static(|s| string_cache.resolve(*s).unwrap())
+                .test_field_str(&value, test, context),
+            &BTWN(ref test, ref limit) => limit
+                .map_static(|s| string_cache.resolve(*s).unwrap())
+                .test_field_str(&value, test, context),
+            &EQ(ref test, ref limit) => limit
+                .map_static(|s| string_cache.resolve(*s).unwrap())
+                .test_field_str(&value, test, context),
+            &STR(ref test, ref limit) => limit
+                .map_static(|s| string_cache.resolve(*s).unwrap())
+                .test_field_str(&value, test, context),
         }
     }
 }
