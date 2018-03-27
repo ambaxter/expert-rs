@@ -78,6 +78,18 @@ impl<T> SLimit<T, SymbolId>
     }
 }
 
+impl<'a> SLimit<&'a str, SymbolId> {
+
+    pub fn test_field_str<C: LocalContext, E: STest<&'a str> >(&self, value: &'a str, test: &E, context: &'a C) -> bool {
+        use self::SLimit::*;
+        match self {
+            &St(ref to) => test.test(&value, to),
+            &Dyn(ref s_to) => test.test(&value, & str::resolve(context, *s_to))
+        }
+    }
+}
+
+
 impl<T> SLimit<T, SymbolId>
     where T: CastField {
 
@@ -183,6 +195,19 @@ impl<T> DLimit<T, SymbolId>
     }
 }
 
+impl<'a> DLimit<&'a str, SymbolId> {
+
+    pub fn test_field_str<C: LocalContext, E: DTest<&'a str> >(&self, value: &'a str, test: &E, context: &'a C) -> bool {
+        use self::DLimit::*;
+        match self {
+            &St(ref from, ref to) => test.test(&value, from, to),
+            &StDyn(ref from, ref s_to) => test.test(&value, from, & str::resolve(context, *s_to)),
+            &DynSt(ref s_from, ref to) => test.test(&value, & str::resolve(context, *s_from), to),
+            &Dyn(ref s_from, ref s_to) => test.test(&value, & str::resolve(context, *s_from), & str::resolve(context, *s_to))
+        }
+    }
+}
+
 impl<T> DLimit<T, SymbolId>
     where T: CastField {
 
@@ -266,7 +291,7 @@ pub enum OrdTest {
 }
 
 impl<T> STest<T> for OrdTest
-    where T: Ord + ?Sized{
+    where T: Ord + ?Sized {
     fn test(&self, val: &T, to: &T) -> bool {
         use self::OrdTest::*;
         match self {
@@ -389,7 +414,7 @@ impl<T> STest<T> for StrArrayTest
 }
 
 
-pub trait TestField<T: FactField> {
+pub trait TestField<T: FactField + ?Sized > {
     fn test_field<C: LocalContext>(&self, value: &T, context: &C) -> bool;
 }
 
@@ -661,6 +686,20 @@ impl<S> CloneHashEq for StrTest<S>
         }
     }
 }
+
+impl TestField<str> for StrTest<SymbolId> {
+    fn test_field<C: LocalContext>(&self, value: &str, context: &C) -> bool {
+        use self::StrTest::*;
+        let string_cache = context.get_string_cache();
+        match self {
+            &ORD(ref test, ref limit) => limit.map_static(|s| string_cache.resolve(*s).unwrap()).test_field_str(&value, test, context),
+            &BTWN(ref test, ref limit) => limit.map_static(|s| string_cache.resolve(*s).unwrap()).test_field_str(&value, test, context),
+            &EQ(ref test, ref limit) => limit.map_static(|s| string_cache.resolve(*s).unwrap()).test_field_str(&value, test, context),
+            &STR(ref test, ref limit) => limit.map_static(|s| string_cache.resolve(*s).unwrap()).test_field_str(&value, test, context),
+        }
+    }
+}
+
 
 //TODO: Handle StrTest
 
@@ -1180,6 +1219,7 @@ pub enum TestData<T: Fact> {
     DATETIME(fn(&T) -> &DateTime<Utc>, DateTimeTest<SymbolId>),
 }
 
+// Add test for StrTest, now that mapping is finished
 // new Trait FactTest for BoolTest and the likes
 // panic if not found
 

@@ -3,6 +3,7 @@ use ord_subset::OrdVar;
 use decimal::d128;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ordered_float::NotNaN;
+use runtime::memory::StringCache;
 
 pub trait LocalContext {
     fn get_bool(&self, sym: SymbolId) -> &bool;
@@ -21,4 +22,5 @@ pub trait LocalContext {
     fn get_time(&self, sym: SymbolId) -> &NaiveTime;
     fn get_date(&self, sym: SymbolId) -> &Date<Utc>;
     fn get_datetime(&self, sym: SymbolId) -> &DateTime<Utc>;
+    fn get_string_cache(&self) -> &StringCache;
 }
