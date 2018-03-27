@@ -197,13 +197,13 @@ macro_rules! into_btwn_tests {
 
             impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, $id) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::LocalSt(self.0.limit, self.1)))
+                    TestRepr::$sub(field, $test::BTWN(test, DLimit::DynSt(self.0.limit, self.1)))
                 }
             }
 
             impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SDynLimit<S>) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::StLocal(self.0, self.1.limit)))
+                    TestRepr::$sub(field, $test::BTWN(test, DLimit::StDyn(self.0, self.1.limit)))
                 }
             }
         )*
@@ -238,13 +238,13 @@ macro_rules! float_into_btwn_tests {
 
             impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, $id) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::LocalSt(self.0.limit, self.1.into())))
+                    TestRepr::$sub(field, $test::BTWN(test, DLimit::DynSt(self.0.limit, self.1.into())))
                 }
             }
 
             impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SDynLimit<S>) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::StLocal(self.0.into(), self.1.limit)))
+                    TestRepr::$sub(field, $test::BTWN(test, DLimit::StDyn(self.0.into(), self.1.limit)))
                 }
             }
         )*
@@ -265,13 +265,13 @@ impl<S: AString> IntoBtwnTest<S> for (S, S) {
 
 impl<S: AString> IntoBtwnTest<S> for (SDynLimit<S>, S) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::BTWN(test, DLimit::LocalSt(self.0.limit, self.1)))
+        TestRepr::STR(field, StrTest::BTWN(test, DLimit::DynSt(self.0.limit, self.1)))
     }
 }
 
 impl<S: AString> IntoBtwnTest<S> for (S, SDynLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::BTWN(test, DLimit::StLocal(self.0, self.1.limit)))
+        TestRepr::STR(field, StrTest::BTWN(test, DLimit::StDyn(self.0, self.1.limit)))
     }
 }
 
