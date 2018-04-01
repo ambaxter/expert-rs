@@ -289,12 +289,12 @@ impl<S: AString> IntoStrTest<S> for S {
     }
 }
 
-pub trait CompileTest {
+pub trait CompileStage1 {
     type Output;
 
-    fn compile_test(&self) -> Self::Output;
+    fn compile_stage1(&self) -> Self::Output;
 
-    fn compile_slice(t: &[Self]) -> Vec<Self::Output> where Self: marker::Sized {
+    fn compile_slice_stage1(t: &[Self]) -> Vec<Self::Output> where Self: marker::Sized {
         t.iter().map(|c| c.compile_test()).collect()
     }
 }
