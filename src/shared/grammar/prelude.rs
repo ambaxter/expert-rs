@@ -8,6 +8,7 @@ use ::shared::tests::{
     TimeTest, DateTest, DateTimeTest,
     SDynTests, DDynTests
 };
+use std::marker;
 use ord_subset::OrdVar;
 use ordered_float::NotNaN;
 use decimal::d128;
@@ -285,5 +286,15 @@ impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, SDynLimit<S>) {
 impl<S: AString> IntoStrTest<S> for S {
     fn into_str_test(self, field: S, test: StrArrayTest) -> TestRepr<S> {
         TestRepr::STR(field, StrTest::STR(test, SLimit::St(self.into())))
+    }
+}
+
+pub trait CompileTest {
+    type Output;
+
+    fn compile_test(&self) -> Self::Output;
+
+    fn compile_slice(t: &[Self]) -> Vec<Self::Output> where Self: marker::Sized {
+        t.iter().map(|c| c.compile_test()).collect()
     }
 }
