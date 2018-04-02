@@ -8,7 +8,7 @@ use decimal::d128;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ::runtime::memory::{StringCache, SymbolId};
 use ordered_float::NotNaN;
-use super::context::LocalContext;
+use super::context::BetaContext;
 
 pub trait Introspect {
     fn static_type_id() -> TypeId;
@@ -92,12 +92,12 @@ pub trait FactField {}
 
 pub trait RefField : FactField {
     #[inline]
-    fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> &Self;
+    fn resolve<C: BetaContext>(context: &C, sym: SymbolId) -> &Self;
 }
 
 pub trait CastField : FactField {
     #[inline]
-    fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> Self;
+    fn resolve<C: BetaContext>(context: &C, sym: SymbolId) -> Self;
 }
 
 macro_rules! impl_ref_field {
@@ -107,7 +107,7 @@ macro_rules! impl_ref_field {
 
             impl RefField for $id {
                 #[inline]
-                fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> &Self {
+                fn resolve<C: BetaContext>(context: &C, sym: SymbolId) -> &Self {
                     context.$getter(sym)
                 }
             }
@@ -122,7 +122,7 @@ macro_rules! impl_cast_field {
 
             impl CastField for $id {
                 #[inline]
-                fn resolve<C: LocalContext>(context: &C, sym: SymbolId) -> Self {
+                fn resolve<C: BetaContext>(context: &C, sym: SymbolId) -> Self {
                     context.$getter(sym)
                 }
             }

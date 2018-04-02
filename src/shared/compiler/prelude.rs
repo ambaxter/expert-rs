@@ -1,5 +1,5 @@
-use ::shared::tests::{
-    EqTest, OrdTest, BetweenTest, TestRepr, SLimit, SDynLimit, DLimit, DDynLimit,
+use ::shared::nodes::beta::{
+    TestRepr, SLimit, SDynLimit, DLimit, DDynLimit,
     BoolTest,
     I8Test, I16Test, I32Test, I64Test,
     U8Test, U16Test, U32Test, U64Test,
@@ -14,7 +14,7 @@ use ordered_float::NotNaN;
 use decimal::d128;
 use chrono::{Utc, NaiveTime, Date, DateTime};
 use std::borrow::Cow;
-use shared::tests::StrArrayTest;
+use shared::nodes::tests::{EqTest, OrdTest, BetweenTest, StrArrayTest};
 
 pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}

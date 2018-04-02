@@ -5,7 +5,11 @@ use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ordered_float::NotNaN;
 use runtime::memory::StringCache;
 
-pub trait LocalContext {
+pub trait AlphaContext {
+    fn get_string_cache(&self) -> &StringCache;
+}
+
+pub trait BetaContext {
     fn get_bool(&self, sym: SymbolId) -> &bool;
     fn get_i8(&self, sym: SymbolId) -> i8;
     fn get_i16(&self, sym: SymbolId) -> i16;

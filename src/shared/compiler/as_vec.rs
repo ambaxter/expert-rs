@@ -1,7 +1,7 @@
 use super::prelude::*;
 pub use super::prelude::dyn;
-use super::super::tests::{EqTest, OrdTest, BetweenTest, StrArrayTest, TestRepr};
-
+use super::super::nodes::tests::{EqTest, OrdTest, BetweenTest, StrArrayTest};
+use super::super::nodes::beta::TestRepr;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum VecNodes<S: AsRef<str>> {

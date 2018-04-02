@@ -1,5 +1,5 @@
 use super::prelude::CompileStage1;
-use super::super::tests::SDynLimit;
+use super::super::nodes::beta::SDynLimit;
 use shared::fact::Fact;
 
 

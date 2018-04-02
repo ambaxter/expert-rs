@@ -211,7 +211,8 @@ fn main() {
     println!("FlTest: {:?}", std::mem::size_of::<expert::network::node_cmp::FlTest<NotNaN<f64>>>());
     println!("NumTest: {:?}", std::mem::size_of::<expert::network::node_cmp::NumTest<usize>>());
 
-    println!("New TestData: {:?}", std::mem::size_of::<expert::shared::tests::TestData<ATestAspect>>());
+    println!("New AlphaNode: {:?}", std::mem::size_of::<expert::shared::nodes::alpha::AlphaNode<ATestAspect>>());
+    println!("New BetaNode: {:?}", std::mem::size_of::<expert::shared::nodes::beta::BetaNode<ATestAspect>>());
 
     let default = vec![false, true, false];
     let mut test_into = Vec::with_capacity(default.len());
