@@ -308,7 +308,12 @@ pub enum BetweenTest {
     GtLt,
     GeLt,
     GtLe,
-    GeLe
+    GeLe,
+    // Not versions
+    LtGt,
+    LeGt,
+    LtGe,
+    LeGe
 }
 
 impl<T> DTest<T> for BetweenTest
@@ -320,6 +325,10 @@ impl<T> DTest<T> for BetweenTest
             &GeLt => val >= from && val < to,
             &GtLe => val > from && val <= to,
             &GeLe => val >= from && val <= to,
+            &LtGt => val < from && val > to,
+            &LeGt => val <= from && val > to,
+            &LtGe => val < from && val >= to,
+            &LeGe => val <= from || val >= to,
         }
     }
 }
