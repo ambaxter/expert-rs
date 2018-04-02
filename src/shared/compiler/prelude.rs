@@ -16,6 +16,10 @@ use chrono::{Utc, NaiveTime, Date, DateTime};
 use std::borrow::Cow;
 use shared::tests::StrArrayTest;
 
+pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
+    SDynLimit{limit}
+}
+
 pub trait AString: AsRef<str> {}
 
 impl<'a> AString for &'a str {}
@@ -295,6 +299,6 @@ pub trait CompileStage1 {
     fn compile_stage1(&self) -> Self::Output;
 
     fn compile_slice_stage1(t: &[Self]) -> Vec<Self::Output> where Self: marker::Sized {
-        t.iter().map(|c| c.compile_test()).collect()
+        t.iter().map(|c| c.compile_stage1()).collect()
     }
 }

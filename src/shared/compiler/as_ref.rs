@@ -1,4 +1,5 @@
 use super::prelude::*;
+pub use super::prelude::dyn;
 use super::super::tests::{EqTest, OrdTest, BetweenTest, StrArrayTest, TestRepr};
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]

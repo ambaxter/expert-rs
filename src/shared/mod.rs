@@ -1,5 +1,4 @@
 pub mod fact;
 pub mod tests;
-pub mod grammar;
+pub mod compiler;
 pub mod context;
-pub mod builder;
