@@ -309,7 +309,7 @@ pub enum BetweenTest {
     GeLt,
     GtLe,
     GeLe,
-    // Not versions
+    // Not
     LtGt,
     LeGt,
     LtGe,
@@ -325,9 +325,9 @@ impl<T> DTest<T> for BetweenTest
             &GeLt => val >= from && val < to,
             &GtLe => val > from && val <= to,
             &GeLe => val >= from && val <= to,
-            &LtGt => val < from && val > to,
-            &LeGt => val <= from && val > to,
-            &LtGe => val < from && val >= to,
+            &LtGt => val < from || val > to,
+            &LeGt => val <= from || val > to,
+            &LtGe => val < from || val >= to,
             &LeGe => val <= from || val >= to,
         }
     }
@@ -407,7 +407,11 @@ impl IsHashEq for ApproxEqTest {
 pub enum StrArrayTest {
     Contains,
     StartsWith,
-    EndsWith
+    EndsWith,
+    //Not Versions
+    NotContains,
+    NotStartsWith,
+    NotEndsWith,
 }
 
 impl<T> STest<T> for StrArrayTest
@@ -417,7 +421,10 @@ impl<T> STest<T> for StrArrayTest
         match self {
             &Contains => val.as_ref().contains(to.as_ref()),
             &StartsWith => val.as_ref().starts_with(to.as_ref()),
-            &EndsWith => val.as_ref().ends_with(to.as_ref())
+            &EndsWith => val.as_ref().ends_with(to.as_ref()),
+            &NotContains => !val.as_ref().contains(to.as_ref()),
+            &NotStartsWith => !val.as_ref().starts_with(to.as_ref()),
+            &NotEndsWith => !val.as_ref().ends_with(to.as_ref())
         }
     }
 }
