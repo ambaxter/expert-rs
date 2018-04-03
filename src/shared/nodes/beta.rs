@@ -15,18 +15,12 @@ use string_interner::Symbol;
 use shared::context::BetaContext;
 use super::tests::*;
 
-pub trait IsHashEq {
-    fn is_hash_eq(&self) -> bool;
+pub trait IsAlpha {
+    fn is_alpha(&self) -> bool;
 }
 
 pub trait IsStatic {
     fn is_static(&self) -> bool;
-}
-
-pub trait CloneHashEq {
-    type Output;
-
-    fn clone_hash_eq(&self) -> Self::Output;
 }
 
 pub trait StringIntern {
@@ -86,7 +80,6 @@ impl<'a> SLimit<&'a str, SymbolId> {
     }
 }
 
-
 impl<T> SLimit<T, SymbolId>
     where T: CastField {
 
@@ -95,19 +88,6 @@ impl<T> SLimit<T, SymbolId>
         match self {
             &St(ref to) => test.test(value, to),
             &Dyn(ref s_to) => test.test(value, &T::resolve(context, *s_to))
-        }
-    }
-}
-
-impl<T, S> CloneHashEq for SLimit<T, S>
-    where T: Clone {
-    type Output = T;
-
-    fn clone_hash_eq(&self) -> Self::Output {
-        use self::SLimit::*;
-        match self {
-            &St(ref t) => t.clone(),
-            &Dyn(ref s) => unreachable!("clone_hash_eq on a local variable")
         }
     }
 }
@@ -275,22 +255,6 @@ impl<T, U> MapAll<T, U> for DLimit<T, T> {
     }
 }
 
-impl IsHashEq for EqTest {
-    fn is_hash_eq(&self) -> bool {
-        use self::EqTest::*;
-        match self {
-            &Eq => true,
-            &Ne => false,
-        }
-    }
-}
-
-impl IsHashEq for ApproxEqTest {
-    fn is_hash_eq(&self) -> bool {
-        false
-    }
-}
-
 pub trait BetaTestField<T: FactField + ?Sized > {
     fn beta_test_field<C: BetaContext>(&self, value: &T, context: &C) -> bool;
 }
@@ -312,31 +276,11 @@ impl<S> StringIntern for BoolTest<S>
     }
 }
 
-impl<S> IsHashEq for BoolTest<S> {
-    fn is_hash_eq(&self) -> bool {
-        use self::BoolTest::*;
-        match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static()
-        }
-    }
-}
-
 impl<S> IsStatic for BoolTest<S> {
     fn is_static(&self) -> bool {
         use self::BoolTest::*;
         match self {
             &EQ(_, ref limit) => limit.is_static()
-        }
-    }
-}
-
-impl<S> CloneHashEq for BoolTest<S> {
-    type Output = bool;
-
-    fn clone_hash_eq(&self) -> Self::Output {
-        use self::BoolTest::*;
-        match self {
-            &EQ(_, ref limit) => limit.clone_hash_eq(),
         }
     }
 }
@@ -375,16 +319,6 @@ macro_rules! beta_number_test {
                 }
             }
 
-            impl<S> IsHashEq for $test<S> {
-                fn is_hash_eq(&self) -> bool {
-                    use self::$test::*;
-                    match self {
-                        &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
-                        _ => false
-                    }
-                }
-            }
-
             impl<S> IsStatic for $test<S> {
                 fn is_static(&self) -> bool {
                     use self::$test::*;
@@ -392,18 +326,6 @@ macro_rules! beta_number_test {
                         &ORD(_, ref limit) => limit.is_static(),
                         &BTWN(_, ref limit) => limit.is_static(),
                         &EQ(_, ref limit) => limit.is_static()
-                    }
-                }
-            }
-
-            impl<S> CloneHashEq for $test<S> {
-                type Output = $id;
-
-                fn clone_hash_eq(&self) -> Self::Output {
-                    use self::$test::*;
-                    match self {
-                        &EQ(_, ref limit) => limit.clone_hash_eq(),
-                        _ => unreachable!("clone_hash_eq on non hash_eq tests"),
                     }
                 }
             }
@@ -448,12 +370,6 @@ macro_rules! beta_float_test {
                 }
             }
 
-            impl<S> IsHashEq for $test<S> {
-                fn is_hash_eq(&self) -> bool {
-                    false
-                }
-            }
-
             impl<S> IsStatic for $test<S> {
                 fn is_static(&self) -> bool {
                     use self::$test::*;
@@ -462,14 +378,6 @@ macro_rules! beta_float_test {
                         &BTWN(_, ref limit) => limit.is_static(),
                         &APPROX_EQ(_, ref limit) => limit.is_static()
                     }
-                }
-            }
-
-            impl<S> CloneHashEq for $test<S> {
-                type Output = $id;
-
-                fn clone_hash_eq(&self) -> Self::Output {
-                    unreachable!("clone_hash_eq on non hash_eq tests")
                 }
             }
 
@@ -529,16 +437,6 @@ impl<S> StringIntern for StrTest<S>
     }
 }
 
-impl<S> IsHashEq for StrTest<S> {
-    fn is_hash_eq(&self) -> bool {
-        use self::StrTest::*;
-        match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
-            _ => false
-        }
-    }
-}
-
 impl<S> IsStatic for StrTest<S> {
     fn is_static(&self) -> bool {
         use self::StrTest::*;
@@ -547,19 +445,6 @@ impl<S> IsStatic for StrTest<S> {
             &BTWN(_, ref limit) => limit.is_static(),
             &EQ(_, ref limit) => limit.is_static(),
             &STR(test, ref limit) => limit.is_static()
-        }
-    }
-}
-
-impl<S> CloneHashEq for StrTest<S>
-    where S: Clone {
-    type Output = S;
-
-    fn clone_hash_eq(&self) -> Self::Output {
-        use self::StrTest::*;
-        match self {
-            &EQ(_, ref limit) => limit.clone_hash_eq(),
-            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
         }
     }
 }
@@ -586,9 +471,6 @@ impl BetaTestField<str> for StrTest<SymbolId> {
     }
 }
 
-
-//TODO: Handle StrTest
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TimeTest<S> {
     ORD(OrdTest, SLimit<NaiveTime, S>),
@@ -610,16 +492,6 @@ impl<S> StringIntern for TimeTest<S>
     }
 }
 
-impl<S> IsHashEq for TimeTest<S> {
-    fn is_hash_eq(&self) -> bool {
-        use self::TimeTest::*;
-        match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
-            _ => false
-        }
-    }
-}
-
 impl<S> IsStatic for TimeTest<S> {
     fn is_static(&self) -> bool {
         use self::TimeTest::*;
@@ -627,18 +499,6 @@ impl<S> IsStatic for TimeTest<S> {
             &ORD(_, ref limit) => limit.is_static(),
             &BTWN(_, ref limit) => limit.is_static(),
             &EQ(_, ref limit) => limit.is_static()
-        }
-    }
-}
-
-impl<S> CloneHashEq for TimeTest<S> {
-    type Output = NaiveTime;
-
-    fn clone_hash_eq(&self) -> Self::Output {
-        use self::TimeTest::*;
-        match self {
-            &EQ(_, ref limit) => limit.clone_hash_eq(),
-            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
         }
     }
 }
@@ -675,16 +535,6 @@ impl<S> StringIntern for DateTest<S>
     }
 }
 
-impl<S> IsHashEq for DateTest<S> {
-    fn is_hash_eq(&self) -> bool {
-        use self::DateTest::*;
-        match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
-            _ => false
-        }
-    }
-}
-
 impl<S> IsStatic for DateTest<S> {
     fn is_static(&self) -> bool {
         use self::DateTest::*;
@@ -696,18 +546,6 @@ impl<S> IsStatic for DateTest<S> {
     }
 }
 
-
-impl<S> CloneHashEq for DateTest<S> {
-    type Output = Date<Utc>;
-
-    fn clone_hash_eq(&self) -> Self::Output {
-        use self::DateTest::*;
-        match self {
-            &EQ(_, ref limit) => limit.clone_hash_eq(),
-            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
-        }
-    }
-}
 
 impl BetaTestField<Date<Utc>> for DateTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &Date<Utc>, context: &C) -> bool {
@@ -741,16 +579,6 @@ impl<S> StringIntern for  DateTimeTest<S>
     }
 }
 
-impl<S> IsHashEq for DateTimeTest<S> {
-    fn is_hash_eq(&self) -> bool {
-        use self::DateTimeTest::*;
-        match self {
-            &EQ(test, ref limit) => test.is_hash_eq() && limit.is_static(),
-            _ => false
-        }
-    }
-}
-
 impl<S> IsStatic for DateTimeTest<S> {
     fn is_static(&self) -> bool {
         use self::DateTimeTest::*;
@@ -758,19 +586,6 @@ impl<S> IsStatic for DateTimeTest<S> {
             &ORD(_, ref limit) => limit.is_static(),
             &BTWN(_, ref limit) => limit.is_static(),
             &EQ(_, ref limit) => limit.is_static()
-        }
-    }
-}
-
-
-impl<S> CloneHashEq for DateTimeTest<S> {
-    type Output = DateTime<Utc>;
-
-    fn clone_hash_eq(&self) -> Self::Output {
-        use self::DateTimeTest::*;
-        match self {
-            &EQ(_, ref limit) => limit.clone_hash_eq(),
-            _ => unreachable!("clone_hash_eq on non hash_eq tests"),
         }
     }
 }
@@ -1105,11 +920,6 @@ pub enum BetaNode<T: Fact> {
     DATETIME(fn(&T) -> &DateTime<Utc>, DateTimeTest<SymbolId>),
 }
 
-// Add test for StrTest, now that mapping is finished
-// new Trait FactTest for BoolTest and the likes
-// panic if not found
-
-
 impl<T: Fact> BetaNode<T> {
     fn hash_self<H: Hasher, K: Hash>(ord: usize, getter: usize, test: &K, state: &mut H) {
         ord.hash(state);
@@ -1168,7 +978,6 @@ test_eq!(
 
 impl<T: Fact> Eq for BetaNode<T> {}
 
-
 impl<I: Fact> Debug for BetaNode<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::BetaNode::*;
@@ -1193,6 +1002,31 @@ impl<I: Fact> Debug for BetaNode<I> {
             _ => {}
         }
         write!(f, ")")
+    }
+}
+
+impl<T:Fact> IsAlpha for BetaNode<T> {
+    fn is_alpha(&self) -> bool {
+        use self::BetaNode::*;
+        match self {
+            &BOOL(_, test) => test.is_static(),
+            &I8(_, test) => test.is_static(),
+            &I16(_, test) => test.is_static(),
+            &I32(_, test) => test.is_static(),
+            &I64(_, test) => test.is_static(),
+            &U8(_, test) => test.is_static(),
+            &U16(_, test) => test.is_static(),
+            &U32(_, test) => test.is_static(),
+            &U64(_, test) => test.is_static(),
+            &F32(_, test) => test.is_static(),
+            &F64(_, test) => test.is_static(),
+            &D128(_, test) => test.is_static(),
+            &STR(_, test) => test.is_static(),
+            &TIME(_, test) => test.is_static(),
+            &DATE(_, test) => test.is_static(),
+            &DATETIME(_, test) => test.is_static(),
+            _ => false
+        }
     }
 }
 
