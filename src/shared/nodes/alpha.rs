@@ -26,14 +26,14 @@ pub trait AlphaTestField<T: FactField + ?Sized > {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BoolTest {
-    Eq(EqTest, bool)
+    Eq(Truth, EqTest, bool)
 }
 
 impl IsHashEq for BoolTest {
     fn is_hash_eq(&self) -> bool {
         use self::BoolTest::*;
         match self {
-            Eq(_,_) => true
+            Eq(..) => true
         }
     }
 }
@@ -42,7 +42,7 @@ impl AlphaTestField<bool> for BoolTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &bool, _: &C) -> bool {
         use self::BoolTest::*;
         match self {
-            &Eq(ref test, ref to) => test.test(value, to)
+            &Eq(ref truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
         }
     }
 }
@@ -52,16 +52,17 @@ macro_rules! alpha_number_test {
      $(
              #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
             pub enum $test {
-                Ord(OrdTest, $id),
-                Btwn(BetweenTest, $id, $id),
-                Eq(EqTest, $id)
+                Ord(Truth, OrdTest, $id),
+                Btwn(Truth, BetweenTest, $id, $id),
+                Eq(Truth, EqTest, $id)
             }
 
             impl IsHashEq for $test {
                 fn is_hash_eq(&self) -> bool {
                     use self::$test::*;
                     match self {
-                        Eq(EqTest::Eq,_) => true,
+                        Eq(Truth::Is, EqTest::Eq,_) => true,
+                        Eq(Truth::Not, EqTest::Ne,_) => true,
                         _ => false
                     }
                 }
@@ -71,9 +72,9 @@ macro_rules! alpha_number_test {
                 fn alpha_test_field<C: AlphaContext>(&self, value: &$id, _: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &Ord(ref test, ref to) => test.test(value, to),
-                        &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
-                        &Eq(ref test, ref to) => test.test(value, to)
+                        &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
+                        &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
+                        &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
                     }
                 }
             }
@@ -86,9 +87,9 @@ macro_rules! alpha_float_test {
      $(
              #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
             pub enum $test {
-                Ord(OrdTest, $id),
-                Btwn(BetweenTest, $id, $id),
-                ApproxEq(ApproxEqTest, $id)
+                Ord(Truth, OrdTest, $id),
+                Btwn(Truth, BetweenTest, $id, $id),
+                ApproxEq(Truth, ApproxEqTest, $id)
             }
 
             impl IsHashEq for $test {
@@ -101,9 +102,9 @@ macro_rules! alpha_float_test {
                 fn alpha_test_field<C: AlphaContext>(&self, value: &$id, _: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &Ord(ref test, ref to) => test.test(value, to),
-                        &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
-                        &ApproxEq(ref test, ref to) => test.test(value, to)
+                        &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
+                        &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
+                        &ApproxEq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
                     }
                 }
             }
@@ -130,17 +131,18 @@ alpha_float_test!(
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum StrTest {
-    Ord(OrdTest, SymbolId),
-    Btwn(BetweenTest, SymbolId, SymbolId),
-    Eq(EqTest, SymbolId),
-    Str(StrArrayTest, SymbolId)
+    Ord(Truth, OrdTest, SymbolId),
+    Btwn(Truth, BetweenTest, SymbolId, SymbolId),
+    Eq(Truth, EqTest, SymbolId),
+    Str(Truth, StrArrayTest, SymbolId)
 }
 
 impl IsHashEq for StrTest {
     fn is_hash_eq(&self) -> bool {
         use self::StrTest::*;
         match self {
-            Eq(EqTest::Eq, _) => true,
+            Eq(Truth::Is, EqTest::Eq, _) => true,
+            Eq(Truth::Not, EqTest::Ne, _) => true,
             _ => false
         }
     }
@@ -151,10 +153,10 @@ impl AlphaTestField<str> for StrTest {
         use self::StrTest::*;
         let string_cache = context.get_string_cache();
         match self {
-            &Ord(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
-            &Btwn(ref test, ref from, ref to) => test.test(value, string_cache.resolve(*from).unwrap(), string_cache.resolve(*to).unwrap()),
-            &Eq(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
-            &Str(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
+            &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, string_cache.resolve(*to).unwrap()),
+            &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, string_cache.resolve(*from).unwrap(), string_cache.resolve(*to).unwrap()),
+            &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, string_cache.resolve(*to).unwrap()),
+            &Str(truth, ref test, ref to) => truth.is_not() ^ test.test(value, string_cache.resolve(*to).unwrap()),
 
         }
     }
@@ -163,16 +165,17 @@ impl AlphaTestField<str> for StrTest {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TimeTest {
-    Ord(OrdTest, NaiveTime),
-    Btwn(BetweenTest, NaiveTime, NaiveTime),
-    Eq(EqTest, NaiveTime)
+    Ord(Truth, OrdTest, NaiveTime),
+    Btwn(Truth, BetweenTest, NaiveTime, NaiveTime),
+    Eq(Truth, EqTest, NaiveTime)
 }
 
 impl IsHashEq for TimeTest {
     fn is_hash_eq(&self) -> bool {
         use self::TimeTest::*;
         match self {
-            Eq(EqTest::Eq, _) => true,
+            Eq(Truth::Is, EqTest::Eq, _) => true,
+            Eq(Truth::Not, EqTest::Ne, _) => true,
             _ => false
         }
     }
@@ -182,25 +185,26 @@ impl AlphaTestField<NaiveTime> for TimeTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &NaiveTime, _: &C) -> bool {
         use self::TimeTest::*;
         match self {
-            &Ord(ref test, ref to) => test.test(value, to),
-            &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
-            &Eq(ref test, ref to) => test.test(value, to)
+            &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
+            &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
+            &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
         }
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTest {
-    Ord(OrdTest, Date<Utc>),
-    Btwn(BetweenTest, Date<Utc>, Date<Utc>),
-    Eq(EqTest, Date<Utc>)
+    Ord(Truth, OrdTest, Date<Utc>),
+    Btwn(Truth, BetweenTest, Date<Utc>, Date<Utc>),
+    Eq(Truth, EqTest, Date<Utc>)
 }
 
 impl IsHashEq for DateTest {
     fn is_hash_eq(&self) -> bool {
         use self::DateTest::*;
         match self {
-            Eq(EqTest::Eq, _) => true,
+            Eq(Truth::Is, EqTest::Eq, _) => true,
+            Eq(Truth::Not, EqTest::Ne, _) => true,
             _ => false
         }
     }
@@ -210,9 +214,9 @@ impl AlphaTestField<Date<Utc>> for DateTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &Date<Utc>, _: &C) -> bool {
         use self::DateTest::*;
         match self {
-            &Ord(ref test, ref to) => test.test(value, to),
-            &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
-            &Eq(ref test, ref to) => test.test(value, to)
+            &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
+            &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
+            &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
         }
     }
 }
@@ -220,16 +224,17 @@ impl AlphaTestField<Date<Utc>> for DateTest {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTimeTest {
-    Ord(OrdTest, DateTime<Utc>),
-    Btwn(BetweenTest, DateTime<Utc>, DateTime<Utc>),
-    Eq(EqTest, DateTime<Utc>)
+    Ord(Truth, OrdTest, DateTime<Utc>),
+    Btwn(Truth, BetweenTest, DateTime<Utc>, DateTime<Utc>),
+    Eq(Truth, EqTest, DateTime<Utc>)
 }
 
 impl IsHashEq for DateTimeTest {
     fn is_hash_eq(&self) -> bool {
         use self::DateTimeTest::*;
         match self {
-            Eq(EqTest::Eq, _) => true,
+            Eq(Truth::Is, EqTest::Eq, _) => true,
+            Eq(Truth::Not, EqTest::Ne, _) => true,
             _ => false
         }
     }
@@ -239,9 +244,9 @@ impl AlphaTestField<DateTime<Utc>> for DateTimeTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &DateTime<Utc>, _: &C) -> bool {
         use self::DateTimeTest::*;
         match self {
-            &Ord(ref test, ref to) => test.test(value, to),
-            &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
-            &Eq(ref test, ref to) => test.test(value, to)
+            &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
+            &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
+            &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
         }
     }
 }
@@ -354,21 +359,34 @@ impl<T:Fact> Into<HashEqField> for AlphaNode<T> {
     fn into(self) -> HashEqField {
         use self::AlphaNode::*;
         match self {
-            BOOL(getter, BoolTest::Eq(EqTest::Eq, to)) => HashEqField::BOOL(getter as usize, to),
-            BOOL(getter, BoolTest::Eq(EqTest::Ne, to)) => HashEqField::BOOL(getter as usize, !to),
-            I8(getter, I8Test::Eq(EqTest::Eq, to)) => HashEqField::I8(getter as usize, to),
-            I16(getter, I16Test::Eq(EqTest::Eq, to)) => HashEqField::I16(getter as usize, to),
-            I32(getter, I32Test::Eq(EqTest::Eq, to)) => HashEqField::I32(getter as usize, to),
-            I64(getter, I64Test::Eq(EqTest::Eq, to)) => HashEqField::I64(getter as usize, to),
-            U8(getter, U8Test::Eq(EqTest::Eq, to)) => HashEqField::U8(getter as usize, to),
-            U16(getter, U16Test::Eq(EqTest::Eq, to)) => HashEqField::U16(getter as usize, to),
-            U32(getter, U32Test::Eq(EqTest::Eq, to)) => HashEqField::U32(getter as usize, to),
-            U64(getter, U64Test::Eq(EqTest::Eq, to)) => HashEqField::U64(getter as usize, to),
-            D128(getter, D128Test::Eq(EqTest::Eq, to)) => HashEqField::D128(getter as usize, to),
-            STR(getter, StrTest::Eq(EqTest::Eq, to)) => HashEqField::STR(getter as usize, to),
-            TIME(getter, TimeTest::Eq(EqTest::Eq, to)) => HashEqField::TIME(getter as usize, to),
-            DATE(getter, DateTest::Eq(EqTest::Eq, to)) => HashEqField::DATE(getter as usize, to),
-            DATETIME(getter, DateTimeTest::Eq(EqTest::Eq, to)) => HashEqField::DATETIME(getter as usize, to),
+            BOOL(getter, BoolTest::Eq(truth, EqTest::Eq, to)) => HashEqField::BOOL(getter as usize, truth.is_not() ^ to),
+            BOOL(getter, BoolTest::Eq(truth, EqTest::Ne, to)) => HashEqField::BOOL(getter as usize, truth.is_not() ^ !to),
+            I8(getter, I8Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::I8(getter as usize, to),
+            I8(getter, I8Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::I8(getter as usize, to),
+            I16(getter, I16Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::I16(getter as usize, to),
+            I16(getter, I16Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::I16(getter as usize, to),
+            I32(getter, I32Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::I32(getter as usize, to),
+            I32(getter, I32Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::I32(getter as usize, to),
+            I64(getter, I64Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::I64(getter as usize, to),
+            I64(getter, I64Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::I64(getter as usize, to),
+            U8(getter, U8Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::U8(getter as usize, to),
+            U8(getter, U8Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::U8(getter as usize, to),
+            U16(getter, U16Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::U16(getter as usize, to),
+            U16(getter, U16Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::U16(getter as usize, to),
+            U32(getter, U32Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::U32(getter as usize, to),
+            U32(getter, U32Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::U32(getter as usize, to),
+            U64(getter, U64Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::U64(getter as usize, to),
+            U64(getter, U64Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::U64(getter as usize, to),
+            D128(getter, D128Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::D128(getter as usize, to),
+            D128(getter, D128Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::D128(getter as usize, to),
+            STR(getter, StrTest::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::STR(getter as usize, to),
+            STR(getter, StrTest::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::STR(getter as usize, to),
+            TIME(getter, TimeTest::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::TIME(getter as usize, to),
+            TIME(getter, TimeTest::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::TIME(getter as usize, to),
+            DATE(getter, DateTest::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::DATE(getter as usize, to),
+            DATE(getter, DateTest::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::DATE(getter as usize, to),
+            DATETIME(getter, DateTimeTest::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::DATETIME(getter as usize, to),
+            DATETIME(getter, DateTimeTest::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::DATETIME(getter as usize, to),
             _ => unreachable!("Into HashEqField With Unsupported Config")
         }
     }
