@@ -1,20 +1,52 @@
+/*!
+Base test implementations and traits
+*/
+
 use ordered_float::NotNaN;
 use float_cmp::{Ulps, ApproxEqUlps};
 
+/// Updates a test's configuration to apply a not
+pub trait ApplyNot {
+    fn apply_not(&mut self);
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+pub enum Truth {
+    Not,
+    Is
+}
+
+impl Truth {
+    pub fn as_bool(&self) -> bool {
+        use self::Truth::*;
+        match self {
+            &Not => false,
+            &Is => true
+        }
+    }
+}
+
+/// Compare a value against a single parameter
 pub trait STest<T: ?Sized>{
     fn test(&self, val: &T, to: &T) -> bool;
 }
 
+/// Compare a value against two parameters
 pub trait DTest<T: ?Sized>{
     fn test(&self, val: &T, from: &T, to: &T) -> bool;
 }
 
-
+/// Single value ordinal test
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum OrdTest {
+    /// val < to
     Lt,
+    /// val <= to
     Le,
+    /// val > to
     Gt,
+    ///
+    /// val >= to
     Ge,
 }
 
@@ -31,17 +63,39 @@ impl<T> STest<T> for OrdTest
     }
 }
 
+impl ApplyNot for OrdTest {
+    fn apply_not(&mut self) {
+        use self::OrdTest::*;
+        let new = match *self {
+            Lt => Ge,
+            Le => Gt,
+            Gt => Le,
+            Ge => Lt,
+        };
+        *self = new;
+    }
+}
+
+/// Multiple value ordinal test
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BetweenTest {
+    /// val > from && val < to
     GtLt,
+    /// val >= from && val < to
     GeLt,
+    /// val > from && val <= to
     GtLe,
+    /// val >= from && val <= to
     GeLe,
     // Not
-    LtGt,
-    LeGt,
-    LtGe,
-    LeGe
+    /// !(val > from && val < to)
+    NotGtLt,
+    /// !(val >= from && val < to)
+    NotGeLt,
+    /// !(val > from && val <= to)
+    NotGtLe,
+    /// !(val >= from && val <= to)
+    NotGeLe,
 }
 
 impl<T> DTest<T> for BetweenTest
@@ -53,18 +107,37 @@ impl<T> DTest<T> for BetweenTest
             &GeLt => val >= from && val < to,
             &GtLe => val > from && val <= to,
             &GeLe => val >= from && val <= to,
-            &LtGt => val < from || val > to,
-            &LeGt => val <= from || val > to,
-            &LtGe => val < from || val >= to,
-            &LeGe => val <= from || val >= to,
+            &NotGtLt => !(val > from && val < to),
+            &NotGeLt => !(val >= from && val < to),
+            &NotGtLe => !(val > from && val <= to),
+            &NotGeLe => !(val >= from && val <= to),
         }
     }
 }
 
+impl ApplyNot for BetweenTest {
+    fn apply_not(&mut self) {
+        use self::BetweenTest::*;
+        let new = match *self {
+            GtLt => NotGtLt,
+            GeLt => NotGeLt,
+            GtLe => NotGtLe,
+            GeLe => NotGeLe,
+            NotGtLt => GtLt,
+            NotGeLt => GeLt,
+            NotGtLe => GtLe,
+            NotGeLe => GeLe,
+        };
+        *self = new;
+    }
+}
 
+/// Single value equivalence test
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum EqTest {
+    /// val == to
     Eq,
+    /// val != to
     Ne
 }
 
@@ -79,6 +152,17 @@ impl<T> STest<T> for EqTest
     }
 }
 
+impl ApplyNot for EqTest {
+    fn apply_not(&mut self) {
+        use self::EqTest::*;
+        let new = match *self {
+            Eq => Ne,
+            Ne => Eq,
+        };
+        *self = new;
+    }
+}
+
 
 impl Into<ApproxEqTest> for EqTest {
     fn into(self) -> ApproxEqTest {
@@ -89,9 +173,12 @@ impl Into<ApproxEqTest> for EqTest {
     }
 }
 
+/// Single value approximate equivalence test for floats (default to 2 ULPs)
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum ApproxEqTest {
+    /// val ~= to
     Eq,
+    /// val !~= to
     Ne
 }
 
@@ -116,16 +203,45 @@ impl STest<NotNaN<f64>> for ApproxEqTest {
     }
 }
 
+impl ApplyNot for ApproxEqTest {
+    fn apply_not(&mut self) {
+        use self::ApproxEqTest::*;
+        let new = match *self {
+            Eq => Ne,
+            Ne => Eq,
+        };
+        *self = new;
+    }
+}
 
+/// &str tests
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum StrArrayTest {
+    /// val.contains(to)
     Contains,
+    /// val.starts_with(to)
     StartsWith,
+    /// val.ends_with(to)
     EndsWith,
+    /// to.contains(val)
+    ContainedBy,
+    /// to.starts_with(val)
+    StartedBy,
+    /// to.ends_with(val)
+    EndedBy,
     //Not Versions
+    /// !val.contains(to)
     NotContains,
+    /// !val.starts_with(to)
     NotStartsWith,
+    /// !val.ends_with(to)
     NotEndsWith,
+    /// !to.contains(val)
+    NotContainedBy,
+    /// !to.starts_with(val)
+    NotStartedBy,
+    /// !to.ends_with(val)
+    NotEndedBy,
 }
 
 impl<T> STest<T> for StrArrayTest
@@ -136,9 +252,36 @@ impl<T> STest<T> for StrArrayTest
             &Contains => val.as_ref().contains(to.as_ref()),
             &StartsWith => val.as_ref().starts_with(to.as_ref()),
             &EndsWith => val.as_ref().ends_with(to.as_ref()),
+            &ContainedBy => to.as_ref().contains(val.as_ref()),
+            &StartedBy => to.as_ref().starts_with(val.as_ref()),
+            &EndedBy => to.as_ref().ends_with(val.as_ref()),
             &NotContains => !val.as_ref().contains(to.as_ref()),
             &NotStartsWith => !val.as_ref().starts_with(to.as_ref()),
-            &NotEndsWith => !val.as_ref().ends_with(to.as_ref())
+            &NotEndsWith => !val.as_ref().ends_with(to.as_ref()),
+            &NotContainedBy => to.as_ref().contains(val.as_ref()),
+            &NotStartedBy => to.as_ref().starts_with(val.as_ref()),
+            &NotEndedBy => to.as_ref().ends_with(val.as_ref()),
         }
+    }
+}
+
+impl ApplyNot for StrArrayTest {
+    fn apply_not(&mut self) {
+        use self::StrArrayTest::*;
+        let new = match *self {
+            Contains => NotContains,
+            StartsWith => NotStartsWith,
+            EndsWith => NotEndsWith,
+            ContainedBy => NotContainedBy,
+            StartedBy => NotStartedBy,
+            EndedBy => NotEndedBy,
+            NotContains => Contains,
+            NotStartsWith => StartsWith,
+            NotEndsWith => EndsWith,
+            NotContainedBy => ContainedBy,
+            NotStartedBy => StartedBy,
+            NotEndedBy => EndedBy
+        };
+        *self = new;
     }
 }

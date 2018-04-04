@@ -1,12 +1,11 @@
 use super::prelude::*;
 pub use super::prelude::dyn;
-use super::super::nodes::tests::{EqTest, OrdTest, BetweenTest, StrArrayTest};
+use super::super::nodes::tests::{ApplyNot, EqTest, OrdTest, BetweenTest, StrArrayTest};
 use super::super::nodes::beta::TestRepr;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum RefNodes<'a, S: 'a + AsRef<str>> {
     T(TestRepr<S>),
-    Not(TestRepr<S>),
     Any(&'a [RefNodes<'a, S>]),
     NotAny(&'a [RefNodes<'a, S>]),
     All(&'a [RefNodes<'a, S>]),
@@ -72,8 +71,10 @@ pub fn ends_with<'a, S: AsRef<str>, T: IntoStrTest<S>>(field: S, val: T) -> RefN
 pub fn not<'a, S: AsRef<str>>(node: RefNodes<'a, S>) -> RefNodes<'a, S> {
     use self::RefNodes::*;
     match node {
-        T(t) => Not(t),
-        Not(t) => T(t),
+        T(mut t) => {
+            t.apply_not();
+            T(t)
+        },
         Any(t) => NotAny(t),
         NotAny(t) => Any(t),
         All(t) => NotAll(t),

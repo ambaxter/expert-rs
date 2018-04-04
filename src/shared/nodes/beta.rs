@@ -4,7 +4,7 @@ use num::{Integer, Float, ToPrimitive, NumCast};
 use num::cast;
 use ordered_float::NotNaN;
 use runtime::memory::{StringCache, SymbolId};
-use super::super::fact::{Getters, Fact, FactField, RefField, CastField};
+use super::super::fact::{Getter, Fact, FactField, RefField, CastField};
 use errors::CompileError;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ord_subset::OrdVar;
@@ -14,6 +14,7 @@ use std::fmt::Debug;
 use string_interner::Symbol;
 use shared::context::BetaContext;
 use super::tests::*;
+use shared::nodes::alpha::AlphaNode;
 
 pub trait IsAlpha {
     fn is_alpha(&self) -> bool;
@@ -261,7 +262,7 @@ pub trait BetaTestField<T: FactField + ?Sized > {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BoolTest<S> {
-    EQ(EqTest, SLimit<bool, S>)
+    Eq(EqTest, SLimit<bool, S>)
 }
 
 impl<S> StringIntern for BoolTest<S>
@@ -271,16 +272,35 @@ impl<S> StringIntern for BoolTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::BoolTest::*;
         match self {
-            &EQ(test, ref limit) => EQ(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned())))
+            &Eq(test, ref limit) => Eq(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned())))
         }
     }
 }
 
-impl<S> IsStatic for BoolTest<S> {
-    fn is_static(&self) -> bool {
+impl<S> IsAlpha for BoolTest<S> {
+    fn is_alpha(&self) -> bool {
         use self::BoolTest::*;
         match self {
-            &EQ(_, ref limit) => limit.is_static()
+            &Eq(_, ref limit) => limit.is_static()
+        }
+    }
+}
+
+impl<S> Into<super::alpha::BoolTest> for BoolTest<S> {
+    fn into(self) -> super::alpha::BoolTest {
+        use self::BoolTest::*;
+        match self {
+            Eq(test, SLimit::St(to)) => super::alpha::BoolTest::Eq(test, to),
+            _ => unreachable!("Into Alpha BoolTest with Unsupported Config")
+        }
+    }
+}
+
+impl<S> ApplyNot for BoolTest<S> {
+    fn apply_not(&mut self) {
+        use self::BoolTest::*;
+        match self {
+            &mut Eq(ref mut test, _) => test.apply_not()
         }
     }
 }
@@ -289,7 +309,7 @@ impl BetaTestField<bool> for BoolTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &bool, context: &C) -> bool {
         use self::BoolTest::*;
         match self {
-            &EQ(ref test, ref limit) => limit.test_field_ref(value, test, context)
+            &Eq(ref test, ref limit) => limit.test_field_ref(value, test, context)
         }
     }
 }
@@ -299,9 +319,9 @@ macro_rules! beta_number_test {
         $(
             #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
             pub enum $test<S> {
-                ORD(OrdTest, SLimit<$id, S>),
-                BTWN(BetweenTest, DLimit<$id, S>),
-                EQ(EqTest, SLimit<$id, S>)
+                Ord(OrdTest, SLimit<$id, S>),
+                Btwn(BetweenTest, DLimit<$id, S>),
+                Eq(EqTest, SLimit<$id, S>)
             }
 
 
@@ -312,20 +332,43 @@ macro_rules! beta_number_test {
                 fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
                     use self::$test::*;
                     match self {
-                        &ORD(test, ref limit) => ORD(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-                        &BTWN(test, ref limit) => BTWN(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-                        &EQ(test, ref limit) => EQ(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+                        &Ord(test, ref limit) => Ord(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+                        &Btwn(test, ref limit) => Btwn(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+                        &Eq(test, ref limit) => Eq(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
                     }
                 }
             }
 
-            impl<S> IsStatic for $test<S> {
-                fn is_static(&self) -> bool {
+            impl<S> IsAlpha for $test<S> {
+                fn is_alpha(&self) -> bool {
                     use self::$test::*;
                     match self {
-                        &ORD(_, ref limit) => limit.is_static(),
-                        &BTWN(_, ref limit) => limit.is_static(),
-                        &EQ(_, ref limit) => limit.is_static()
+                        &Ord(_, ref limit) => limit.is_static(),
+                        &Btwn(_, ref limit) => limit.is_static(),
+                        &Eq(_, ref limit) => limit.is_static()
+                    }
+                }
+            }
+
+            impl<S> Into<super::alpha::$test> for $test<S> {
+                fn into(self) -> super::alpha::$test {
+                    use self::$test::*;
+                    match self {
+                        Ord(test, SLimit::St(to)) => super::alpha::$test::Ord(test, to),
+                        Btwn(test, DLimit::St(from, to)) => super::alpha::$test::Btwn(test, from, to),
+                        Eq(test, SLimit::St(to)) => super::alpha::$test::Eq(test, to),
+                        _ => unreachable!("Into Alpha Primitive with Unsupported Config")
+                    }
+                }
+            }
+
+            impl<S> ApplyNot for $test<S> {
+                fn apply_not(&mut self) {
+                    use self::$test::*;
+                    match self {
+                        &mut Ord(ref mut test, _) => test.apply_not(),
+                        &mut Btwn(ref mut test, _) => test.apply_not(),
+                        &mut Eq(ref mut test, _) => test.apply_not(),
                     }
                 }
             }
@@ -334,9 +377,9 @@ macro_rules! beta_number_test {
                 fn beta_test_field<C: BetaContext>(&self, value: &$id, context: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &ORD(ref test, ref limit) => limit.test_field_cast(value, test, context),
-                        &EQ(ref test, ref limit) => limit.test_field_cast(value, test, context),
-                        &BTWN(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &Ord(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &Eq(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &Btwn(ref test, ref limit) => limit.test_field_cast(value, test, context),
 
                     }
                 }
@@ -350,9 +393,9 @@ macro_rules! beta_float_test {
         $(
             #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
             pub enum $test<S> {
-                ORD(OrdTest, SLimit<$id, S>),
-                BTWN(BetweenTest, DLimit<$id, S>),
-                APPROX_EQ(ApproxEqTest, SLimit<$id, S>)
+                Ord(OrdTest, SLimit<$id, S>),
+                Btwn(BetweenTest, DLimit<$id, S>),
+                ApproxEq(ApproxEqTest, SLimit<$id, S>)
             }
 
 
@@ -363,20 +406,43 @@ macro_rules! beta_float_test {
                 fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
                     use self::$test::*;
                     match self {
-                        &ORD(test, ref limit) => ORD(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-                        &BTWN(test, ref limit) => BTWN(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-                        &APPROX_EQ(test, ref limit) => APPROX_EQ(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+                        &Ord(test, ref limit) => Ord(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+                        &Btwn(test, ref limit) => Btwn(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+                        &ApproxEq(test, ref limit) => ApproxEq(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
                     }
                 }
             }
 
-            impl<S> IsStatic for $test<S> {
-                fn is_static(&self) -> bool {
+            impl<S> IsAlpha for $test<S> {
+                fn is_alpha(&self) -> bool {
                     use self::$test::*;
                     match self {
-                        &ORD(_, ref limit) => limit.is_static(),
-                        &BTWN(_, ref limit) => limit.is_static(),
-                        &APPROX_EQ(_, ref limit) => limit.is_static()
+                        &Ord(_, ref limit) => limit.is_static(),
+                        &Btwn(_, ref limit) => limit.is_static(),
+                        &ApproxEq(_, ref limit) => limit.is_static()
+                    }
+                }
+            }
+
+            impl<S> Into<super::alpha::$test> for $test<S> {
+                fn into(self) -> super::alpha::$test {
+                    use self::$test::*;
+                    match self {
+                        Ord(test, SLimit::St(to)) => super::alpha::$test::Ord(test, to),
+                        Btwn(test, DLimit::St(from, to)) => super::alpha::$test::Btwn(test, from, to),
+                        ApproxEq(test, SLimit::St(to)) => super::alpha::$test::ApproxEq(test, to),
+                        _ => unreachable!("Into Alpha Float with Unsupported Config")
+                    }
+                }
+            }
+
+            impl<S> ApplyNot for $test<S> {
+                fn apply_not(&mut self) {
+                    use self::$test::*;
+                    match self {
+                        &mut Ord(ref mut test, _) => test.apply_not(),
+                        &mut Btwn(ref mut test, _) => test.apply_not(),
+                        &mut ApproxEq(ref mut test, _) => test.apply_not(),
                     }
                 }
             }
@@ -385,9 +451,9 @@ macro_rules! beta_float_test {
                 fn beta_test_field<C: BetaContext>(&self, value: &$id, context: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &ORD(ref test, ref limit) => limit.test_field_cast(value, test, context),
-                        &BTWN(ref test, ref limit) => limit.test_field_cast(value, test, context),
-                        &APPROX_EQ(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &Ord(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &Btwn(ref test, ref limit) => limit.test_field_cast(value, test, context),
+                        &ApproxEq(ref test, ref limit) => limit.test_field_cast(value, test, context),
 
                     }
                 }
@@ -416,10 +482,10 @@ beta_float_test!(
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum StrTest<S> {
-    ORD(OrdTest, SLimit<S, S>),
-    BTWN(BetweenTest, DLimit<S, S>),
-    EQ(EqTest, SLimit<S, S>),
-    STR(StrArrayTest, SLimit<S, S>)
+    Ord(OrdTest, SLimit<S, S>),
+    Btwn(BetweenTest, DLimit<S, S>),
+    Eq(EqTest, SLimit<S, S>),
+    Str(StrArrayTest, SLimit<S, S>)
 }
 
 impl<S> StringIntern for StrTest<S>
@@ -429,22 +495,47 @@ impl<S> StringIntern for StrTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::StrTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &BTWN(test, ref limit) => BTWN(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &EQ(test, ref limit) => EQ(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &STR(test, ref limit) => STR(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Ord(test, ref limit) => Ord(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Btwn(test, ref limit) => Btwn(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Eq(test, ref limit) => Eq(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Str(test, ref limit) => Str(test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
         }
     }
 }
 
-impl<S> IsStatic for StrTest<S> {
-    fn is_static(&self) -> bool {
+impl<S> IsAlpha for StrTest<S> {
+    fn is_alpha(&self) -> bool {
         use self::StrTest::*;
         match self {
-            &ORD(_, ref limit) => limit.is_static(),
-            &BTWN(_, ref limit) => limit.is_static(),
-            &EQ(_, ref limit) => limit.is_static(),
-            &STR(test, ref limit) => limit.is_static()
+            &Ord(_, ref limit) => limit.is_static(),
+            &Btwn(_, ref limit) => limit.is_static(),
+            &Eq(_, ref limit) => limit.is_static(),
+            &Str(test, ref limit) => limit.is_static()
+        }
+    }
+}
+
+impl Into<super::alpha::StrTest> for StrTest<SymbolId> {
+    fn into(self) -> super::alpha::StrTest {
+        use self::StrTest::*;
+        match self {
+            Ord(test, SLimit::St(to)) => super::alpha::StrTest::Ord(test, to),
+            Btwn(test, DLimit::St(from, to)) => super::alpha::StrTest::Btwn(test, from, to),
+            Eq(test, SLimit::St(to)) => super::alpha::StrTest::Eq(test, to),
+            Str(test, SLimit::St(to)) => super::alpha::StrTest::Str(test, to),
+            _ => unreachable!("Into Alpha StrTest with Unsupported Config")
+        }
+    }
+}
+
+impl<S> ApplyNot for StrTest<S> {
+    fn apply_not(&mut self) {
+        use self::StrTest::*;
+        match self {
+            &mut Ord(ref mut test, _) => test.apply_not(),
+            &mut Btwn(ref mut test, _) => test.apply_not(),
+            &mut Eq(ref mut test, _) => test.apply_not(),
+            &mut Str(ref mut test, _) => test.apply_not(),
         }
     }
 }
@@ -455,16 +546,16 @@ impl BetaTestField<str> for StrTest<SymbolId> {
         use self::StrTest::*;
         let string_cache = context.get_string_cache();
         match self {
-            &ORD(ref test, ref limit) => limit
+            &Ord(ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
                 .test_field_str(&value, test, context),
-            &BTWN(ref test, ref limit) => limit
+            &Btwn(ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
                 .test_field_str(&value, test, context),
-            &EQ(ref test, ref limit) => limit
+            &Eq(ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
                 .test_field_str(&value, test, context),
-            &STR(ref test, ref limit) => limit
+            &Str(ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
                 .test_field_str(&value, test, context),
         }
@@ -473,9 +564,9 @@ impl BetaTestField<str> for StrTest<SymbolId> {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TimeTest<S> {
-    ORD(OrdTest, SLimit<NaiveTime, S>),
-    BTWN(BetweenTest, DLimit<NaiveTime, S>),
-    EQ(EqTest, SLimit<NaiveTime, S>)
+    Ord(OrdTest, SLimit<NaiveTime, S>),
+    Btwn(BetweenTest, DLimit<NaiveTime, S>),
+    Eq(EqTest, SLimit<NaiveTime, S>)
 }
 
 impl<S> StringIntern for TimeTest<S>
@@ -485,20 +576,43 @@ impl<S> StringIntern for TimeTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::TimeTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &BTWN(test, ref limit) => BTWN(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &EQ(test, ref limit) => EQ(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Ord(test, ref limit) => Ord(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Btwn(test, ref limit) => Btwn(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Eq(test, ref limit) => Eq(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
         }
     }
 }
 
-impl<S> IsStatic for TimeTest<S> {
-    fn is_static(&self) -> bool {
+impl<S> IsAlpha for TimeTest<S> {
+    fn is_alpha(&self) -> bool {
         use self::TimeTest::*;
         match self {
-            &ORD(_, ref limit) => limit.is_static(),
-            &BTWN(_, ref limit) => limit.is_static(),
-            &EQ(_, ref limit) => limit.is_static()
+            &Ord(_, ref limit) => limit.is_static(),
+            &Btwn(_, ref limit) => limit.is_static(),
+            &Eq(_, ref limit) => limit.is_static()
+        }
+    }
+}
+
+impl<S> Into<super::alpha::TimeTest> for TimeTest<S> {
+    fn into(self) -> super::alpha::TimeTest {
+        use self::TimeTest::*;
+        match self {
+            Ord(test, SLimit::St(to)) => super::alpha::TimeTest::Ord(test, to),
+            Btwn(test, DLimit::St(from, to)) => super::alpha::TimeTest::Btwn(test, from, to),
+            Eq(test, SLimit::St(to)) => super::alpha::TimeTest::Eq(test, to),
+            _ => unreachable!("Into Alpha StrTest with Unsupported Config")
+        }
+    }
+}
+
+impl<S> ApplyNot for TimeTest<S> {
+    fn apply_not(&mut self) {
+        use self::TimeTest::*;
+        match self {
+            &mut Ord(ref mut test, _) => test.apply_not(),
+            &mut Btwn(ref mut test, _) => test.apply_not(),
+            &mut Eq(ref mut test, _) => test.apply_not(),
         }
     }
 }
@@ -507,18 +621,18 @@ impl BetaTestField<NaiveTime> for TimeTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &NaiveTime, context: &C) -> bool {
         use self::TimeTest::*;
         match self {
-            &ORD(ref test, ref limit) => limit.test_field_ref(value, test, context),
-            &BTWN(ref test, ref limit) => limit.test_field_ref(value, test, context),
-            &EQ(ref test, ref limit) => limit.test_field_ref(value, test, context)
+            &Ord(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &Btwn(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &Eq(ref test, ref limit) => limit.test_field_ref(value, test, context)
         }
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTest<S> {
-    ORD(OrdTest, SLimit<Date<Utc>, S>),
-    BTWN(BetweenTest, DLimit<Date<Utc>, S>),
-    EQ(EqTest, SLimit<Date<Utc>, S>)
+    Ord(OrdTest, SLimit<Date<Utc>, S>),
+    Btwn(BetweenTest, DLimit<Date<Utc>, S>),
+    Eq(EqTest, SLimit<Date<Utc>, S>)
 }
 
 impl<S> StringIntern for DateTest<S>
@@ -528,41 +642,63 @@ impl<S> StringIntern for DateTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &BTWN(test, ref limit) => BTWN(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &EQ(test, ref limit) => EQ(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Ord(test, ref limit) => Ord(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Btwn(test, ref limit) => Btwn(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Eq(test, ref limit) => Eq(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
         }
     }
 }
 
-impl<S> IsStatic for DateTest<S> {
-    fn is_static(&self) -> bool {
+impl<S> IsAlpha for DateTest<S> {
+    fn is_alpha(&self) -> bool {
         use self::DateTest::*;
         match self {
-            &ORD(_, ref limit) => limit.is_static(),
-            &BTWN(_, ref limit) => limit.is_static(),
-            &EQ(_, ref limit) => limit.is_static()
+            &Ord(_, ref limit) => limit.is_static(),
+            &Btwn(_, ref limit) => limit.is_static(),
+            &Eq(_, ref limit) => limit.is_static()
         }
     }
 }
 
+impl<S> Into<super::alpha::DateTest> for DateTest<S> {
+    fn into(self) -> super::alpha::DateTest {
+        use self::DateTest::*;
+        match self {
+            Ord(test, SLimit::St(to)) => super::alpha::DateTest::Ord(test, to),
+            Btwn(test, DLimit::St(from, to)) => super::alpha::DateTest::Btwn(test, from, to),
+            Eq(test, SLimit::St(to)) => super::alpha::DateTest::Eq(test, to),
+            _ => unreachable!("Into Alpha StrTest with Unsupported Config")
+        }
+    }
+}
+
+impl<S> ApplyNot for DateTest<S> {
+    fn apply_not(&mut self) {
+        use self::DateTest::*;
+        match self {
+            &mut Ord(ref mut test, _) => test.apply_not(),
+            &mut Btwn(ref mut test, _) => test.apply_not(),
+            &mut Eq(ref mut test, _) => test.apply_not(),
+        }
+    }
+}
 
 impl BetaTestField<Date<Utc>> for DateTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &Date<Utc>, context: &C) -> bool {
         use self::DateTest::*;
         match self {
-            &ORD(ref test, ref limit) => limit.test_field_ref(value, test, context),
-            &BTWN(ref test, ref limit) => limit.test_field_ref(value, test, context),
-            &EQ(ref test, ref limit) => limit.test_field_ref(value, test, context)
+            &Ord(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &Btwn(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &Eq(ref test, ref limit) => limit.test_field_ref(value, test, context)
         }
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTimeTest<S> {
-    ORD(OrdTest, SLimit<DateTime<Utc>, S>),
-    BTWN(BetweenTest, DLimit<DateTime<Utc>, S>),
-    EQ(EqTest, SLimit<DateTime<Utc>, S>)
+    Ord(OrdTest, SLimit<DateTime<Utc>, S>),
+    Btwn(BetweenTest, DLimit<DateTime<Utc>, S>),
+    Eq(EqTest, SLimit<DateTime<Utc>, S>)
 }
 
 impl<S> StringIntern for  DateTimeTest<S>
@@ -572,20 +708,45 @@ impl<S> StringIntern for  DateTimeTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTimeTest::*;
         match self {
-            &ORD(test, ref limit) => ORD(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &BTWN(test, ref limit) => BTWN(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &EQ(test, ref limit) => EQ(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Ord(test, ref limit) => Ord(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Btwn(test, ref limit) => Btwn(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Eq(test, ref limit) => Eq(test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
         }
     }
 }
 
-impl<S> IsStatic for DateTimeTest<S> {
-    fn is_static(&self) -> bool {
+impl<S> IsAlpha for DateTimeTest<S> {
+    fn is_alpha(&self) -> bool {
         use self::DateTimeTest::*;
         match self {
-            &ORD(_, ref limit) => limit.is_static(),
-            &BTWN(_, ref limit) => limit.is_static(),
-            &EQ(_, ref limit) => limit.is_static()
+            &Ord(_, ref limit) => limit.is_static(),
+            &Btwn(_, ref limit) => limit.is_static(),
+            &Eq(_, ref limit) => limit.is_static()
+        }
+    }
+}
+
+
+impl<S> Into<super::alpha::DateTimeTest> for DateTimeTest<S> {
+    fn into(self) -> super::alpha::DateTimeTest {
+        use self::DateTimeTest::*;
+        match self {
+            Ord(test, SLimit::St(to)) => super::alpha::DateTimeTest::Ord(test, to),
+            Btwn(test, DLimit::St(from, to)) => super::alpha::DateTimeTest::Btwn(test, from, to),
+            Eq(test, SLimit::St(to)) => super::alpha::DateTimeTest::Eq(test, to),
+            _ => unreachable!("Into Alpha StrTest with Unsupported Config")
+        }
+    }
+}
+
+
+impl<S> ApplyNot for DateTimeTest<S> {
+    fn apply_not(&mut self) {
+        use self::DateTimeTest::*;
+        match self {
+            &mut Ord(ref mut test, _) => test.apply_not(),
+            &mut Btwn(ref mut test, _) => test.apply_not(),
+            &mut Eq(ref mut test, _) => test.apply_not(),
         }
     }
 }
@@ -594,9 +755,9 @@ impl BetaTestField<DateTime<Utc>> for DateTimeTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &DateTime<Utc>, context: &C) -> bool {
         use self::DateTimeTest::*;
         match self {
-            &ORD(ref test, ref limit) => limit.test_field_ref(value, test, context),
-            &BTWN(ref test, ref limit) => limit.test_field_ref(value, test, context),
-            &EQ(ref test, ref limit) => limit.test_field_ref(value, test, context)
+            &Ord(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &Btwn(ref test, ref limit) => limit.test_field_ref(value, test, context),
+            &Eq(ref test, ref limit) => limit.test_field_ref(value, test, context)
         }
     }
 }
@@ -623,9 +784,21 @@ impl<T, S: Symbol> Into<SLimit<T, S>> for SDynLimit<S> {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum SDynTests {
-    ORD(OrdTest),
-    EQ(EqTest),
-    STR(StrArrayTest)
+    Ord(OrdTest),
+    Eq(EqTest),
+    Str(StrArrayTest)
+}
+
+
+impl ApplyNot for SDynTests {
+    fn apply_not(&mut self) {
+        use self::SDynTests::*;
+        match self {
+            &mut Ord(ref mut test) => test.apply_not(),
+            &mut Eq(ref mut test) => test.apply_not(),
+            &mut Str(ref mut test) => test.apply_not(),
+        }
+    }
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
@@ -651,7 +824,16 @@ impl<T, S: Symbol> Into<DLimit<T, S>> for DDynLimit<S> {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DDynTests {
-    BTWN(BetweenTest)
+    Btwn(BetweenTest)
+}
+
+impl ApplyNot for DDynTests {
+    fn apply_not(&mut self) {
+        use self::DDynTests::*;
+        match self {
+            &mut Btwn(ref mut test) => test.apply_not(),
+        }
+    }
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
@@ -725,177 +907,202 @@ impl<S: AsRef<str>> TestRepr<S>  {
         }
     }
 
-
     //TODO: So much casting and coercion
     pub fn compile<T: Fact>(&self, cache: &mut StringCache) -> Result<BetaNode<T>, CompileError> {
         let getter = T::getter(self.field())
             .ok_or_else(|| CompileError::MissingGetter { getter: self.field().to_owned() })?;
         match (&getter, self) {
             // BOOL
-            (&Getters::BOOL(accessor), &TestRepr::BOOL(_, ref test)) =>
-                Ok(BetaNode::BOOL(accessor, test.string_intern(cache))),
-            (&Getters::BOOL(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::BOOL(accessor, BoolTest::EQ(test, limit.string_intern(cache).into()))),
+            (&Getter::BOOL(getter), &TestRepr::BOOL(_, ref test)) =>
+                Ok(BetaNode::BOOL(getter, test.string_intern(cache))),
+            (&Getter::BOOL(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::BOOL(getter, BoolTest::Eq(test, limit.string_intern(cache).into()))),
 
             // I8
-            (&Getters::I8(accessor), &TestRepr::I8(_, ref test)) =>
-                Ok(BetaNode::I8(accessor, test.string_intern(cache))),
-            (&Getters::I8(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::I8(accessor, I8Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::I8(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::I8(accessor, I8Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::I8(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::I8(accessor, I8Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::I8(getter), &TestRepr::I8(_, ref test)) =>
+                Ok(BetaNode::I8(getter, test.string_intern(cache))),
+            (&Getter::I8(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::I8(getter, I8Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::I8(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::I8(getter, I8Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::I8(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::I8(getter, I8Test::Btwn(test, limit.string_intern(cache).into()))),
 
             // I16
-            (&Getters::I16(accessor), &TestRepr::I16(_, ref test)) =>
-                Ok(BetaNode::I16(accessor, test.string_intern(cache))),
-            (&Getters::I16(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::I16(accessor, I16Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::I16(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::I16(accessor, I16Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::I16(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::I16(accessor, I16Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::I16(getter), &TestRepr::I16(_, ref test)) =>
+                Ok(BetaNode::I16(getter, test.string_intern(cache))),
+            (&Getter::I16(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::I16(getter, I16Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::I16(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::I16(getter, I16Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::I16(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::I16(getter, I16Test::Btwn(test, limit.string_intern(cache).into()))),
 
             // I32
-            (&Getters::I32(accessor), &TestRepr::I32(_, ref test)) =>
-                Ok(BetaNode::I32(accessor, test.string_intern(cache))),
-            (&Getters::I32(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::I32(accessor, I32Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::I32(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::I32(accessor, I32Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::I32(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::I32(accessor, I32Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::I32(getter), &TestRepr::I32(_, ref test)) =>
+                Ok(BetaNode::I32(getter, test.string_intern(cache))),
+            (&Getter::I32(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::I32(getter, I32Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::I32(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::I32(getter, I32Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::I32(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::I32(getter, I32Test::Btwn(test, limit.string_intern(cache).into()))),
 
             // I64
-            (&Getters::I64(accessor), &TestRepr::I64(_, ref test)) =>
-                Ok(BetaNode::I64(accessor, test.string_intern(cache))),
-            (&Getters::I64(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::I64(accessor, I64Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::I64(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::I64(accessor, I64Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::I64(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::I64(accessor, I64Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::I64(getter), &TestRepr::I64(_, ref test)) =>
+                Ok(BetaNode::I64(getter, test.string_intern(cache))),
+            (&Getter::I64(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::I64(getter, I64Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::I64(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::I64(getter, I64Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::I64(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::I64(getter, I64Test::Btwn(test, limit.string_intern(cache).into()))),
 
 
             // U8
-            (&Getters::U8(accessor), &TestRepr::U8(_, ref test)) =>
-                Ok(BetaNode::U8(accessor, test.string_intern(cache))),
-            (&Getters::U8(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::U8(accessor, U8Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::U8(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::U8(accessor, U8Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::U8(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::U8(accessor, U8Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::U8(getter), &TestRepr::U8(_, ref test)) =>
+                Ok(BetaNode::U8(getter, test.string_intern(cache))),
+            (&Getter::U8(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::U8(getter, U8Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::U8(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::U8(getter, U8Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::U8(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::U8(getter, U8Test::Btwn(test, limit.string_intern(cache).into()))),
 
             // U16
-            (&Getters::U16(accessor), &TestRepr::U16(_, ref test)) =>
-                Ok(BetaNode::U16(accessor, test.string_intern(cache))),
-            (&Getters::U16(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::U16(accessor, U16Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::U16(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::U16(accessor, U16Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::U16(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::U16(accessor, U16Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::U16(getter), &TestRepr::U16(_, ref test)) =>
+                Ok(BetaNode::U16(getter, test.string_intern(cache))),
+            (&Getter::U16(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::U16(getter, U16Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::U16(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::U16(getter, U16Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::U16(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::U16(getter, U16Test::Btwn(test, limit.string_intern(cache).into()))),
             
             // U32
-            (&Getters::U32(accessor), &TestRepr::U32(_, ref test)) =>
-                Ok(BetaNode::U32(accessor, test.string_intern(cache))),
-            (&Getters::U32(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::U32(accessor, U32Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::U32(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::U32(accessor, U32Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::U32(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::U32(accessor, U32Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::U32(getter), &TestRepr::U32(_, ref test)) =>
+                Ok(BetaNode::U32(getter, test.string_intern(cache))),
+            (&Getter::U32(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::U32(getter, U32Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::U32(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::U32(getter, U32Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::U32(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::U32(getter, U32Test::Btwn(test, limit.string_intern(cache).into()))),
 
             // U64
-            (&Getters::U64(accessor), &TestRepr::U64(_, ref test)) =>
-                Ok(BetaNode::U64(accessor, test.string_intern(cache))),
-            (&Getters::U64(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::U64(accessor, U64Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::U64(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::U64(accessor, U64Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::U64(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::U64(accessor, U64Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::U64(getter), &TestRepr::U64(_, ref test)) =>
+                Ok(BetaNode::U64(getter, test.string_intern(cache))),
+            (&Getter::U64(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::U64(getter, U64Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::U64(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::U64(getter, U64Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::U64(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::U64(getter, U64Test::Btwn(test, limit.string_intern(cache).into()))),
             
             // F32
-            (&Getters::F32(accessor), &TestRepr::F32(_, ref test)) =>
-                Ok(BetaNode::F32(accessor, test.string_intern(cache))),
-            (&Getters::F32(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::F32(accessor, F32Test::APPROX_EQ(test.into(), limit.string_intern(cache).into()))),
-            (&Getters::F32(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::F32(accessor, F32Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::F32(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::F32(accessor, F32Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::F32(getter), &TestRepr::F32(_, ref test)) =>
+                Ok(BetaNode::F32(getter, test.string_intern(cache))),
+            (&Getter::F32(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::F32(getter, F32Test::ApproxEq(test.into(), limit.string_intern(cache).into()))),
+            (&Getter::F32(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::F32(getter, F32Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::F32(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::F32(getter, F32Test::Btwn(test, limit.string_intern(cache).into()))),
 
             // F64
-            (&Getters::F64(accessor), &TestRepr::F64(_, ref test)) =>
-                Ok(BetaNode::F64(accessor, test.string_intern(cache))),
-            (&Getters::F64(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::F64(accessor, F64Test::APPROX_EQ(test.into(), limit.string_intern(cache).into()))),
-            (&Getters::F64(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::F64(accessor, F64Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::F64(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::F64(accessor, F64Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::F64(getter), &TestRepr::F64(_, ref test)) =>
+                Ok(BetaNode::F64(getter, test.string_intern(cache))),
+            (&Getter::F64(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::F64(getter, F64Test::ApproxEq(test.into(), limit.string_intern(cache).into()))),
+            (&Getter::F64(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::F64(getter, F64Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::F64(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::F64(getter, F64Test::Btwn(test, limit.string_intern(cache).into()))),
 
 
             // D128
-            (&Getters::D128(accessor), &TestRepr::D128(_, ref test)) =>
-                Ok(BetaNode::D128(accessor, test.string_intern(cache))),
-            (&Getters::D128(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::D128(accessor, D128Test::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::D128(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::D128(accessor, D128Test::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::D128(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::D128(accessor, D128Test::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::D128(getter), &TestRepr::D128(_, ref test)) =>
+                Ok(BetaNode::D128(getter, test.string_intern(cache))),
+            (&Getter::D128(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::D128(getter, D128Test::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::D128(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::D128(getter, D128Test::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::D128(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::D128(getter, D128Test::Btwn(test, limit.string_intern(cache).into()))),
 
             // STR
-            (&Getters::STR(accessor), &TestRepr::STR(_, ref test)) =>
-                Ok(BetaNode::STR(accessor, test.string_intern(cache))),
-            (&Getters::STR(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::STR(accessor, StrTest::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::STR(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::STR(accessor, StrTest::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::STR(accessor), &TestRepr::SDYN(_, SDynTests::STR(test), ref limit)) =>
-                Ok(BetaNode::STR(accessor, StrTest::STR(test, limit.string_intern(cache).into()))),
-            (&Getters::STR(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::STR(accessor, StrTest::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::STR(getter), &TestRepr::STR(_, ref test)) =>
+                Ok(BetaNode::STR(getter, test.string_intern(cache))),
+            (&Getter::STR(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::STR(getter, StrTest::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::STR(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::STR(getter, StrTest::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::STR(getter), &TestRepr::SDYN(_, SDynTests::Str(test), ref limit)) =>
+                Ok(BetaNode::STR(getter, StrTest::Str(test, limit.string_intern(cache).into()))),
+            (&Getter::STR(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::STR(getter, StrTest::Btwn(test, limit.string_intern(cache).into()))),
 
             //TIME
-            (&Getters::TIME(accessor), &TestRepr::TIME(_, ref test)) =>
-                Ok(BetaNode::TIME(accessor, test.string_intern(cache))),
-            (&Getters::TIME(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::TIME(accessor, TimeTest::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::TIME(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::TIME(accessor, TimeTest::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::TIME(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::TIME(accessor, TimeTest::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::TIME(getter), &TestRepr::TIME(_, ref test)) =>
+                Ok(BetaNode::TIME(getter, test.string_intern(cache))),
+            (&Getter::TIME(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::TIME(getter, TimeTest::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::TIME(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::TIME(getter, TimeTest::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::TIME(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::TIME(getter, TimeTest::Btwn(test, limit.string_intern(cache).into()))),
 
             // DATE
-            (&Getters::DATE(accessor), &TestRepr::DATE(_, ref test)) =>
-                Ok(BetaNode::DATE(accessor, test.string_intern(cache))),
-            (&Getters::DATE(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::DATE(accessor, DateTest::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::DATE(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::DATE(accessor, DateTest::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::DATE(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::DATE(accessor, DateTest::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::DATE(getter), &TestRepr::DATE(_, ref test)) =>
+                Ok(BetaNode::DATE(getter, test.string_intern(cache))),
+            (&Getter::DATE(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::DATE(getter, DateTest::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::DATE(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::DATE(getter, DateTest::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::DATE(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::DATE(getter, DateTest::Btwn(test, limit.string_intern(cache).into()))),
 
             // DATETIME
-            (&Getters::DATETIME(accessor), &TestRepr::DATETIME(_, ref test)) =>
-                Ok(BetaNode::DATETIME(accessor, test.string_intern(cache))),
-            (&Getters::DATETIME(accessor), &TestRepr::SDYN(_, SDynTests::EQ(test), ref limit)) =>
-                Ok(BetaNode::DATETIME(accessor, DateTimeTest::EQ(test, limit.string_intern(cache).into()))),
-            (&Getters::DATETIME(accessor), &TestRepr::SDYN(_, SDynTests::ORD(test), ref limit)) =>
-                Ok(BetaNode::DATETIME(accessor, DateTimeTest::ORD(test, limit.string_intern(cache).into()))),
-            (&Getters::DATETIME(accessor), &TestRepr::DDYN(_, DDynTests::BTWN(test), ref limit)) =>
-                Ok(BetaNode::DATETIME(accessor, DateTimeTest::BTWN(test, limit.string_intern(cache).into()))),
+            (&Getter::DATETIME(getter), &TestRepr::DATETIME(_, ref test)) =>
+                Ok(BetaNode::DATETIME(getter, test.string_intern(cache))),
+            (&Getter::DATETIME(getter), &TestRepr::SDYN(_, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::DATETIME(getter, DateTimeTest::Eq(test, limit.string_intern(cache).into()))),
+            (&Getter::DATETIME(getter), &TestRepr::SDYN(_, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::DATETIME(getter, DateTimeTest::Ord(test, limit.string_intern(cache).into()))),
+            (&Getter::DATETIME(getter), &TestRepr::DDYN(_, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::DATETIME(getter, DateTimeTest::Btwn(test, limit.string_intern(cache).into()))),
 
             _ => Err(CompileError::IncorrectGetter {
                 getter: self.field().to_owned(),
                 to: self.field_type().to_owned(),
                 from: format!("{:?}", getter),
             }),
+        }
+    }
+}
+
+impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
+    fn apply_not(&mut self) {
+        use self::TestRepr::*;
+        match self {
+            &mut BOOL(_, ref mut test) => test.apply_not(),
+            &mut I8(_, ref mut test) => test.apply_not(),
+            &mut I16(_, ref mut test) => test.apply_not(),
+            &mut I32(_, ref mut test) => test.apply_not(),
+            &mut I64(_, ref mut test) => test.apply_not(),
+            &mut U8(_, ref mut test) => test.apply_not(),
+            &mut U16(_, ref mut test) => test.apply_not(),
+            &mut U32(_, ref mut test) => test.apply_not(),
+            &mut U64(_, ref mut test) => test.apply_not(),
+            &mut F32(_, ref mut test) => test.apply_not(),
+            &mut F64(_, ref mut test) => test.apply_not(),
+            &mut D128(_, ref mut test) => test.apply_not(),
+            &mut STR(_, ref mut test) => test.apply_not(),
+            &mut TIME(_, ref mut test) => test.apply_not(),
+            &mut DATE(_, ref mut test) => test.apply_not(),
+            &mut DATETIME(_, ref mut test) => test.apply_not(),
+            &mut SDYN(_, ref mut test, _) => test.apply_not(),
+            &mut DDYN(_, ref mut test, _) => test.apply_not(),
         }
     }
 }
@@ -981,25 +1188,24 @@ impl<T: Fact> Eq for BetaNode<T> {}
 impl<I: Fact> Debug for BetaNode<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::BetaNode::*;
-        write!(f, "Getters(")?;
+        write!(f, "Getter(")?;
         match self {
-            &BOOL(accessor, test) => write!(f, "BOOL({:#x}) - {:?}", accessor as usize, test)?,
-            &I8(accessor, test) => write!(f, "I8({:#x}) - {:?}", accessor as usize, test)?,
-            &I16(accessor, test) => write!(f, "I16({:#x}) - {:?}", accessor as usize, test)?,
-            &I32(accessor, test) => write!(f, "I32({:#x}) - {:?}", accessor as usize, test)?,
-            &I64(accessor, test) => write!(f, "I64({:#x}) - {:?}", accessor as usize, test)?,
-            &U8(accessor, test) => write!(f, "U8({:#x}) - {:?}", accessor as usize, test)?,
-            &U16(accessor, test) => write!(f, "U16({:#x}) - {:?}", accessor as usize, test)?,
-            &U32(accessor, test) => write!(f, "U32({:#x}) - {:?}", accessor as usize, test)?,
-            &U64(accessor, test) => write!(f, "U64({:#x}) - {:?}", accessor as usize, test)?,
-            &F32(accessor, test) => write!(f, "F32({:#x}) - {:?}", accessor as usize, test)?,
-            &F64(accessor, test) => write!(f, "F64({:#x}) - {:?}", accessor as usize, test)?,
-            &D128(accessor, test) => write!(f, "D128({:#x}) - {:?}", accessor as usize, test)?,
-            &STR(accessor, test) => write!(f, "STR({:#x}) - {:?}", accessor as usize, test)?,
-            &TIME(accessor, test) => write!(f, "TIME({:#x}) - {:?}", accessor as usize, test)?,
-            &DATE(accessor, test) => write!(f, "DATE({:#x}) - {:?}", accessor as usize, test)?,
-            &DATETIME(accessor, test) => write!(f, "DATETIME({:#x}) - {:?}", accessor as usize, test)?,
-            _ => {}
+            &BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", getter as usize, test)?,
+            &I8(getter, test) => write!(f, "I8({:#x}) - {:?}", getter as usize, test)?,
+            &I16(getter, test) => write!(f, "I16({:#x}) - {:?}", getter as usize, test)?,
+            &I32(getter, test) => write!(f, "I32({:#x}) - {:?}", getter as usize, test)?,
+            &I64(getter, test) => write!(f, "I64({:#x}) - {:?}", getter as usize, test)?,
+            &U8(getter, test) => write!(f, "U8({:#x}) - {:?}", getter as usize, test)?,
+            &U16(getter, test) => write!(f, "U16({:#x}) - {:?}", getter as usize, test)?,
+            &U32(getter, test) => write!(f, "U32({:#x}) - {:?}", getter as usize, test)?,
+            &U64(getter, test) => write!(f, "U64({:#x}) - {:?}", getter as usize, test)?,
+            &F32(getter, test) => write!(f, "F32({:#x}) - {:?}", getter as usize, test)?,
+            &F64(getter, test) => write!(f, "F64({:#x}) - {:?}", getter as usize, test)?,
+            &D128(getter, test) => write!(f, "D128({:#x}) - {:?}", getter as usize, test)?,
+            &STR(getter, test) => write!(f, "STR({:#x}) - {:?}", getter as usize, test)?,
+            &TIME(getter, test) => write!(f, "TIME({:#x}) - {:?}", getter as usize, test)?,
+            &DATE(getter, test) => write!(f, "DATE({:#x}) - {:?}", getter as usize, test)?,
+            &DATETIME(getter, test) => write!(f, "DATETIME({:#x}) - {:?}", getter as usize, test)?,
         }
         write!(f, ")")
     }
@@ -1009,23 +1215,47 @@ impl<T:Fact> IsAlpha for BetaNode<T> {
     fn is_alpha(&self) -> bool {
         use self::BetaNode::*;
         match self {
-            &BOOL(_, test) => test.is_static(),
-            &I8(_, test) => test.is_static(),
-            &I16(_, test) => test.is_static(),
-            &I32(_, test) => test.is_static(),
-            &I64(_, test) => test.is_static(),
-            &U8(_, test) => test.is_static(),
-            &U16(_, test) => test.is_static(),
-            &U32(_, test) => test.is_static(),
-            &U64(_, test) => test.is_static(),
-            &F32(_, test) => test.is_static(),
-            &F64(_, test) => test.is_static(),
-            &D128(_, test) => test.is_static(),
-            &STR(_, test) => test.is_static(),
-            &TIME(_, test) => test.is_static(),
-            &DATE(_, test) => test.is_static(),
-            &DATETIME(_, test) => test.is_static(),
-            _ => false
+            &BOOL(_, test) => test.is_alpha(),
+            &I8(_, test) => test.is_alpha(),
+            &I16(_, test) => test.is_alpha(),
+            &I32(_, test) => test.is_alpha(),
+            &I64(_, test) => test.is_alpha(),
+            &U8(_, test) => test.is_alpha(),
+            &U16(_, test) => test.is_alpha(),
+            &U32(_, test) => test.is_alpha(),
+            &U64(_, test) => test.is_alpha(),
+            &F32(_, test) => test.is_alpha(),
+            &F64(_, test) => test.is_alpha(),
+            &D128(_, test) => test.is_alpha(),
+            &STR(_, test) => test.is_alpha(),
+            &TIME(_, test) => test.is_alpha(),
+            &DATE(_, test) => test.is_alpha(),
+            &DATETIME(_, test) => test.is_alpha(),
+        }
+    }
+}
+
+impl<T: Fact> Into<AlphaNode<T>> for BetaNode<T> {
+    fn into(self) -> AlphaNode<T> {
+        use self::BetaNode::*;
+        match self {
+            BOOL(getter, test) if test.is_alpha() => AlphaNode::BOOL(getter, test.into()),
+            I8(getter, test) if test.is_alpha() => AlphaNode::I8(getter, test.into()),
+            I16(getter, test) if test.is_alpha() => AlphaNode::I16(getter, test.into()),
+            I32(getter, test) if test.is_alpha() => AlphaNode::I32(getter, test.into()),
+            I64(getter, test) if test.is_alpha() => AlphaNode::I64(getter, test.into()),
+            U8(getter, test) if test.is_alpha() => AlphaNode::U8(getter, test.into()),
+            U16(getter, test) if test.is_alpha() => AlphaNode::U16(getter, test.into()),
+            U32(getter, test) if test.is_alpha() => AlphaNode::U32(getter, test.into()),
+            U64(getter, test) if test.is_alpha() => AlphaNode::U64(getter, test.into()),
+            F32(getter, test) if test.is_alpha() => AlphaNode::F32(getter, test.into()),
+            F64(getter, test) if test.is_alpha() => AlphaNode::F64(getter, test.into()),
+            D128(getter, test) if test.is_alpha() => AlphaNode::D128(getter, test.into()),
+            STR(getter, test) if test.is_alpha() => AlphaNode::STR(getter, test.into()),
+            TIME(getter, test) if test.is_alpha() => AlphaNode::TIME(getter, test.into()),
+            DATE(getter, test) if test.is_alpha() => AlphaNode::DATE(getter, test.into()),
+            DATETIME(getter, test) if test.is_alpha() => AlphaNode::DATETIME(getter, test.into()),
+            _ => unreachable!("Into AlphaNode with unsupported config")
         }
     }
 }

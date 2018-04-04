@@ -1,6 +1,7 @@
 use ord_subset::OrdVar;
 use decimal::d128;
 use ordered_float::NotNaN;
+use std::hash::{Hash, Hasher};
 use super::tests::*;
 use runtime::memory::SymbolId;
 use chrono::NaiveTime;
@@ -10,6 +11,9 @@ use chrono::DateTime;
 use shared::fact::Fact;
 use shared::fact::FactField;
 use shared::context::AlphaContext;
+use shared::fact::HashEqField;
+use std::fmt::Debug;
+use std::fmt;
 
 pub trait IsHashEq {
     fn is_hash_eq(&self) -> bool;
@@ -22,14 +26,23 @@ pub trait AlphaTestField<T: FactField + ?Sized > {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BoolTest {
-    EQ(EqTest, bool)
+    Eq(EqTest, bool)
+}
+
+impl IsHashEq for BoolTest {
+    fn is_hash_eq(&self) -> bool {
+        use self::BoolTest::*;
+        match self {
+            Eq(_,_) => true
+        }
+    }
 }
 
 impl AlphaTestField<bool> for BoolTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &bool, _: &C) -> bool {
         use self::BoolTest::*;
         match self {
-            &EQ(ref test, ref to) => test.test(value, to)
+            &Eq(ref test, ref to) => test.test(value, to)
         }
     }
 }
@@ -39,18 +52,28 @@ macro_rules! alpha_number_test {
      $(
              #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
             pub enum $test {
-                ORD(OrdTest, $id),
-                BTWN(BetweenTest, $id, $id),
-                EQ(EqTest, $id)
+                Ord(OrdTest, $id),
+                Btwn(BetweenTest, $id, $id),
+                Eq(EqTest, $id)
+            }
+
+            impl IsHashEq for $test {
+                fn is_hash_eq(&self) -> bool {
+                    use self::$test::*;
+                    match self {
+                        Eq(EqTest::Eq,_) => true,
+                        _ => false
+                    }
+                }
             }
 
             impl AlphaTestField<$id> for $test {
                 fn alpha_test_field<C: AlphaContext>(&self, value: &$id, _: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &ORD(ref test, ref to) => test.test(value, to),
-                        &BTWN(ref test, ref from, ref to) => test.test(value, from, to),
-                        &EQ(ref test, ref to) => test.test(value, to)
+                        &Ord(ref test, ref to) => test.test(value, to),
+                        &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
+                        &Eq(ref test, ref to) => test.test(value, to)
                     }
                 }
             }
@@ -63,18 +86,24 @@ macro_rules! alpha_float_test {
      $(
              #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
             pub enum $test {
-                ORD(OrdTest, $id),
-                BTWN(BetweenTest, $id, $id),
-                APPROX_EQ(ApproxEqTest, $id)
+                Ord(OrdTest, $id),
+                Btwn(BetweenTest, $id, $id),
+                ApproxEq(ApproxEqTest, $id)
+            }
+
+            impl IsHashEq for $test {
+                fn is_hash_eq(&self) -> bool {
+                    false
+                }
             }
 
             impl AlphaTestField<$id> for $test {
                 fn alpha_test_field<C: AlphaContext>(&self, value: &$id, _: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &ORD(ref test, ref to) => test.test(value, to),
-                        &BTWN(ref test, ref from, ref to) => test.test(value, from, to),
-                        &APPROX_EQ(ref test, ref to) => test.test(value, to)
+                        &Ord(ref test, ref to) => test.test(value, to),
+                        &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
+                        &ApproxEq(ref test, ref to) => test.test(value, to)
                     }
                 }
             }
@@ -101,10 +130,20 @@ alpha_float_test!(
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum StrTest {
-    ORD(OrdTest, SymbolId),
-    BTWN(BetweenTest, SymbolId, SymbolId),
-    EQ(EqTest, SymbolId),
-    STR(StrArrayTest, SymbolId)
+    Ord(OrdTest, SymbolId),
+    Btwn(BetweenTest, SymbolId, SymbolId),
+    Eq(EqTest, SymbolId),
+    Str(StrArrayTest, SymbolId)
+}
+
+impl IsHashEq for StrTest {
+    fn is_hash_eq(&self) -> bool {
+        use self::StrTest::*;
+        match self {
+            Eq(EqTest::Eq, _) => true,
+            _ => false
+        }
+    }
 }
 
 impl AlphaTestField<str> for StrTest {
@@ -112,10 +151,10 @@ impl AlphaTestField<str> for StrTest {
         use self::StrTest::*;
         let string_cache = context.get_string_cache();
         match self {
-            &ORD(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
-            &BTWN(ref test, ref from, ref to) => test.test(value, string_cache.resolve(*from).unwrap(), string_cache.resolve(*to).unwrap()),
-            &EQ(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
-            &STR(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
+            &Ord(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
+            &Btwn(ref test, ref from, ref to) => test.test(value, string_cache.resolve(*from).unwrap(), string_cache.resolve(*to).unwrap()),
+            &Eq(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
+            &Str(ref test, ref to) => test.test(value, string_cache.resolve(*to).unwrap()),
 
         }
     }
@@ -124,36 +163,56 @@ impl AlphaTestField<str> for StrTest {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TimeTest {
-    ORD(OrdTest, NaiveTime),
-    BTWN(BetweenTest, NaiveTime, NaiveTime),
-    EQ(EqTest, NaiveTime)
+    Ord(OrdTest, NaiveTime),
+    Btwn(BetweenTest, NaiveTime, NaiveTime),
+    Eq(EqTest, NaiveTime)
+}
+
+impl IsHashEq for TimeTest {
+    fn is_hash_eq(&self) -> bool {
+        use self::TimeTest::*;
+        match self {
+            Eq(EqTest::Eq, _) => true,
+            _ => false
+        }
+    }
 }
 
 impl AlphaTestField<NaiveTime> for TimeTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &NaiveTime, _: &C) -> bool {
         use self::TimeTest::*;
         match self {
-            &ORD(ref test, ref to) => test.test(value, to),
-            &BTWN(ref test, ref from, ref to) => test.test(value, from, to),
-            &EQ(ref test, ref to) => test.test(value, to)
+            &Ord(ref test, ref to) => test.test(value, to),
+            &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
+            &Eq(ref test, ref to) => test.test(value, to)
         }
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTest {
-    ORD(OrdTest, Date<Utc>),
-    BTWN(BetweenTest, Date<Utc>, Date<Utc>),
-    EQ(EqTest, Date<Utc>)
+    Ord(OrdTest, Date<Utc>),
+    Btwn(BetweenTest, Date<Utc>, Date<Utc>),
+    Eq(EqTest, Date<Utc>)
+}
+
+impl IsHashEq for DateTest {
+    fn is_hash_eq(&self) -> bool {
+        use self::DateTest::*;
+        match self {
+            Eq(EqTest::Eq, _) => true,
+            _ => false
+        }
+    }
 }
 
 impl AlphaTestField<Date<Utc>> for DateTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &Date<Utc>, _: &C) -> bool {
         use self::DateTest::*;
         match self {
-            &ORD(ref test, ref to) => test.test(value, to),
-            &BTWN(ref test, ref from, ref to) => test.test(value, from, to),
-            &EQ(ref test, ref to) => test.test(value, to)
+            &Ord(ref test, ref to) => test.test(value, to),
+            &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
+            &Eq(ref test, ref to) => test.test(value, to)
         }
     }
 }
@@ -161,18 +220,28 @@ impl AlphaTestField<Date<Utc>> for DateTest {
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTimeTest {
-    ORD(OrdTest, DateTime<Utc>),
-    BTWN(BetweenTest, DateTime<Utc>, DateTime<Utc>),
-    EQ(EqTest, DateTime<Utc>)
+    Ord(OrdTest, DateTime<Utc>),
+    Btwn(BetweenTest, DateTime<Utc>, DateTime<Utc>),
+    Eq(EqTest, DateTime<Utc>)
+}
+
+impl IsHashEq for DateTimeTest {
+    fn is_hash_eq(&self) -> bool {
+        use self::DateTimeTest::*;
+        match self {
+            Eq(EqTest::Eq, _) => true,
+            _ => false
+        }
+    }
 }
 
 impl AlphaTestField<DateTime<Utc>> for DateTimeTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &DateTime<Utc>, _: &C) -> bool {
         use self::DateTimeTest::*;
         match self {
-            &ORD(ref test, ref to) => test.test(value, to),
-            &BTWN(ref test, ref from, ref to) => test.test(value, from, to),
-            &EQ(ref test, ref to) => test.test(value, to)
+            &Ord(ref test, ref to) => test.test(value, to),
+            &Btwn(ref test, ref from, ref to) => test.test(value, from, to),
+            &Eq(ref test, ref to) => test.test(value, to)
         }
     }
 }
@@ -195,4 +264,136 @@ pub enum AlphaNode<T: Fact> {
     TIME(fn(&T) -> &NaiveTime, TimeTest),
     DATE(fn(&T) -> &Date<Utc>, DateTest),
     DATETIME(fn(&T) -> &DateTime<Utc>, DateTimeTest),
+}
+
+macro_rules! test_hash {
+    ($($t:ident => $ord:expr),+ ) => {
+        impl <T:Fact> Hash for AlphaNode<T> {
+            fn hash < H: Hasher > ( & self, state: & mut H) {
+                use self::AlphaNode::*;
+                    match self {
+                    $ ( & $ t(getter, ref test) => Self::hash_self($ord, getter as usize, test, state),
+                    )*
+                }
+            }
+        }
+    };
+}
+
+test_hash!(
+        BOOL => 0,
+        I8 => 1, I16 => 2, I32 => 3, I64 => 4,
+        U8 => 5, U16 => 6, U32 => 7, U64 => 8,
+        F32 => 9, F64 => 10, D128 => 11,
+        STR => 12,
+        TIME => 13, DATE => 14, DATETIME => 15
+    );
+
+macro_rules! test_eq {
+    ($($t:ident),+ ) => {
+        impl<T:Fact> PartialEq for AlphaNode<T> {
+            fn eq(&self, other: &Self) -> bool {
+                use self::AlphaNode::*;
+                    match (self, other) {
+                    $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
+                        (getter1 as usize) == (getter2 as usize) && test1 == test2
+                    },)*
+                    _ => false
+                }
+            }
+        }
+    };
+}
+
+test_eq!(
+    BOOL,
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    F32, F64, D128,
+    STR,
+    TIME, DATE, DATETIME
+    );
+
+impl<T: Fact> Eq for AlphaNode<T> {}
+
+impl<I: Fact> Debug for AlphaNode<I> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::AlphaNode::*;
+        write!(f, "Getter(")?;
+        match self {
+            &BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", getter as usize, test)?,
+            &I8(getter, test) => write!(f, "I8({:#x}) - {:?}", getter as usize, test)?,
+            &I16(getter, test) => write!(f, "I16({:#x}) - {:?}", getter as usize, test)?,
+            &I32(getter, test) => write!(f, "I32({:#x}) - {:?}", getter as usize, test)?,
+            &I64(getter, test) => write!(f, "I64({:#x}) - {:?}", getter as usize, test)?,
+            &U8(getter, test) => write!(f, "U8({:#x}) - {:?}", getter as usize, test)?,
+            &U16(getter, test) => write!(f, "U16({:#x}) - {:?}", getter as usize, test)?,
+            &U32(getter, test) => write!(f, "U32({:#x}) - {:?}", getter as usize, test)?,
+            &U64(getter, test) => write!(f, "U64({:#x}) - {:?}", getter as usize, test)?,
+            &F32(getter, test) => write!(f, "F32({:#x}) - {:?}", getter as usize, test)?,
+            &F64(getter, test) => write!(f, "F64({:#x}) - {:?}", getter as usize, test)?,
+            &D128(getter, test) => write!(f, "D128({:#x}) - {:?}", getter as usize, test)?,
+            &STR(getter, test) => write!(f, "STR({:#x}) - {:?}", getter as usize, test)?,
+            &TIME(getter, test) => write!(f, "TIME({:#x}) - {:?}", getter as usize, test)?,
+            &DATE(getter, test) => write!(f, "DATE({:#x}) - {:?}", getter as usize, test)?,
+            &DATETIME(getter, test) => write!(f, "DATETIME({:#x}) - {:?}", getter as usize, test)?,
+        }
+        write!(f, ")")
+    }
+}
+
+impl<T: Fact> AlphaNode<T> {
+    fn hash_self<H: Hasher, K: Hash>(ord: usize, getter: usize, test: &K, state: &mut H) {
+        ord.hash(state);
+        getter.hash(state);
+        test.hash(state);
+    }
+}
+
+impl<T:Fact> Into<HashEqField> for AlphaNode<T> {
+    fn into(self) -> HashEqField {
+        use self::AlphaNode::*;
+        match self {
+            BOOL(getter, BoolTest::Eq(EqTest::Eq, to)) => HashEqField::BOOL(getter as usize, to),
+            BOOL(getter, BoolTest::Eq(EqTest::Ne, to)) => HashEqField::BOOL(getter as usize, !to),
+            I8(getter, I8Test::Eq(EqTest::Eq, to)) => HashEqField::I8(getter as usize, to),
+            I16(getter, I16Test::Eq(EqTest::Eq, to)) => HashEqField::I16(getter as usize, to),
+            I32(getter, I32Test::Eq(EqTest::Eq, to)) => HashEqField::I32(getter as usize, to),
+            I64(getter, I64Test::Eq(EqTest::Eq, to)) => HashEqField::I64(getter as usize, to),
+            U8(getter, U8Test::Eq(EqTest::Eq, to)) => HashEqField::U8(getter as usize, to),
+            U16(getter, U16Test::Eq(EqTest::Eq, to)) => HashEqField::U16(getter as usize, to),
+            U32(getter, U32Test::Eq(EqTest::Eq, to)) => HashEqField::U32(getter as usize, to),
+            U64(getter, U64Test::Eq(EqTest::Eq, to)) => HashEqField::U64(getter as usize, to),
+            D128(getter, D128Test::Eq(EqTest::Eq, to)) => HashEqField::D128(getter as usize, to),
+            STR(getter, StrTest::Eq(EqTest::Eq, to)) => HashEqField::STR(getter as usize, to),
+            TIME(getter, TimeTest::Eq(EqTest::Eq, to)) => HashEqField::TIME(getter as usize, to),
+            DATE(getter, DateTest::Eq(EqTest::Eq, to)) => HashEqField::DATE(getter as usize, to),
+            DATETIME(getter, DateTimeTest::Eq(EqTest::Eq, to)) => HashEqField::DATETIME(getter as usize, to),
+            _ => unreachable!("Into HashEqField With Unsupported Config")
+        }
+    }
+}
+
+impl<T: Fact> IsHashEq for AlphaNode<T> {
+    fn is_hash_eq(&self) -> bool {
+        use self::AlphaNode::*;
+        match self {
+            BOOL(_, ref test) => test.is_hash_eq(),
+            I8(_, ref test) => test.is_hash_eq(),
+            I16(_, ref test) => test.is_hash_eq(),
+            I32(_, ref test) => test.is_hash_eq(),
+            I64(_, ref test) => test.is_hash_eq(),
+            U8(_, ref test) => test.is_hash_eq(),
+            U16(_, ref test) => test.is_hash_eq(),
+            U32(_, ref test) => test.is_hash_eq(),
+            U64(_, ref test) => test.is_hash_eq(),
+            F32(_, ref test) => test.is_hash_eq(),
+            F64(_, ref test) => test.is_hash_eq(),
+            D128(_, ref test) => test.is_hash_eq(),
+            STR(_, ref test) => test.is_hash_eq(),
+            TIME(_, ref test) => test.is_hash_eq(),
+            DATE(_, ref test) => test.is_hash_eq(),
+            DATETIME(_, ref test) => test.is_hash_eq(),
+        }
+    }
 }

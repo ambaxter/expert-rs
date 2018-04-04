@@ -1,12 +1,11 @@
 use super::prelude::*;
 pub use super::prelude::dyn;
-use super::super::nodes::tests::{EqTest, OrdTest, BetweenTest, StrArrayTest};
+use super::super::nodes::tests::{ApplyNot, EqTest, OrdTest, BetweenTest, StrArrayTest};
 use super::super::nodes::beta::TestRepr;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum VecNodes<S: AsRef<str>> {
     T(TestRepr<S>),
-    Not(TestRepr<S>),
     Any(Vec<VecNodes<S>>),
     NotAny(Vec<VecNodes<S>>),
     All(Vec<VecNodes<S>>),
@@ -72,8 +71,10 @@ pub fn ends_with<S: AsRef<str>, T: IntoStrTest<S>>(field: S, val: T) -> VecNodes
 pub fn not<S: AsRef<str>>(node: VecNodes<S>) -> VecNodes<S> {
     use self::VecNodes::*;
     match node {
-        T(t) => Not(t),
-        Not(t) => T(t),
+        T(mut t) => {
+            t.apply_not();
+            T(t)
+        },
         Any(t) => NotAny(t),
         NotAny(t) => Any(t),
         All(t) => NotAll(t),

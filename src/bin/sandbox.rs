@@ -1,6 +1,3 @@
-#![feature(conservative_impl_trait)]
-
-
 extern crate num;
 
 #[macro_use]
@@ -191,7 +188,7 @@ impl expert::shared::fact::Introspect for ATestAspect {
 impl expert::shared::fact::Fact for ATestAspect {
     type HashEq = ();
 
-    fn getter(field: &str) -> Option<expert::shared::fact::Getters<Self>> {
+    fn getter(field: &str) -> Option<expert::shared::fact::Getter<Self>> {
         unimplemented!()
     }
 

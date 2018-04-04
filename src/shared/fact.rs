@@ -15,7 +15,7 @@ pub trait Introspect {
 }
 
 #[derive(Copy, Clone)]
-pub enum Getters<I: Fact> {
+pub enum Getter<I: Fact> {
     BOOL(fn(&I) -> &bool),
     I8(fn(&I) -> &i8),
     I16(fn(&I) -> &i16),
@@ -34,10 +34,10 @@ pub enum Getters<I: Fact> {
     DATETIME(fn(&I) -> &DateTime<Utc>),
 }
 
-impl<I: Fact> Debug for Getters<I> {
+impl<I: Fact> Debug for Getter<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::Getters::*;
-        write!(f, "Getters(")?;
+        use self::Getter::*;
+        write!(f, "Getter(")?;
         match self {
             &BOOL(accessor) => write!(f, "BOOL({:#x})", accessor as usize)?,
             &I8(accessor) => write!(f, "I8({:#x})", accessor as usize)?,
@@ -55,7 +55,6 @@ impl<I: Fact> Debug for Getters<I> {
             &TIME(accessor) => write!(f, "TIME({:#x})", accessor as usize)?,
             &DATE(accessor) => write!(f, "DATE({:#x})", accessor as usize)?,
             &DATETIME(accessor) => write!(f, "DATETIME({:#x})", accessor as usize)?,
-            _ => {}
         }
         write!(f, ")")
     }
@@ -84,7 +83,7 @@ pub trait Fact: Introspect + Eq + Hash
     where Self: std::marker::Sized {
 
     type HashEq: Hash + Eq + Clone + Debug;
-    fn getter(field: &str) -> Option<Getters<Self>>;
+    fn getter(field: &str) -> Option<Getter<Self>>;
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
 }
 

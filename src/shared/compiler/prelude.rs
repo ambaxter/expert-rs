@@ -50,7 +50,7 @@ macro_rules! into_eq_tests {
         $(
             impl<S: AsRef<str>> IntoEqTest<S> for $id {
                 fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::EQ(test, SLimit::St(self)))
+                    TestRepr::$sub(field, $test::Eq(test, SLimit::St(self)))
                 }
             }
         )*
@@ -78,7 +78,7 @@ macro_rules! float_into_approx_eq_tests {
         $(
             impl<S: AsRef<str>> IntoEqTest<S> for $id {
                 fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::APPROX_EQ(test.into(), SLimit::St(self.into())))
+                    TestRepr::$sub(field, $test::ApproxEq(test.into(), SLimit::St(self.into())))
                 }
             }
         )*
@@ -95,7 +95,7 @@ macro_rules! nn_float_into_approx_eq_tests {
         $(
             impl<S: AsRef<str>> IntoEqTest<S> for $id {
                 fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::APPROX_EQ(test.into(), SLimit::St(self)))
+                    TestRepr::$sub(field, $test::ApproxEq(test.into(), SLimit::St(self)))
                 }
             }
         )*
@@ -110,19 +110,19 @@ nn_float_into_approx_eq_tests!(
 
 impl<S: AString> IntoEqTest<S> for S {
     fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::EQ(test, SLimit::St(self)))
+        TestRepr::STR(field, StrTest::Eq(test, SLimit::St(self)))
     }
 }
 
 impl<S: AsRef<str>> IntoEqTest<S> for d128 {
     fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-        TestRepr::D128(field, D128Test::EQ(test, SLimit::St(self.into())))
+        TestRepr::D128(field, D128Test::Eq(test, SLimit::St(self.into())))
     }
 }
 
 impl<S: AsRef<str>> IntoEqTest<S> for SDynLimit<S> {
     fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-        TestRepr::SDYN(field, SDynTests::EQ(test), self)
+        TestRepr::SDYN(field, SDynTests::Eq(test), self)
     }
 }
 
@@ -133,7 +133,7 @@ macro_rules! into_ord_tests {
         $(
             impl<S: AsRef<str>> IntoOrdTest<S> for $id {
                 fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::ORD(test, SLimit::St(self)))
+                    TestRepr::$sub(field, $test::Ord(test, SLimit::St(self)))
                 }
             }
         )*
@@ -162,7 +162,7 @@ macro_rules! float_into_ord_tests {
         $(
             impl<S: AsRef<str>> IntoOrdTest<S> for $id {
                 fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::ORD(test, SLimit::St(self.into())))
+                    TestRepr::$sub(field, $test::Ord(test, SLimit::St(self.into())))
                 }
             }
         )*
@@ -177,13 +177,13 @@ float_into_ord_tests!(
 
 impl<S: AString> IntoOrdTest<S> for S {
     fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::ORD(test, SLimit::St(self)))
+        TestRepr::STR(field, StrTest::Ord(test, SLimit::St(self)))
     }
 }
 
 impl<S: AsRef<str>> IntoOrdTest<S> for SDynLimit<S> {
     fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
-        TestRepr::SDYN(field, SDynTests::ORD(test), self)
+        TestRepr::SDYN(field, SDynTests::Ord(test), self)
     }
 }
 
@@ -196,19 +196,19 @@ macro_rules! into_btwn_tests {
         $(
             impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, $id) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::St(self.0, self.1)))
+                    TestRepr::$sub(field, $test::Btwn(test, DLimit::St(self.0, self.1)))
                 }
             }
 
             impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, $id) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::DynSt(self.0.limit, self.1)))
+                    TestRepr::$sub(field, $test::Btwn(test, DLimit::DynSt(self.0.limit, self.1)))
                 }
             }
 
             impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SDynLimit<S>) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::StDyn(self.0, self.1.limit)))
+                    TestRepr::$sub(field, $test::Btwn(test, DLimit::StDyn(self.0, self.1.limit)))
                 }
             }
         )*
@@ -237,19 +237,19 @@ macro_rules! float_into_btwn_tests {
         $(
             impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, $id) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::St(self.0.into(), self.1.into())))
+                    TestRepr::$sub(field, $test::Btwn(test, DLimit::St(self.0.into(), self.1.into())))
                 }
             }
 
             impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, $id) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::DynSt(self.0.limit, self.1.into())))
+                    TestRepr::$sub(field, $test::Btwn(test, DLimit::DynSt(self.0.limit, self.1.into())))
                 }
             }
 
             impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SDynLimit<S>) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::BTWN(test, DLimit::StDyn(self.0.into(), self.1.limit)))
+                    TestRepr::$sub(field, $test::Btwn(test, DLimit::StDyn(self.0.into(), self.1.limit)))
                 }
             }
         )*
@@ -264,32 +264,32 @@ float_into_btwn_tests!(
 
 impl<S: AString> IntoBtwnTest<S> for (S, S) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::BTWN(test, DLimit::St(self.0, self.1)))
+        TestRepr::STR(field, StrTest::Btwn(test, DLimit::St(self.0, self.1)))
     }
 }
 
 impl<S: AString> IntoBtwnTest<S> for (SDynLimit<S>, S) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::BTWN(test, DLimit::DynSt(self.0.limit, self.1)))
+        TestRepr::STR(field, StrTest::Btwn(test, DLimit::DynSt(self.0.limit, self.1)))
     }
 }
 
 impl<S: AString> IntoBtwnTest<S> for (S, SDynLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::BTWN(test, DLimit::StDyn(self.0, self.1.limit)))
+        TestRepr::STR(field, StrTest::Btwn(test, DLimit::StDyn(self.0, self.1.limit)))
     }
 }
 
 impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, SDynLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
         let limit = DDynLimit{l: self.0.limit, r: self.1.limit};
-        TestRepr::DDYN(field, DDynTests::BTWN(test), limit)
+        TestRepr::DDYN(field, DDynTests::Btwn(test), limit)
     }
 }
 
 impl<S: AString> IntoStrTest<S> for S {
     fn into_str_test(self, field: S, test: StrArrayTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::STR(test, SLimit::St(self.into())))
+        TestRepr::STR(field, StrTest::Str(test, SLimit::St(self.into())))
     }
 }
 
