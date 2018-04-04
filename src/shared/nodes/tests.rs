@@ -10,6 +10,7 @@ pub trait ApplyNot {
     fn apply_not(&mut self);
 }
 
+// Don't try to make this Truth<T> again. This ends up making the Repl -> Node function massive
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum Truth {
     Not,
@@ -41,10 +42,25 @@ pub trait STest<T: ?Sized>{
     fn test(&self, val: &T, to: &T) -> bool;
 }
 
+impl<'a, F, T: ? Sized> STest<T> for (Truth, &'a F)
+    where F: STest<T> {
+    fn test(&self, val: &T, to: &T) -> bool {
+        self.0.is_not() ^ self.1.test(val, to)
+    }
+}
+
 /// Compare a value against two parameters
 pub trait DTest<T: ?Sized>{
     fn test(&self, val: &T, from: &T, to: &T) -> bool;
 }
+
+impl<'a, F, T: ? Sized> DTest<T> for (Truth, &'a F)
+    where F: DTest<T> {
+    fn test(&self, val: &T, from: &T, to: &T) -> bool {
+        self.0.is_not() ^ self.1.test(val, from, to)
+    }
+}
+
 
 /// Single value ordinal test
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]

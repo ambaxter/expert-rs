@@ -51,7 +51,6 @@ pub trait MapAll<T, U> {
         where F: FnMut(&T) -> U;
 }
 
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum SLimit<T, S> {
     St(T),
@@ -61,7 +60,7 @@ pub enum SLimit<T, S> {
 impl<T> SLimit<T, SymbolId>
     where T: RefField {
 
-    pub fn test_field_ref<C: BetaContext, E: STest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+    pub fn test_field_ref<C: BetaContext, E: STest<T> >(&self, test: &E, value: &T, context: &C) -> bool {
         use self::SLimit::*;
         match self {
             &St(ref to) => test.test(value, to),
@@ -72,7 +71,7 @@ impl<T> SLimit<T, SymbolId>
 
 impl<'a> SLimit<&'a str, SymbolId> {
 
-    pub fn test_field_str<C: BetaContext, E: STest<&'a str> >(&self, value: &'a str, test: &E, context: &'a C) -> bool {
+    pub fn test_field_str<C: BetaContext, E: STest<&'a str> >(&self, test: &E, value: &'a str, context: &'a C) -> bool {
         use self::SLimit::*;
         match self {
             &St(ref to) => test.test(&value, to),
@@ -84,7 +83,7 @@ impl<'a> SLimit<&'a str, SymbolId> {
 impl<T> SLimit<T, SymbolId>
     where T: CastField {
 
-    pub fn test_field_cast<C: BetaContext, E: STest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+    pub fn test_field_cast<C: BetaContext, E: STest<T> >(&self, test: &E, value: &T, context: &C) -> bool {
         use self::SLimit::*;
         match self {
             &St(ref to) => test.test(value, to),
@@ -158,7 +157,7 @@ pub enum DLimit<T, S> {
 impl<T> DLimit<T, SymbolId>
     where T: RefField {
 
-    pub fn test_field_ref<C: BetaContext, E: DTest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+    pub fn test_field_ref<C: BetaContext, E: DTest<T> >(&self, test: &E, value: &T, context: &C) -> bool {
         use self::DLimit::*;
         match self {
             &St(ref from, ref to) => test.test(value, from, to),
@@ -171,7 +170,7 @@ impl<T> DLimit<T, SymbolId>
 
 impl<'a> DLimit<&'a str, SymbolId> {
 
-    pub fn test_field_str<C: BetaContext, E: DTest<&'a str> >(&self, value: &'a str, test: &E, context: &'a C) -> bool {
+    pub fn test_field_str<C: BetaContext, E: DTest<&'a str> >(&self, test: &E, value: &'a str, context: &'a C) -> bool {
         use self::DLimit::*;
         match self {
             &St(ref from, ref to) => test.test(&value, from, to),
@@ -185,7 +184,7 @@ impl<'a> DLimit<&'a str, SymbolId> {
 impl<T> DLimit<T, SymbolId>
     where T: CastField {
 
-    pub fn test_field_cast<C: BetaContext, E: DTest<T> >(&self, value: &T, test: &E, context: &C) -> bool {
+    pub fn test_field_cast<C: BetaContext, E: DTest<T> >(&self, test: &E, value: &T, context: &C) -> bool {
         use self::DLimit::*;
         match self {
             &St(ref from, ref to) => test.test(value, from, to),
@@ -309,7 +308,7 @@ impl BetaTestField<bool> for BoolTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &bool, context: &C) -> bool {
         use self::BoolTest::*;
         match self {
-            &Eq(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context)
+            &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context)
         }
     }
 }
@@ -377,9 +376,9 @@ macro_rules! beta_number_test {
                 fn beta_test_field<C: BetaContext>(&self, value: &$id, context: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &Ord(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_cast(value, test, context),
-                        &Eq(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_cast(value, test, context),
-                        &Btwn(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_cast(value, test, context),
+                        &Ord(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                        &Eq(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                        &Btwn(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
 
                     }
                 }
@@ -451,9 +450,9 @@ macro_rules! beta_float_test {
                 fn beta_test_field<C: BetaContext>(&self, value: &$id, context: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &Ord(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_cast(value, test, context),
-                        &Btwn(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_cast(value, test, context),
-                        &ApproxEq(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_cast(value, test, context),
+                        &Ord(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                        &Btwn(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                        &ApproxEq(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
 
                     }
                 }
@@ -546,18 +545,18 @@ impl BetaTestField<str> for StrTest<SymbolId> {
         use self::StrTest::*;
         let string_cache = context.get_string_cache();
         match self {
-            &Ord(truth, ref test, ref limit) => truth.is_not() ^ limit
+            &Ord(truth, ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
-                .test_field_str(&value, test, context),
-            &Btwn(truth, ref test, ref limit) => truth.is_not() ^ limit
+                .test_field_str(&(truth, test), &value, context),
+            &Btwn(truth, ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
-                .test_field_str(&value, test, context),
-            &Eq(truth, ref test, ref limit) => truth.is_not() ^ limit
+                .test_field_str(&(truth, test), &value, context),
+            &Eq(truth, ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
-                .test_field_str(&value, test, context),
+                .test_field_str(&(truth, test), &value, context),
             &Str(truth, ref test, ref limit) => truth.is_not() ^ limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
-                .test_field_str(&value, test, context),
+                .test_field_str(&(truth, test), &value, context),
         }
     }
 }
@@ -621,9 +620,9 @@ impl BetaTestField<NaiveTime> for TimeTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &NaiveTime, context: &C) -> bool {
         use self::TimeTest::*;
         match self {
-            &Ord(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context),
-            &Btwn(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context),
-            &Eq(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context)
+            &Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
+            &Btwn(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context),
+            &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context)
         }
     }
 }
@@ -687,9 +686,9 @@ impl BetaTestField<Date<Utc>> for DateTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &Date<Utc>, context: &C) -> bool {
         use self::DateTest::*;
         match self {
-            &Ord(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context),
-            &Btwn(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context),
-            &Eq(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context)
+            &Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
+            &Btwn(truth, ref test, ref limit) =>limit.test_field_ref(&(truth, test), value, context),
+            &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context)
         }
     }
 }
@@ -755,9 +754,9 @@ impl BetaTestField<DateTime<Utc>> for DateTimeTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &DateTime<Utc>, context: &C) -> bool {
         use self::DateTimeTest::*;
         match self {
-            &Ord(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context),
-            &Btwn(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context),
-            &Eq(truth, ref test, ref limit) => truth.is_not() ^ limit.test_field_ref(value, test, context)
+            &Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
+            &Btwn(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
+            &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context)
         }
     }
 }

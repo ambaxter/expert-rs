@@ -42,7 +42,7 @@ impl AlphaTestField<bool> for BoolTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &bool, _: &C) -> bool {
         use self::BoolTest::*;
         match self {
-            &Eq(ref truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
+            &Eq(truth, ref test, ref to) => (truth, test).test(value, to)
         }
     }
 }
@@ -72,9 +72,9 @@ macro_rules! alpha_number_test {
                 fn alpha_test_field<C: AlphaContext>(&self, value: &$id, _: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
-                        &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
-                        &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
+                        &Ord(truth, ref test, ref to) => (truth, test).test(value, to),
+                        &Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, from, to),
+                        &Eq(truth, ref test, ref to) => (truth, test).test(value, to)
                     }
                 }
             }
@@ -102,9 +102,9 @@ macro_rules! alpha_float_test {
                 fn alpha_test_field<C: AlphaContext>(&self, value: &$id, _: &C) -> bool {
                     use self::$test::*;
                     match self {
-                        &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
-                        &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
-                        &ApproxEq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
+                        &Ord(truth, ref test, ref to) => (truth, test).test(value, to),
+                        &Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, from, to),
+                        &ApproxEq(truth, ref test, ref to) => (truth, test).test(value, to)
                     }
                 }
             }
@@ -153,10 +153,10 @@ impl AlphaTestField<str> for StrTest {
         use self::StrTest::*;
         let string_cache = context.get_string_cache();
         match self {
-            &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, string_cache.resolve(*to).unwrap()),
-            &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, string_cache.resolve(*from).unwrap(), string_cache.resolve(*to).unwrap()),
-            &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, string_cache.resolve(*to).unwrap()),
-            &Str(truth, ref test, ref to) => truth.is_not() ^ test.test(value, string_cache.resolve(*to).unwrap()),
+            &Ord(truth, ref test, ref to) => (truth, test).test(value, string_cache.resolve(*to).unwrap()),
+            &Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, string_cache.resolve(*from).unwrap(), string_cache.resolve(*to).unwrap()),
+            &Eq(truth, ref test, ref to) => (truth, test).test(value, string_cache.resolve(*to).unwrap()),
+            &Str(truth, ref test, ref to) => (truth, test).test(value, string_cache.resolve(*to).unwrap()),
 
         }
     }
@@ -185,9 +185,9 @@ impl AlphaTestField<NaiveTime> for TimeTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &NaiveTime, _: &C) -> bool {
         use self::TimeTest::*;
         match self {
-            &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
-            &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
-            &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
+            &Ord(truth, ref test, ref to) => (truth, test).test(value, to),
+            &Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, from, to),
+            &Eq(truth, ref test, ref to) => (truth, test).test(value, to)
         }
     }
 }
@@ -214,9 +214,9 @@ impl AlphaTestField<Date<Utc>> for DateTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &Date<Utc>, _: &C) -> bool {
         use self::DateTest::*;
         match self {
-            &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
-            &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
-            &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
+            &Ord(truth, ref test, ref to) => (truth, test).test(value, to),
+            &Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, from, to),
+            &Eq(truth, ref test, ref to) => (truth, test).test(value, to)
         }
     }
 }
@@ -244,9 +244,9 @@ impl AlphaTestField<DateTime<Utc>> for DateTimeTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &DateTime<Utc>, _: &C) -> bool {
         use self::DateTimeTest::*;
         match self {
-            &Ord(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to),
-            &Btwn(truth, ref test, ref from, ref to) => truth.is_not() ^ test.test(value, from, to),
-            &Eq(truth, ref test, ref to) => truth.is_not() ^ test.test(value, to)
+            &Ord(truth, ref test, ref to) => (truth, test).test(value, to),
+            &Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, from, to),
+            &Eq(truth, ref test, ref to) => (truth, test).test(value, to)
         }
     }
 }
