@@ -205,3 +205,71 @@ impl<T> STest<T> for StrArrayTest
         }
     }
 }
+
+
+
+#[cfg(test)]
+mod tests {
+
+    use ordered_float::NotNaN;
+    use shared::nodes::tests::*;
+
+    #[test]
+    fn eq_tests() {
+        assert_eq!(true, EqTest::Eq.test(&5, &5));
+        assert_eq!(false, EqTest::Eq.test(&4, &5));
+
+        assert_eq!(false, EqTest::Ne.test(&5, &5));
+        assert_eq!(true, EqTest::Ne.test(&4, &5));
+    }
+
+    #[test]
+    fn truth_tests() {
+        assert_eq!(true, (Truth::Is, &EqTest::Eq).test(&5, &5));
+        assert_eq!(false, (Truth::Not, &EqTest::Eq).test(&5, &5));
+        assert_eq!(true, (Truth::Not, &EqTest::Eq).test(&4, &5));
+        assert_eq!(false, (Truth::Is, &EqTest::Eq).test(&4, &5));
+    }
+
+    #[test]
+    fn ord_tests() {
+        assert_eq!(false, OrdTest::Lt.test(&5, &5));
+        assert_eq!(true, OrdTest::Lt.test(&4, &5));
+
+        assert_eq!(false, OrdTest::Le.test(&6, &5));
+        assert_eq!(true, OrdTest::Le.test(&5, &5));
+        assert_eq!(true, OrdTest::Le.test(&4, &5));
+
+        assert_eq!(false, OrdTest::Gt.test(&5, &5));
+        assert_eq!(true, OrdTest::Gt.test(&5, &4));
+
+        assert_eq!(false, OrdTest::Ge.test(&5, &6));
+        assert_eq!(true, OrdTest::Ge.test(&5, &5));
+        assert_eq!(true, OrdTest::Ge.test(&5, &4));
+
+    }
+
+    #[test]
+    fn approx_eq_tests() {
+        let five = NotNaN::new(5.0f32).unwrap();
+        let four = NotNaN::new(4.0f32).unwrap();
+
+        assert_eq!(true, ApproxEqTest::Eq.test(&five, &five));
+        assert_eq!(false, ApproxEqTest::Eq.test(&four, &five));
+
+        assert_eq!(false, ApproxEqTest::Ne.test(&five, &five));
+        assert_eq!(true, ApproxEqTest::Ne.test(&four, &five));
+    }
+
+    #[test]
+    fn str_array_tests() {
+        assert_eq!(true, StrArrayTest::Contains.test("abcd", "bc"));
+        assert_eq!(true, StrArrayTest::StartsWith.test("abcd", "ab"));
+        assert_eq!(true, StrArrayTest::EndsWith.test("abcd", "cd"));
+
+        assert_eq!(true, StrArrayTest::ContainedBy.test("bc" , "abcd"));
+        assert_eq!(true, StrArrayTest::StartedBy.test( "ab", "abcd"));
+        assert_eq!(true, StrArrayTest::EndedBy.test("cd", "abcd"));
+    }
+
+}

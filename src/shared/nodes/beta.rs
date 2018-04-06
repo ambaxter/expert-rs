@@ -1213,31 +1213,6 @@ impl<T:Fact> IsAlpha for BetaNode<T> {
     }
 }
 
-impl<T: Fact> Into<AlphaNode<T>> for BetaNode<T> {
-    fn into(self) -> AlphaNode<T> {
-        use self::BetaNode::*;
-        match self {
-            BOOL(getter, test) if test.is_alpha() => AlphaNode::BOOL(getter, test.into()),
-            I8(getter, test) if test.is_alpha() => AlphaNode::I8(getter, test.into()),
-            I16(getter, test) if test.is_alpha() => AlphaNode::I16(getter, test.into()),
-            I32(getter, test) if test.is_alpha() => AlphaNode::I32(getter, test.into()),
-            I64(getter, test) if test.is_alpha() => AlphaNode::I64(getter, test.into()),
-            U8(getter, test) if test.is_alpha() => AlphaNode::U8(getter, test.into()),
-            U16(getter, test) if test.is_alpha() => AlphaNode::U16(getter, test.into()),
-            U32(getter, test) if test.is_alpha() => AlphaNode::U32(getter, test.into()),
-            U64(getter, test) if test.is_alpha() => AlphaNode::U64(getter, test.into()),
-            F32(getter, test) if test.is_alpha() => AlphaNode::F32(getter, test.into()),
-            F64(getter, test) if test.is_alpha() => AlphaNode::F64(getter, test.into()),
-            D128(getter, test) if test.is_alpha() => AlphaNode::D128(getter, test.into()),
-            STR(getter, test) if test.is_alpha() => AlphaNode::STR(getter, test.into()),
-            TIME(getter, test) if test.is_alpha() => AlphaNode::TIME(getter, test.into()),
-            DATE(getter, test) if test.is_alpha() => AlphaNode::DATE(getter, test.into()),
-            DATETIME(getter, test) if test.is_alpha() => AlphaNode::DATETIME(getter, test.into()),
-            _ => unreachable!("Into AlphaNode with unsupported config")
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
 

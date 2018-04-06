@@ -11,9 +11,9 @@ use chrono::DateTime;
 use shared::fact::Fact;
 use shared::fact::FactField;
 use shared::context::AlphaContext;
-use shared::fact::HashEqField;
 use std::fmt::Debug;
 use std::fmt;
+use shared::nodes::beta::{BetaNode, IsAlpha};
 
 pub trait IsHashEq {
     fn is_hash_eq(&self) -> bool;
@@ -355,43 +355,6 @@ impl<T: Fact> AlphaNode<T> {
     }
 }
 
-impl<T:Fact> Into<HashEqField> for AlphaNode<T> {
-    fn into(self) -> HashEqField {
-        use self::AlphaNode::*;
-        match self {
-            BOOL(getter, BoolTest::Eq(truth, EqTest::Eq, to)) => HashEqField::BOOL(getter as usize, truth.is_not() ^ to),
-            BOOL(getter, BoolTest::Eq(truth, EqTest::Ne, to)) => HashEqField::BOOL(getter as usize, truth.is_not() ^ !to),
-            I8(getter, I8Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::I8(getter as usize, to),
-            I8(getter, I8Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::I8(getter as usize, to),
-            I16(getter, I16Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::I16(getter as usize, to),
-            I16(getter, I16Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::I16(getter as usize, to),
-            I32(getter, I32Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::I32(getter as usize, to),
-            I32(getter, I32Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::I32(getter as usize, to),
-            I64(getter, I64Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::I64(getter as usize, to),
-            I64(getter, I64Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::I64(getter as usize, to),
-            U8(getter, U8Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::U8(getter as usize, to),
-            U8(getter, U8Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::U8(getter as usize, to),
-            U16(getter, U16Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::U16(getter as usize, to),
-            U16(getter, U16Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::U16(getter as usize, to),
-            U32(getter, U32Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::U32(getter as usize, to),
-            U32(getter, U32Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::U32(getter as usize, to),
-            U64(getter, U64Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::U64(getter as usize, to),
-            U64(getter, U64Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::U64(getter as usize, to),
-            D128(getter, D128Test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::D128(getter as usize, to),
-            D128(getter, D128Test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::D128(getter as usize, to),
-            STR(getter, StrTest::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::STR(getter as usize, to),
-            STR(getter, StrTest::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::STR(getter as usize, to),
-            TIME(getter, TimeTest::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::TIME(getter as usize, to),
-            TIME(getter, TimeTest::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::TIME(getter as usize, to),
-            DATE(getter, DateTest::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::DATE(getter as usize, to),
-            DATE(getter, DateTest::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::DATE(getter as usize, to),
-            DATETIME(getter, DateTimeTest::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::DATETIME(getter as usize, to),
-            DATETIME(getter, DateTimeTest::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::DATETIME(getter as usize, to),
-            _ => unreachable!("Into HashEqField With Unsupported Config")
-        }
-    }
-}
-
 impl<T: Fact> IsHashEq for AlphaNode<T> {
     fn is_hash_eq(&self) -> bool {
         use self::AlphaNode::*;
@@ -415,3 +378,82 @@ impl<T: Fact> IsHashEq for AlphaNode<T> {
         }
     }
 }
+
+impl<T: Fact> From<BetaNode<T>> for AlphaNode<T> {
+    fn from(node: BetaNode<T>) -> AlphaNode<T> {
+        use self::BetaNode::*;
+        match node {
+            BOOL(getter, test) if test.is_alpha() => AlphaNode::BOOL(getter, test.into()),
+            I8(getter, test) if test.is_alpha() => AlphaNode::I8(getter, test.into()),
+            I16(getter, test) if test.is_alpha() => AlphaNode::I16(getter, test.into()),
+            I32(getter, test) if test.is_alpha() => AlphaNode::I32(getter, test.into()),
+            I64(getter, test) if test.is_alpha() => AlphaNode::I64(getter, test.into()),
+            U8(getter, test) if test.is_alpha() => AlphaNode::U8(getter, test.into()),
+            U16(getter, test) if test.is_alpha() => AlphaNode::U16(getter, test.into()),
+            U32(getter, test) if test.is_alpha() => AlphaNode::U32(getter, test.into()),
+            U64(getter, test) if test.is_alpha() => AlphaNode::U64(getter, test.into()),
+            F32(getter, test) if test.is_alpha() => AlphaNode::F32(getter, test.into()),
+            F64(getter, test) if test.is_alpha() => AlphaNode::F64(getter, test.into()),
+            D128(getter, test) if test.is_alpha() => AlphaNode::D128(getter, test.into()),
+            STR(getter, test) if test.is_alpha() => AlphaNode::STR(getter, test.into()),
+            TIME(getter, test) if test.is_alpha() => AlphaNode::TIME(getter, test.into()),
+            DATE(getter, test) if test.is_alpha() => AlphaNode::DATE(getter, test.into()),
+            DATETIME(getter, test) if test.is_alpha() => AlphaNode::DATETIME(getter, test.into()),
+            _ => unreachable!("Into AlphaNode with unsupported config")
+        }
+    }
+}
+
+pub enum HashEqField {
+    BOOL(usize, bool),
+    I8(usize, i8),
+    I16(usize, i16),
+    I32(usize, i32),
+    I64(usize, i64),
+    U8(usize, u8),
+    U16(usize, u16),
+    U32(usize, u32),
+    U64(usize, u64),
+    F32(usize, NotNaN<f32>),
+    F64(usize, NotNaN<f64>),
+    D128(usize, OrdVar<d128>),
+    STR(usize, SymbolId),
+    TIME(usize, NaiveTime),
+    DATE(usize, Date<Utc>),
+    DATETIME(usize, DateTime<Utc>),
+}
+
+macro_rules! from_alphanode_to_hasheq {
+    ($($id:tt => $test:tt),+) => {
+        impl<T:Fact> From<AlphaNode<T>> for HashEqField {
+            fn from(node: AlphaNode<T>) -> Self {
+                use self::AlphaNode::*;
+                match node {
+                    BOOL(getter, BoolTest::Eq(truth, EqTest::Eq, to)) => HashEqField::BOOL(getter as usize, truth.is_not() ^ to),
+                    BOOL(getter, BoolTest::Eq(truth, EqTest::Ne, to)) => HashEqField::BOOL(getter as usize, truth.is_not() ^ ! to),
+                    $(
+                    $id(getter, $test::Eq(Truth::Is, EqTest::Eq, to)) => HashEqField::$id(getter as usize, to),
+                    $id(getter, $test::Eq(Truth::Not, EqTest::Ne, to)) => HashEqField::$id(getter as usize, to),
+                    )*
+                    _ => unreachable!("Into HashEqField With Unsupported Config")
+                }
+            }
+        }
+    };
+}
+
+from_alphanode_to_hasheq!(
+    I8 => I8Test,
+    I16 => I16Test,
+    I32 => I32Test,
+    I64 => I64Test,
+    U8 => U8Test,
+    U16 => U16Test,
+    U32 => U32Test,
+    U64 => U64Test,
+    D128 => D128Test,
+    STR => StrTest,
+    TIME => TimeTest,
+    DATE => DateTest,
+    DATETIME => DateTimeTest
+);

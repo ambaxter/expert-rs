@@ -60,25 +60,6 @@ impl<I: Fact> Debug for Getter<I> {
     }
 }
 
-pub enum HashEqField {
-    BOOL(usize, bool),
-    I8(usize, i8),
-    I16(usize, i16),
-    I32(usize, i32),
-    I64(usize, i64),
-    U8(usize, u8),
-    U16(usize, u16),
-    U32(usize, u32),
-    U64(usize, u64),
-    F32(usize, NotNaN<f32>),
-    F64(usize, NotNaN<f64>),
-    D128(usize, OrdVar<d128>),
-    STR(usize, SymbolId),
-    TIME(usize, NaiveTime),
-    DATE(usize, Date<Utc>),
-    DATETIME(usize, DateTime<Utc>),
-}
-
 pub trait Fact: Introspect + Eq + Hash
     where Self: std::marker::Sized {
 
