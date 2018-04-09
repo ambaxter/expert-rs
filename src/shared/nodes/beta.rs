@@ -1087,6 +1087,10 @@ impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
 
 #[derive(Copy, Clone)]
 pub enum BetaNode<T: Fact> {
+    ALL,
+    NOTALL,
+    ANY,
+    NOTANY,
     BOOL(fn(&T) -> &bool, BoolTest<SymbolId>),
     I8(fn(&T) -> &i8, I8Test<SymbolId>),
     I16(fn(&T) -> &i16, I16Test<SymbolId>),
@@ -1119,6 +1123,10 @@ macro_rules! test_hash {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::BetaNode::*;
                     match self {
+                    ALL => 0.hash(state),
+                    NOTALL => 1.hash(state),
+                    ANY => 2.hash(state),
+                    NOTANY => 3.hash(state),
                     $ ( & $ t(getter, ref test) => Self::hash_self($ord, getter as usize, test, state),
                     )*
                 }
@@ -1128,12 +1136,12 @@ macro_rules! test_hash {
 }
 
 test_hash!(
-        BOOL => 0,
-        I8 => 1, I16 => 2, I32 => 3, I64 => 4,
-        U8 => 5, U16 => 6, U32 => 7, U64 => 8,
-        F32 => 9, F64 => 10, D128 => 11,
-        STR => 12,
-        TIME => 13, DATE => 14, DATETIME => 15
+        BOOL => 4,
+        I8 => 5, I16 => 6, I32 => 7, I64 => 8,
+        U8 => 9, U16 => 10, U32 => 11, U64 => 12,
+        F32 => 13, F64 => 14, D128 => 15,
+        STR => 16,
+        TIME => 17, DATE => 18, DATETIME => 19
     );
 
 macro_rules! test_eq {
@@ -1142,6 +1150,10 @@ macro_rules! test_eq {
             fn eq(&self, other: &Self) -> bool {
                 use self::BetaNode::*;
                     match (self, other) {
+                    (ALL, ALL) => true,
+                    (NOTALL, NOTALL) => true,
+                    (ANY, ANY) => true,
+                    (NOTANY, NOTANY) => true,
                     $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
                         (getter1 as usize) == (getter2 as usize) && test1 == test2
                     },)*
@@ -1168,6 +1180,10 @@ impl<I: Fact> Debug for BetaNode<I> {
         use self::BetaNode::*;
         write!(f, "Getter(")?;
         match self {
+            &ALL => write!(f, "ALL")?,
+            &NOTALL => write!(f, "NOTALL")?,
+            &ANY => write!(f, "ANY")?,
+            &NOTANY => write!(f, "NOTANY")?,
             &BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", getter as usize, test)?,
             &I8(getter, test) => write!(f, "I8({:#x}) - {:?}", getter as usize, test)?,
             &I16(getter, test) => write!(f, "I16({:#x}) - {:?}", getter as usize, test)?,
@@ -1193,6 +1209,10 @@ impl<T:Fact> IsAlpha for BetaNode<T> {
     fn is_alpha(&self) -> bool {
         use self::BetaNode::*;
         match self {
+            &ALL => unreachable!("Asking ALL if it can be turned into a HashEq"),
+            &NOTALL => unreachable!("Asking NOTALL if it can be turned into a HashEq"),
+            &ANY => unreachable!("Asking ANY if it can be turned into a HashEq"),
+            &NOTANY => unreachable!("Asking NOTANY if it can be turned into a HashEq"),
             &BOOL(_, test) => test.is_alpha(),
             &I8(_, test) => test.is_alpha(),
             &I16(_, test) => test.is_alpha(),

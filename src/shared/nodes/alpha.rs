@@ -253,6 +253,7 @@ impl AlphaTestField<DateTime<Utc>> for DateTimeTest {
 
 #[derive(Copy, Clone)]
 pub enum AlphaNode<T: Fact> {
+    HASHEQ,
     BOOL(fn(&T) -> &bool, BoolTest),
     I8(fn(&T) -> &i8, I8Test),
     I16(fn(&T) -> &i16, I16Test),
@@ -277,6 +278,7 @@ macro_rules! test_hash {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::AlphaNode::*;
                     match self {
+                    HASHEQ => 0.hash(state),
                     $ ( & $ t(getter, ref test) => Self::hash_self($ord, getter as usize, test, state),
                     )*
                 }
@@ -286,12 +288,12 @@ macro_rules! test_hash {
 }
 
 test_hash!(
-        BOOL => 0,
-        I8 => 1, I16 => 2, I32 => 3, I64 => 4,
-        U8 => 5, U16 => 6, U32 => 7, U64 => 8,
-        F32 => 9, F64 => 10, D128 => 11,
-        STR => 12,
-        TIME => 13, DATE => 14, DATETIME => 15
+        BOOL => 1,
+        I8 => 2, I16 => 3, I32 => 4, I64 => 5,
+        U8 => 6, U16 => 7, U32 => 8, U64 => 9,
+        F32 => 10, F64 => 11, D128 => 12,
+        STR => 13,
+        TIME => 14, DATE => 15, DATETIME => 16
     );
 
 macro_rules! test_eq {
@@ -300,6 +302,7 @@ macro_rules! test_eq {
             fn eq(&self, other: &Self) -> bool {
                 use self::AlphaNode::*;
                     match (self, other) {
+                    (HASHEQ, HASHEQ) => true,
                     $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
                         (getter1 as usize) == (getter2 as usize) && test1 == test2
                     },)*
@@ -326,6 +329,7 @@ impl<I: Fact> Debug for AlphaNode<I> {
         use self::AlphaNode::*;
         write!(f, "Getter(")?;
         match self {
+            &HASHEQ => write!(f, "HASHEQ")?,
             &BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", getter as usize, test)?,
             &I8(getter, test) => write!(f, "I8({:#x}) - {:?}", getter as usize, test)?,
             &I16(getter, test) => write!(f, "I16({:#x}) - {:?}", getter as usize, test)?,
@@ -359,6 +363,7 @@ impl<T: Fact> IsHashEq for AlphaNode<T> {
     fn is_hash_eq(&self) -> bool {
         use self::AlphaNode::*;
         match self {
+            HASHEQ => unreachable!("Asking HASHEQ if it can be turned into a HashEq"),
             BOOL(_, ref test) => test.is_hash_eq(),
             I8(_, ref test) => test.is_hash_eq(),
             I16(_, ref test) => test.is_hash_eq(),
