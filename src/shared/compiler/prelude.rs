@@ -19,6 +19,9 @@ use shared::fact::Fact;
 use runtime::memory::StringCache;
 use shared::nodes::beta::BetaNode;
 use errors::CompileError;
+use enum_index;
+use enum_index::EnumIndex;
+use std::cmp::Ordering;
 
 pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}
@@ -297,7 +300,7 @@ impl<S: AString> IntoStrTest<S> for S {
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Clone, Hash, Eq, PartialEq, Debug, EnumIndex)]
 pub enum Stage1Node<T: Fact> {
     T(BetaNode<T>),
     Any(Vec<Stage1Node<T>>),
@@ -306,7 +309,25 @@ pub enum Stage1Node<T: Fact> {
     NotAll(Vec<Stage1Node<T>>)
 }
 
-// TODO: Need to make our own ord. Why? Hell if I know
+impl<T: Fact> Ord for Stage1Node<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        use self::Stage1Node::*;
+        match (self, other) {
+            (T(ref n1), T(ref n2)) => n1.cmp(n2),
+            (Any(ref v1), Any(ref v2)) => v1.cmp(v2),
+            (NotAny(ref v1), NotAny(ref v2)) => v1.cmp(v2),
+            (All(ref v1), All(ref v2)) => v1.cmp(v2),
+            (NotAll(ref v1), NotAll(ref v2)) => v1.cmp(v2),
+            _ => self.enum_index().cmp(&other.enum_index())
+        }
+    }
+}
+
+impl<T: Fact> PartialOrd for Stage1Node<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 impl<T: Fact> Stage1Node<T> {
 
