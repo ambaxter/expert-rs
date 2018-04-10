@@ -7,26 +7,15 @@ extern crate string_interner;
 
 extern crate ordered_float;
 
-#[macro_use]
 extern crate expert;
 
 extern crate parking_lot;
 
-use itertools::Itertools;
-
 use parking_lot::Mutex;
 
-use std::mem;
 use std::any::TypeId;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-use std::hash::Hash;
-use std::hash::Hasher;
-use expert::serial::SerialGen;
-use std::cmp::Ordering;
 use expert::builder::StatementCondition;
 use expert::builders::statement::{ValueHolder, StatementValues, StatementConditions};
-use expert::runtime::memory::MemoryId;
 use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
 use expert::traits::ReteIntrospection;
@@ -166,13 +155,6 @@ impl ReteIntrospection for Aspect {
     }
 }
 
-enum BetaJoin {
-    //NOT(MemoryId),
-    AND(MemoryId, MemoryId),
-    //OR(MemoryId, MemoryId),
-    ALL(Vec<MemoryId>),
-    //ANY(Vec<MemoryId>)
-}
 
 #[derive(Debug, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub struct ATestAspect {
@@ -199,7 +181,6 @@ impl expert::shared::fact::Fact for ATestAspect {
 
 fn main() {
     use expert::builder::KnowledgeBuilder;
-    use expert::builder::CData;
     use ordered_float::NotNaN;
     use expert::runtime::memory::SymbolId;
 

@@ -14,8 +14,8 @@ pub struct RuleBuilder {
 
 impl RuleBuilder {
 
-    pub fn when<T:Fact, N: Stage1Compile<T>>(nodes: &N) {
-
+    pub fn when<T:Fact, N: Stage1Compile<T>>(self, nodes: &N) -> RuleBuilder {
+        self
     }
 
 }
