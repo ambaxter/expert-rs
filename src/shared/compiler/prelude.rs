@@ -297,7 +297,7 @@ impl<S: AString> IntoStrTest<S> for S {
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Stage1Node<T: Fact> {
     T(BetaNode<T>),
     Any(Vec<Stage1Node<T>>),
@@ -305,6 +305,8 @@ pub enum Stage1Node<T: Fact> {
     All(Vec<Stage1Node<T>>),
     NotAll(Vec<Stage1Node<T>>)
 }
+
+// TODO: Need to make our own ord. Why? Hell if I know
 
 impl<T: Fact> Stage1Node<T> {
 

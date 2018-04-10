@@ -15,6 +15,10 @@ use string_interner::Symbol;
 use shared::context::BetaContext;
 use super::tests::*;
 use shared::nodes::alpha::AlphaNode;
+use enum_index;
+use enum_index::EnumIndex;
+use std::cmp::Ordering;
+
 
 pub trait IsAlpha {
     fn is_alpha(&self) -> bool;
@@ -1085,12 +1089,12 @@ impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
     }
 }
 
-#[derive(Copy, Clone, Ord, PartialOrd)]
+#[derive(Copy, Clone, EnumIndex)]
 pub enum BetaNode<T: Fact> {
-    ALL,
-    NOTALL,
     ANY,
     NOTANY,
+    ALL,
+    NOTALL,
     BOOL(fn(&T) -> &bool, BoolTest<SymbolId>),
     I8(fn(&T) -> &i8, I8Test<SymbolId>),
     I16(fn(&T) -> &i16, I16Test<SymbolId>),
@@ -1115,19 +1119,20 @@ impl<T: Fact> BetaNode<T> {
         getter.hash(state);
         test.hash(state);
     }
+
 }
 
-macro_rules! test_hash {
-    ($($t:ident => $ord:expr),+ ) => {
+macro_rules! beta_hash {
+    ($($t:ident),+ ) => {
         impl <T:Fact> Hash for BetaNode<T> {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::BetaNode::*;
                     match self {
-                    ALL => 0.hash(state),
-                    NOTALL => 1.hash(state),
-                    ANY => 2.hash(state),
-                    NOTANY => 3.hash(state),
-                    $ ( & $ t(getter, ref test) => Self::hash_self($ord, getter as usize, test, state),
+                    ALL => self.enum_index().hash(state),
+                    NOTALL => self.enum_index().hash(state),
+                    ANY => self.enum_index().hash(state),
+                    NOTANY => self.enum_index().hash(state),
+                    $ ( & $ t(getter, ref test) => Self::hash_self(self.enum_index(), getter as usize, test, state),
                     )*
                 }
             }
@@ -1135,25 +1140,25 @@ macro_rules! test_hash {
     };
 }
 
-test_hash!(
-        BOOL => 4,
-        I8 => 5, I16 => 6, I32 => 7, I64 => 8,
-        U8 => 9, U16 => 10, U32 => 11, U64 => 12,
-        F32 => 13, F64 => 14, D128 => 15,
-        STR => 16,
-        TIME => 17, DATE => 18, DATETIME => 19
+beta_hash!(
+        BOOL,
+        I8, I16, I32, I64,
+        U8, U16, U32, U64,
+        F32, F64, D128,
+        STR ,
+        TIME, DATE, DATETIME
     );
 
-macro_rules! test_eq {
+macro_rules! beta_eq {
     ($($t:ident),+ ) => {
         impl<T:Fact> PartialEq for BetaNode<T> {
             fn eq(&self, other: &Self) -> bool {
                 use self::BetaNode::*;
                     match (self, other) {
-                    (ALL, ALL) => true,
-                    (NOTALL, NOTALL) => true,
                     (ANY, ANY) => true,
                     (NOTANY, NOTANY) => true,
+                    (ALL, ALL) => true,
+                    (NOTALL, NOTALL) => true,
                     $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
                         (getter1 as usize) == (getter2 as usize) && test1 == test2
                     },)*
@@ -1164,7 +1169,7 @@ macro_rules! test_eq {
     };
 }
 
-test_eq!(
+beta_eq!(
     BOOL,
     I8, I16, I32, I64,
     U8, U16, U32, U64,
@@ -1174,6 +1179,42 @@ test_eq!(
     );
 
 impl<T: Fact> Eq for BetaNode<T> {}
+
+macro_rules! beta_ord {
+    ($($t:ident),+ ) => {
+        impl<T:Fact> Ord for BetaNode<T> {
+            fn cmp(&self, other: &Self) -> Ordering {
+            use self::BetaNode::*;
+                match(self, other) {
+                    (ANY, ANY) => Ordering::Equal,
+                    (NOTANY, NOTANY) => Ordering::Equal,
+                    (ALL, ALL) => Ordering::Equal,
+                    (NOTALL, NOTALL) => Ordering::Equal,
+                    $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
+                        (getter1 as usize).cmp(&(getter2 as usize)).then(test1.cmp(test2))
+                    },)*
+                    _ => self.enum_index().cmp(&other.enum_index())
+                }
+            }
+        }
+
+        impl<T:Fact> PartialOrd for BetaNode<T> {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+    };
+}
+
+beta_ord!(
+    BOOL,
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    F32, F64, D128,
+    STR,
+    TIME, DATE, DATETIME
+    );
+
 
 impl<I: Fact> Debug for BetaNode<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

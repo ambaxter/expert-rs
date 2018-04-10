@@ -20,6 +20,10 @@ extern crate decimal;
 extern crate chrono;
 extern crate ord_subset;
 
+extern crate enum_index;
+#[macro_use]
+extern crate enum_index_derive;
+
 #[macro_use]
 mod macros;
 
