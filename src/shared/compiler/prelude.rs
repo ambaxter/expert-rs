@@ -297,6 +297,7 @@ impl<S: AString> IntoStrTest<S> for S {
     }
 }
 
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum Stage1Node<T: Fact> {
     T(BetaNode<T>),
     Any(Vec<Stage1Node<T>>),
@@ -328,6 +329,42 @@ impl<T: Fact> Stage1Node<T> {
         match *self {
             All(_) => true,
             _ => false
+        }
+    }
+
+    pub fn simplify(&mut self) -> bool {
+        false
+    }
+
+    fn give(&mut self, to: &mut Vec<Self>) {
+        use self::Stage1Node::*;
+        match *self {
+            Any(ref mut from) => to.append(from),
+            All(ref mut from) => to.append(from),
+            _ => unreachable!("give from invalid node")
+        }
+    }
+
+    fn merge(&mut self, from_node: Self) {
+        use self::Stage1Node::*;
+        match(self, from_node) {
+            (&mut Any(ref mut to), Any(ref mut from)) => to.append(from),
+            (&mut NotAny(ref mut to), NotAny(ref mut from)) => to.append(from),
+            (&mut All(ref mut to), All(ref mut from)) => to.append(from),
+            (&mut NotAll(ref mut to), NotAll(ref mut from)) => to.append(from),
+            _ => unreachable!("merge on invalid node combination")
+        }
+    }
+
+    fn simplify_any(any: &mut [Self]) {
+        for node in any.iter_mut() {
+            while node.simplify() {}
+        }
+    }
+
+    fn simplify_all(all: &mut [Self]) {
+        for node in all.iter_mut() {
+            while node.simplify() {}
         }
     }
 }
