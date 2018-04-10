@@ -2,6 +2,9 @@ use super::prelude::*;
 pub use super::prelude::dyn;
 use super::super::nodes::tests::{ApplyNot, EqTest, OrdTest, BetweenTest, StrArrayTest};
 use super::super::nodes::beta::TestRepr;
+use runtime::memory::StringCache;
+use shared::fact::Fact;
+use errors::CompileError;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum VecNodes<S: AsRef<str>> {
@@ -88,4 +91,18 @@ pub fn any<S: AsRef<str>>(nodes: Vec<VecNodes<S>>) -> VecNodes<S> {
 
 pub fn all<S: AsRef<str>>(nodes: Vec<VecNodes<S>>) -> VecNodes<S> {
     VecNodes::All(nodes)
+}
+
+
+impl<S: AsRef<str>, T: Fact> Stage1Compile<T> for VecNodes<S> {
+    fn stage1_compile(&self, cache: &mut StringCache) -> Result<Stage1Node<T>, CompileError> {
+        use self::VecNodes::*;
+        match *self {
+            T(ref t) => Ok(Stage1Node::T(t.compile(cache)?)),
+            Any(ref v) => Ok(Stage1Node::Any(Stage1Compile::stage1_compile_slice(v, cache)?)),
+            NotAny(ref v) => Ok(Stage1Node::NotAny(Stage1Compile::stage1_compile_slice(v, cache)?)),
+            All(ref v) => Ok(Stage1Node::All(Stage1Compile::stage1_compile_slice(v, cache)?)),
+            NotAll(ref v) => Ok(Stage1Node::NotAny(Stage1Compile::stage1_compile_slice(v, cache)?)),
+        }
+    }
 }

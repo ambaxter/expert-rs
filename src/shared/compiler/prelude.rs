@@ -15,6 +15,10 @@ use decimal::d128;
 use chrono::{Utc, NaiveTime, Date, DateTime};
 use std::borrow::Cow;
 use shared::nodes::tests::{Truth, EqTest, OrdTest, BetweenTest, StrArrayTest};
+use shared::fact::Fact;
+use runtime::memory::StringCache;
+use shared::nodes::beta::BetaNode;
+use errors::CompileError;
 
 pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}
@@ -293,12 +297,47 @@ impl<S: AString> IntoStrTest<S> for S {
     }
 }
 
-pub trait CompileStage1 {
-    type Output;
+pub enum Stage1Node<T: Fact> {
+    T(BetaNode<T>),
+    Any(Vec<Stage1Node<T>>),
+    NotAny(Vec<Stage1Node<T>>),
+    All(Vec<Stage1Node<T>>),
+    NotAll(Vec<Stage1Node<T>>)
+}
 
-    fn compile_stage1(&self) -> Self::Output;
+impl<T: Fact> Stage1Node<T> {
 
-    fn compile_slice_stage1(t: &[Self]) -> Vec<Self::Output> where Self: marker::Sized {
-        t.iter().map(|c| c.compile_stage1()).collect()
+    pub fn is_test(&self) -> bool {
+        use self::Stage1Node::*;
+        match *self {
+            T(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_any(&self) -> bool {
+        use self::Stage1Node::*;
+        match *self {
+            Any(_) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_all(&self) -> bool {
+        use self::Stage1Node::*;
+        match *self {
+            All(_) => true,
+            _ => false
+        }
+    }
+}
+
+pub trait Stage1Compile<T: Fact> {
+
+    fn stage1_compile(&self, cache: &mut StringCache) -> Result<Stage1Node<T>, CompileError>;
+
+    fn stage1_compile_slice(t: &[Self], cache: &mut StringCache) -> Result<Vec<Stage1Node<T>>, CompileError>
+        where Self: marker::Sized {
+        t.iter().map(|c| c.stage1_compile(cache)).collect()
     }
 }
