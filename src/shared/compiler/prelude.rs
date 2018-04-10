@@ -345,6 +345,7 @@ impl<T: Fact> Stage1Node<T> {
         }
     }
 
+    // Should just be any?
     fn merge(&mut self, from_node: Self) {
         use self::Stage1Node::*;
         match(self, from_node) {
@@ -366,6 +367,25 @@ impl<T: Fact> Stage1Node<T> {
         for node in all.iter_mut() {
             while node.simplify() {}
         }
+    }
+
+    fn dedup(&mut self) {
+        use self::Stage1Node::*;
+        match *self {
+            Any(ref mut nodes) => Self::dedup_vec(nodes),
+            NotAny(ref mut nodes) => Self::dedup_vec(nodes),
+            All(ref mut nodes) => Self::dedup_vec(nodes),
+            NotAll(ref mut nodes) => Self::dedup_vec(nodes),
+            _ => {}
+        }
+    }
+
+    fn dedup_vec(nodes: &mut Vec<Self>) {
+        for node in nodes.iter_mut() {
+            node.dedup();
+        }
+        nodes.sort();
+        nodes.dedup();
     }
 }
 

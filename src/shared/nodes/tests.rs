@@ -11,7 +11,7 @@ pub trait ApplyNot {
 }
 
 // Don't try to make this Truth<T> again. This ends up making the Repl -> Node function massive
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum Truth {
     Not,
     Is
@@ -63,7 +63,7 @@ impl<'a, F, T: ? Sized> DTest<T> for (Truth, &'a F)
 
 
 /// Single value ordinal test
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum OrdTest {
     /// val < to
     Lt,
@@ -90,7 +90,7 @@ impl<T> STest<T> for OrdTest
 }
 
 /// Multiple value ordinal test
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum BetweenTest {
     /// val > from && val < to
     GtLt,
@@ -116,7 +116,7 @@ impl<T> DTest<T> for BetweenTest
 }
 
 /// Single value equivalence test
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum EqTest {
     /// val == to
     Eq,
@@ -145,7 +145,7 @@ impl Into<ApproxEqTest> for EqTest {
 }
 
 /// Single value approximate equivalence test for floats (default to 2 ULPs)
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum ApproxEqTest {
     /// val ~= to
     Eq,
@@ -175,7 +175,7 @@ impl STest<NotNaN<f64>> for ApproxEqTest {
 }
 
 /// &str tests
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum StrArrayTest {
     /// val.contains(to)
     Contains,

@@ -51,7 +51,7 @@ pub trait MapAll<T, U> {
         where F: FnMut(&T) -> U;
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum SLimit<T, S> {
     St(T),
     Dyn(S),
@@ -146,7 +146,7 @@ impl<T, U> MapAll<T, U> for SLimit<T, T> {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DLimit<T, S> {
     St(T, T),
     StDyn(T, S),
@@ -259,7 +259,7 @@ pub trait BetaTestField<T: FactField + ?Sized > {
     fn beta_test_field<C: BetaContext>(&self, value: &T, context: &C) -> bool;
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum BoolTest<S> {
     Eq(Truth, EqTest, SLimit<bool, S>)
 }
@@ -316,7 +316,7 @@ impl BetaTestField<bool> for BoolTest<SymbolId> {
 macro_rules! beta_number_test {
     ($($id:ty => $test:ident),+) => {
         $(
-            #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+            #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
             pub enum $test<S> {
                 Ord(Truth, OrdTest, SLimit<$id, S>),
                 Btwn(Truth, BetweenTest, DLimit<$id, S>),
@@ -390,7 +390,7 @@ macro_rules! beta_number_test {
 macro_rules! beta_float_test {
     ($($id:ty => $test:ident),+) => {
         $(
-            #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+            #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
             pub enum $test<S> {
                 Ord(Truth, OrdTest, SLimit<$id, S>),
                 Btwn(Truth, BetweenTest, DLimit<$id, S>),
@@ -479,7 +479,7 @@ beta_float_test!(
 );
 
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum StrTest<S> {
     Ord(Truth, OrdTest, SLimit<S, S>),
     Btwn(Truth, BetweenTest, DLimit<S, S>),
@@ -561,7 +561,7 @@ impl BetaTestField<str> for StrTest<SymbolId> {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum TimeTest<S> {
     Ord(Truth, OrdTest, SLimit<NaiveTime, S>),
     Btwn(Truth, BetweenTest, DLimit<NaiveTime, S>),
@@ -627,7 +627,7 @@ impl BetaTestField<NaiveTime> for TimeTest<SymbolId> {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DateTest<S> {
     Ord(Truth, OrdTest, SLimit<Date<Utc>, S>),
     Btwn(Truth, BetweenTest, DLimit<Date<Utc>, S>),
@@ -693,7 +693,7 @@ impl BetaTestField<Date<Utc>> for DateTest<SymbolId> {
     }
 }
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DateTimeTest<S> {
     Ord(Truth, OrdTest, SLimit<DateTime<Utc>, S>),
     Btwn(Truth, BetweenTest, DLimit<DateTime<Utc>, S>),
@@ -1085,7 +1085,7 @@ impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Ord, PartialOrd)]
 pub enum BetaNode<T: Fact> {
     ALL,
     NOTALL,
