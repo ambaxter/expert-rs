@@ -10,10 +10,6 @@ use ::runtime::memory::{StringCache, SymbolId};
 use ordered_float::NotNaN;
 use super::context::BetaContext;
 
-pub trait Introspect {
-    fn static_type_id() -> TypeId;
-}
-
 #[derive(Copy, Clone)]
 pub enum Getter<I: Fact> {
     BOOL(fn(&I) -> &bool),
@@ -60,7 +56,7 @@ impl<I: Fact> Debug for Getter<I> {
     }
 }
 
-pub trait Fact: Introspect + Eq + Hash
+pub trait Fact: Eq + Hash
     where Self: std::marker::Sized {
 
     type HashEq: Hash + Eq + Clone + Debug;

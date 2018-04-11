@@ -135,9 +135,9 @@ impl<T> STest<T> for EqTest
     }
 }
 
-impl Into<ApproxEqTest> for EqTest {
-    fn into(self) -> ApproxEqTest {
-        match self {
+impl From<EqTest> for ApproxEqTest  {
+    fn from(eq: EqTest) -> ApproxEqTest {
+        match eq {
             EqTest::Eq => ApproxEqTest::Eq,
             EqTest::Ne => ApproxEqTest::Ne
         }

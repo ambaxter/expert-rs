@@ -161,12 +161,6 @@ pub struct ATestAspect {
     test: String
 }
 
-impl expert::shared::fact::Introspect for ATestAspect {
-    fn static_type_id() -> TypeId {
-        TypeId::of::<Self>()
-    }
-}
-
 impl expert::shared::fact::Fact for ATestAspect {
     type HashEq = ();
 

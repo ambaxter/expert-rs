@@ -1191,7 +1191,7 @@ macro_rules! beta_ord {
                     (ALL, ALL) => Ordering::Equal,
                     (NOTALL, NOTALL) => Ordering::Equal,
                     $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
-                        (getter1 as usize).cmp(&(getter2 as usize)).then(test1.cmp(test2))
+                        (getter1 as usize).cmp(&(getter2 as usize)).then_with(|| test1.cmp(test2))
                     },)*
                     _ => self.enum_index().cmp(&other.enum_index())
                 }
@@ -1270,6 +1270,34 @@ impl<T:Fact> IsAlpha for BetaNode<T> {
             &TIME(_, test) => test.is_alpha(),
             &DATE(_, test) => test.is_alpha(),
             &DATETIME(_, test) => test.is_alpha(),
+        }
+    }
+}
+
+impl<T: Fact> ApplyNot for BetaNode<T> {
+    fn apply_not(&mut self) {
+        use self::BetaNode::*;
+        match *self {
+            ALL => *self = NOTALL,
+            NOTALL => *self = ALL,
+            ANY => *self = NOTANY,
+            NOTANY => *self = ANY,
+            BOOL(_, ref mut test) => test.apply_not(),
+            I8(_, ref mut test) => test.apply_not(),
+            I16(_, ref mut test) => test.apply_not(),
+            I32(_, ref mut test) => test.apply_not(),
+            I64(_, ref mut test) => test.apply_not(),
+            U8(_, ref mut test) => test.apply_not(),
+            U16(_, ref mut test) => test.apply_not(),
+            U32(_, ref mut test) => test.apply_not(),
+            U64(_, ref mut test) => test.apply_not(),
+            F32(_, ref mut test) => test.apply_not(),
+            F64(_, ref mut test) => test.apply_not(),
+            D128(_, ref mut test) => test.apply_not(),
+            STR(_, ref mut test) => test.apply_not(),
+            TIME(_, ref mut test) => test.apply_not(),
+            DATE(_, ref mut test) => test.apply_not(),
+            DATETIME(_, ref mut test) => test.apply_not(),
         }
     }
 }

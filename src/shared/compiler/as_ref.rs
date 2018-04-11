@@ -105,3 +105,48 @@ impl<'a, S: AsRef<str>, T: Fact> Stage1Compile<T> for RefNodes<'a, S> {
         }
     }
 }
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use shared::fact::{Fact, Getter};
+    use super::*;
+
+    #[derive(Clone, Hash, Eq, PartialEq, Debug)]
+    struct Dummy {
+        d: u64
+    }
+
+    impl Dummy {
+        fn get_d(&self) -> &u64 {
+            &self.d
+        }
+    }
+
+    impl Fact for Dummy {
+        type HashEq = ();
+
+        fn getter(field: &str) -> Option<Getter<Self>> {
+            match field {
+                "d" => Some(Getter::U64(Dummy::get_d)),
+                _ => unimplemented!()
+            }
+        }
+
+        fn exhaustive_hash(&self) -> Box<Iterator<Item=<Self as Fact>::HashEq>> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    pub fn as_ref_test() {
+        let mut cache = StringCache::new();
+        let nodes: Stage1Node<Dummy> = all(
+            &[not(any(&[eq("d", 6u64)])), all(&[le("d", 64u64), le("d", dyn("ab"))])]
+        ).stage1_compile(&mut cache).unwrap()
+            .clean();
+        println!("{:?}", nodes);
+    }
+}

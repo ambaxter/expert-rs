@@ -22,6 +22,8 @@ use errors::CompileError;
 use enum_index;
 use enum_index::EnumIndex;
 use std::cmp::Ordering;
+use shared::nodes::tests::ApplyNot;
+use std::mem;
 
 pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}
@@ -300,6 +302,27 @@ impl<S: AString> IntoStrTest<S> for S {
     }
 }
 
+pub trait DrainWhere<T, F>
+    where F: FnMut(&T) -> bool {
+    fn drain_where(&mut self, f: F) -> Self;
+}
+
+impl<T, F> DrainWhere<T, F> for Vec<T>
+    where F: FnMut(&T) -> bool {
+    fn drain_where(&mut self, mut f: F) -> Self {
+        let mut i = 0;
+        let mut v = Vec::new();
+        while i != self.len() {
+            if f(&mut self[i]) {
+                v.push(self.remove(i));
+            } else {
+                i += 1;
+            }
+        }
+        v
+    }
+}
+
 #[derive(Clone, Hash, Eq, PartialEq, Debug, EnumIndex)]
 pub enum Stage1Node<T: Fact> {
     T(BetaNode<T>),
@@ -307,6 +330,27 @@ pub enum Stage1Node<T: Fact> {
     NotAny(Vec<Stage1Node<T>>),
     All(Vec<Stage1Node<T>>),
     NotAll(Vec<Stage1Node<T>>)
+}
+
+// https://stackoverflow.com/questions/36557412/change-enum-variant-while-moving-the-field-to-the-new-variant
+impl<T: Fact> ApplyNot for Stage1Node<T> {
+    fn apply_not(&mut self) {
+        use self::Stage1Node::*;
+        let interim = unsafe { mem::zeroed() };
+        let prev = mem::replace(self, interim);
+        let next = match prev {
+            T(mut node) => {
+                node.apply_not();
+                T(node)
+            },
+            Any(nodes) => NotAny(nodes),
+            NotAny(nodes) => Any(nodes),
+            All(nodes) => NotAll(nodes),
+            NotAll(nodes) => All(nodes),
+        };
+        let interim = mem::replace(self, next);
+        mem::forget(interim);   // Important! interim was never initialized
+    }
 }
 
 impl<T: Fact> Ord for Stage1Node<T> {
@@ -355,8 +399,46 @@ impl<T: Fact> Stage1Node<T> {
         }
     }
 
-    pub fn simplify(&mut self) -> bool {
-        false
+    fn is_singleton(&self) -> bool {
+        use self::Stage1Node::*;
+        match *self {
+            Any(ref nodes) => nodes.len() == 1,
+            NotAny(ref nodes) => nodes.len() == 1,
+            All(ref nodes) => nodes.len() == 1,
+            NotAll(ref nodes) => nodes.len() == 1,
+            _ => false
+        }
+    }
+
+    fn extract_singleton(mut self) -> Self {
+        use self::Stage1Node::*;
+        debug_assert!(self.is_singleton());
+        match self {
+            Any(mut nodes) => nodes.pop().unwrap(),
+            NotAny(mut nodes) => {
+                let mut node = nodes.pop().unwrap();
+                node.apply_not();
+                node
+            },
+            All(mut nodes) => nodes.pop().unwrap(),
+            NotAll(mut nodes) => {
+                let mut node = nodes.pop().unwrap();
+                node.apply_not();
+                node
+            },
+            _ => unreachable!("extract_singleton on a BetaNode"),
+        }
+    }
+
+    fn simplify(&mut self) {
+        use self::Stage1Node::*;
+        match *self {
+            Any(ref mut nodes) => while Self::simplify_any(nodes) {},
+            NotAny(ref mut nodes) => while Self::simplify_any(nodes) {},
+            All(ref mut nodes) => while Self::simplify_all(nodes) {},
+            NotAll(ref mut nodes) => while Self::simplify_all(nodes) {},
+            _ => {}
+        }
     }
 
     fn give(&mut self, to: &mut Vec<Self>) {
@@ -368,28 +450,67 @@ impl<T: Fact> Stage1Node<T> {
         }
     }
 
-    // Should just be any?
     fn merge(&mut self, from_node: Self) {
         use self::Stage1Node::*;
         match(self, from_node) {
             (&mut Any(ref mut to), Any(ref mut from)) => to.append(from),
-            (&mut NotAny(ref mut to), NotAny(ref mut from)) => to.append(from),
-            (&mut All(ref mut to), All(ref mut from)) => to.append(from),
-            (&mut NotAll(ref mut to), NotAll(ref mut from)) => to.append(from),
             _ => unreachable!("merge on invalid node combination")
         }
     }
 
-    fn simplify_any(any: &mut [Self]) {
+    fn simplify_any(any: &mut Vec<Self>) -> bool {
         for node in any.iter_mut() {
-            while node.simplify() {}
+            node.simplify();
         }
+        let mut continue_simplify = false;
+        // Extract singletons
+        if any.iter().filter(|n| n.is_singleton()).count() > 0 {
+            continue_simplify = true;
+            for mut o in any.drain_where(|n| n.is_singleton()) {
+                any.push(o.extract_singleton());
+            }
+        }
+        // Merge any nodes
+        if any.iter().filter(|n| n.is_any()).count() > 0 {
+            continue_simplify = true;
+            for mut o in any.drain_where(|n| n.is_any()) {
+                o.give(any);
+            }
+
+        }
+        continue_simplify
     }
 
-    fn simplify_all(all: &mut [Self]) {
+    fn simplify_all(all: &mut Vec<Self>) -> bool {
         for node in all.iter_mut() {
-            while node.simplify() {}
+            node.simplify();
         }
+        let mut continue_simplify = false;
+        // Extract singletons
+        if all.iter().filter(|n| n.is_singleton()).count() > 0 {
+            continue_simplify = true;
+            for mut o in all.drain_where(|n| n.is_singleton()) {
+                all.push(o.extract_singleton());
+            }
+        }
+        // Merge all nodes
+        if all.iter().filter(|n| n.is_all()).count() > 0 {
+            continue_simplify = true;
+            for mut o in all.drain_where(|n| n.is_all()) {
+                o.give(all);
+            }
+        }
+        // If there are multiple any nodes, merge into 1
+        if all.iter().filter(|n| n.is_any()).count() > 1 {
+            let mut cum_any = all.drain_where(|n| n.is_any());
+            let mut parent = cum_any.pop().unwrap();
+            for mut o in cum_any {
+                parent.merge(o);
+            }
+            parent.simplify();
+            all.push(parent);
+        }
+        continue_simplify
     }
 
     fn dedup(&mut self) {
@@ -409,6 +530,16 @@ impl<T: Fact> Stage1Node<T> {
         }
         nodes.sort();
         nodes.dedup();
+    }
+
+    pub fn clean(mut self) -> Self {
+        self.simplify();
+        self.dedup();
+
+        // TODO - add a walker to determine if there are any singletons, then do this until there are none
+        self.simplify();
+        self.dedup();
+        self
     }
 }
 
