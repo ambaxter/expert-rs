@@ -1,7 +1,9 @@
 use num::{One, Zero, Unsigned};
 use num::zero;
 use std::marker::PhantomData;
+use std::fmt::Debug;
 
+#[derive(Debug)]
 pub struct SerialGen<T: Unsigned  + Zero + One + Copy + Into<R>, R> {
     r: PhantomData<R>,
     serial: T
