@@ -275,7 +275,7 @@ impl<S> StringIntern for BoolTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::BoolTest::*;
         match self {
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned())))
+            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref())))
         }
     }
 }
@@ -335,9 +335,9 @@ macro_rules! beta_number_test {
                 fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
                     use self::$test::*;
                     match self {
-                        &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-                        &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-                        &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+                        &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
                     }
                 }
             }
@@ -409,9 +409,9 @@ macro_rules! beta_float_test {
                 fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
                     use self::$test::*;
                     match self {
-                        &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-                        &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-                        &ApproxEq(truth, test, ref limit) => ApproxEq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+                        &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        &ApproxEq(truth, test, ref limit) => ApproxEq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
                     }
                 }
             }
@@ -498,10 +498,10 @@ impl<S> StringIntern for StrTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::StrTest::*;
         match self {
-            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Str(truth, test, ref limit) => Str(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
+            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
+            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
+            &Str(truth, test, ref limit) => Str(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -579,9 +579,9 @@ impl<S> StringIntern for TimeTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::TimeTest::*;
         match self {
-            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -645,9 +645,9 @@ impl<S> StringIntern for DateTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTest::*;
         match self {
-            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -711,9 +711,9 @@ impl<S> StringIntern for  DateTimeTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTimeTest::*;
         match self {
-            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref().to_owned()))),
+            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -775,7 +775,7 @@ impl<S> StringIntern for SDynLimit<S>
     type Output = SDynLimit<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
-        SDynLimit{limit: cache.get_or_intern(self.limit.as_ref().to_owned())}
+        SDynLimit{limit: cache.get_or_intern(self.limit.as_ref())}
     }
 }
 
@@ -803,7 +803,7 @@ impl<S> StringIntern for DDynLimit<S>
     type Output = DDynLimit<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
-        DDynLimit{l: cache.get_or_intern(self.l.as_ref().to_owned()), r: cache.get_or_intern(self.r.as_ref().to_owned())}
+        DDynLimit{l: cache.get_or_intern(self.l.as_ref()), r: cache.get_or_intern(self.r.as_ref())}
     }
 }
 

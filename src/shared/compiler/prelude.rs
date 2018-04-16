@@ -24,6 +24,9 @@ use enum_index::EnumIndex;
 use std::cmp::Ordering;
 use shared::nodes::tests::ApplyNot;
 use std::mem;
+use shared::nodes::beta::StringIntern;
+use runtime::memory::SymbolId;
+use shared::fact::Getter;
 
 pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}
@@ -551,4 +554,50 @@ pub trait Stage1Compile<T: Fact> {
         where Self: marker::Sized {
         t.iter().map(|c| c.stage1_compile(cache)).collect()
     }
+}
+
+
+#[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug, EnumIndex)]
+pub enum DeclareNode<S, G> {
+    Sym(S),
+    Var(S, G)
+}
+
+impl<S, G> DeclareNode<S, G> {
+    pub fn is_symbol(&self) -> bool {
+        use self::DeclareNode::*;
+        match *self {
+            Sym(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_variable(&self) -> bool {
+        use self::DeclareNode::*;
+        match *self {
+            Var(..) => true,
+            _ => false,
+        }
+    }
+}
+
+impl<S, G> DeclareNode<S, G> where S: AsRef<str>, G: AsRef<str> {
+    pub fn compile<T: Fact>(&self, cache: &mut StringCache) -> Result<DeclareNode<SymbolId, Getter<T>>, CompileError> {
+        use self::DeclareNode::*;
+        match *self {
+            Sym(ref s) => Ok(Sym(cache.get_or_intern(s.as_ref()))),
+            Var(ref s, ref g) => Ok(Var(
+                cache.get_or_intern(s.as_ref()),
+                T::getter(g.as_ref()).ok_or_else(|| CompileError::MissingGetter { getter: g.as_ref().to_owned() })?
+            )),
+        }
+    }
+}
+
+pub fn sym<S: AsRef<str>>(s: S) -> DeclareNode<S, S> {
+    DeclareNode::Sym(s)
+}
+
+pub fn var<S: AsRef<str>>(s: S, g: S) -> DeclareNode<S, S> {
+    DeclareNode::Var(s, g)
 }

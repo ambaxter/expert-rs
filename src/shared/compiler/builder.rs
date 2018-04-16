@@ -4,6 +4,7 @@ use shared::fact::Fact;
 use shared::nodes::beta::BetaNode;
 use shared::compiler::prelude::Stage1Node;
 use runtime::memory::StringCache;
+use shared::compiler::prelude::DeclareNode;
 
 struct BuilderContext {
 
@@ -71,6 +72,7 @@ pub trait RuleBuilder {
     fn agenda<S: Into<String>>(self, agenda: S) -> Self;
     fn no_loop(self, no_loop: bool) -> Self;
     fn when<T:Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Self;
+    fn declare_when<T:Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]);
     fn when_not<T:Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Self;
     fn all_group(self) -> Self;
     fn not_all_group(self) -> Self;
