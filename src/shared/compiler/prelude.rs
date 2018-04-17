@@ -559,34 +559,34 @@ pub trait Stage1Compile<T: Fact> {
 
 #[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug, EnumIndex)]
 pub enum DeclareNode<S, G> {
-    Sym(S),
-    Var(S, G)
+    Var(S),
+    Field(S, G)
 }
 
 impl<S, G> DeclareNode<S, G> {
-    pub fn is_symbol(&self) -> bool {
+    pub fn is_variable(&self) -> bool {
         use self::DeclareNode::*;
         match *self {
-            Sym(_) => true,
+            Var(_) => true,
             _ => false,
         }
     }
 
-    pub fn is_variable(&self) -> bool {
+    pub fn is_field(&self) -> bool {
         use self::DeclareNode::*;
         match *self {
-            Var(..) => true,
+            Field(..) => true,
             _ => false,
         }
     }
 }
 
-impl<S, G> DeclareNode<S, G> where S: AsRef<str>, G: AsRef<str> {
+impl<S> DeclareNode<S, S> where S: AsRef<str> {
     pub fn compile<T: Fact>(&self, cache: &mut StringCache) -> Result<DeclareNode<SymbolId, Getter<T>>, CompileError> {
         use self::DeclareNode::*;
         match *self {
-            Sym(ref s) => Ok(Sym(cache.get_or_intern(s.as_ref()))),
-            Var(ref s, ref g) => Ok(Var(
+            Var(ref s) => Ok(Var(cache.get_or_intern(s.as_ref()))),
+            Field(ref s, ref g) => Ok(Field(
                 cache.get_or_intern(s.as_ref()),
                 T::getter(g.as_ref()).ok_or_else(|| CompileError::MissingGetter { getter: g.as_ref().to_owned() })?
             )),
@@ -594,10 +594,10 @@ impl<S, G> DeclareNode<S, G> where S: AsRef<str>, G: AsRef<str> {
     }
 }
 
-pub fn sym<S: AsRef<str>>(s: S) -> DeclareNode<S, S> {
-    DeclareNode::Sym(s)
+pub fn var<S: AsRef<str>>(s: S) -> DeclareNode<S, S> {
+    DeclareNode::Var(s)
 }
 
-pub fn var<S: AsRef<str>>(s: S, g: S) -> DeclareNode<S, S> {
-    DeclareNode::Var(s, g)
+pub fn field<S: AsRef<str>>(s: S, g: S) -> DeclareNode<S, S> {
+    DeclareNode::Field(s, g)
 }
