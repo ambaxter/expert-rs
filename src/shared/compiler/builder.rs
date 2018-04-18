@@ -113,9 +113,11 @@ enum StatementGroup<L> {
     All(GroupId, Vec<StatementGroupEntry<L>>),
     Any(GroupId, Vec<StatementGroupEntry<L>>),
     Exists(GroupId, Vec<StatementGroupEntry<L>>),
+    SingleExists(GroupId, L),
     Not(GroupId, Vec<StatementGroupEntry<L>>),
+    SingleNot(GroupId, L),
     ForAll(GroupId, L, Vec<StatementGroupEntry<L>>),
-    ForAllSingle(GroupId, L),
+    SingleForAll(GroupId, L),
 
 }
 
@@ -183,11 +185,6 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 
     fn declare_when<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) {
-        let statement_id = self.base_builder.id_generator.statement_ids.next();
-        unimplemented!()
-    }
-
-    fn when_not<T: Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Self {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
         unimplemented!()
     }
