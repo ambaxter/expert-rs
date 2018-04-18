@@ -7,6 +7,7 @@ use runtime::memory::StringCache;
 use shared::compiler::prelude::DeclareNode;
 use shared::compiler::id_generator::{IdGenerator, StatementId, RuleId};
 use runtime::memory::SymbolId;
+use std::collections::HashSet;
 
 struct BuilderContext {
 
@@ -56,11 +57,11 @@ pub trait KnowledgeBase {
 
 }
 
-pub struct SimpleKnowledgeBase {
+pub struct ArrayKnowledgeBase {
 
 }
 
-impl KnowledgeBase for SimpleKnowledgeBase {}
+impl KnowledgeBase for ArrayKnowledgeBase {}
 
 
 pub trait BaseBuilder {
@@ -71,21 +72,23 @@ pub trait BaseBuilder {
     fn end(self) -> Self::KB;
 }
 
-pub struct SimpleBaseBuilder {
+pub struct ArrayBaseBuilder {
     id_generator: IdGenerator,
     cache: StringCache,
 }
 
-impl BaseBuilder for SimpleBaseBuilder {
-    type RB = SimpleRuleBuilder;
-    type KB = SimpleKnowledgeBase;
+impl BaseBuilder for ArrayBaseBuilder {
+    type RB = ArrayRuleBuilder;
+    type KB = ArrayKnowledgeBase;
 
     fn rule<S: AsRef<str>>(mut self, name: S) -> Self::RB {
         let id = self.id_generator.rule_ids.next();
         let name_symbol = self.cache.get_or_intern(name.as_ref());
         let agenda_symbol = self.cache.get_or_intern("MAIN");
-        SimpleRuleBuilder {
-            rule_data : SimpleRuleData {
+        let root_group_id = self.id_generator.group_ids.next();
+        // NEXT - create group enum & add new one to the set. Need to know parent
+        ArrayRuleBuilder {
+            rule_data : ArrayRuleData {
                 id,
                 name: name_symbol,
                 salience: 0,
@@ -101,6 +104,21 @@ impl BaseBuilder for SimpleBaseBuilder {
     }
 }
 
+enum StatementGroupEntry<L> {
+    Statement(L),
+    Child(GroupId),
+}
+
+enum StatementGroup<L> {
+    All(GroupId, Vec<StatementGroupEntry<L>>),
+    Any(GroupId, Vec<StatementGroupEntry<L>>),
+    Exists(GroupId, Vec<StatementGroupEntry<L>>),
+    Not(GroupId, Vec<StatementGroupEntry<L>>),
+    ForAll(GroupId, L, Vec<StatementGroupEntry<L>>),
+    ForAllSingle(GroupId, L),
+
+}
+
 pub trait RuleBuilder {
     type CB: ConsequenceBuilder;
 
@@ -109,17 +127,25 @@ pub trait RuleBuilder {
     fn no_loop(self, no_loop: bool) -> Self;
     fn when<T:Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Self;
     fn declare_when<T:Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]);
-    fn when_not<T:Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Self;
     fn all_group(self) -> Self;
-    fn not_all_group(self) -> Self;
     fn any_group(self) -> Self;
-    fn not_any_group(self) -> Self;
-    fn for_all_group<T:Fact, N: Stage1Compile<T>>(self, node: N, depends_on: &[N]) -> Self;
+    fn exists_group(self) -> Self;
+    fn not_group(self) -> Self;
+    fn for_all_group<T:Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Self;
     fn end_group(self) -> Self;
     fn then(self) -> Self::CB;
 }
 
-struct SimpleRuleData {
+#[derive(Clone, Eq, PartialEq, Debug)]
+struct StatementReq {
+    statement_id: StatementId,
+    declares: HashSet<SymbolId>, // HashSet or vec?
+    depends_on: HashSet<SymbolId>
+}
+
+// TODO: After we build up the groupings & requirements, cascade down the groupings to ensure that we're not screwing anything up
+
+struct ArrayRuleData {
     id: RuleId,
     name: SymbolId,
     salience: i32,
@@ -127,13 +153,13 @@ struct SimpleRuleData {
     agenda: SymbolId,
 }
 
-pub struct SimpleRuleBuilder {
-    rule_data: SimpleRuleData,
-    base_builder: SimpleBaseBuilder,
+pub struct ArrayRuleBuilder {
+    rule_data: ArrayRuleData,
+    base_builder: ArrayBaseBuilder,
 }
 
-impl RuleBuilder for SimpleRuleBuilder {
-    type CB = SimpleConsequenceBuilder;
+impl RuleBuilder for ArrayRuleBuilder {
+    type CB = ArrayConsequenceBuilder;
 
     fn salience(mut self, salience: i32) -> Self {
         self.rule_data.salience = salience;
@@ -170,19 +196,19 @@ impl RuleBuilder for SimpleRuleBuilder {
         unimplemented!()
     }
 
-    fn not_all_group(self) -> Self {
-        unimplemented!()
-    }
-
     fn any_group(self) -> Self {
         unimplemented!()
     }
 
-    fn not_any_group(self) -> Self {
+    fn exists_group(self) -> Self {
         unimplemented!()
     }
 
-    fn for_all_group<T: Fact, N: Stage1Compile<T>>(self, node: N, depends_on: &[N]) -> Self {
+    fn not_group(self) -> Self {
+        unimplemented!()
+    }
+
+    fn for_all_group<T: Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Self {
         unimplemented!()
     }
 
@@ -191,15 +217,15 @@ impl RuleBuilder for SimpleRuleBuilder {
     }
 
     fn then(self) -> Self::CB {
-        SimpleConsequenceBuilder{
+        ArrayConsequenceBuilder{
             rule_data: self.rule_data,
-            consequence_data: SimpleConsequenceData {},
+            consequence_data: ArrayConsequenceData {},
             base_builder: self.base_builder
         }
     }
 }
 
-struct SimpleConsequenceData {
+struct ArrayConsequenceData {
 
 }
 
@@ -208,14 +234,14 @@ pub trait ConsequenceBuilder {
     fn end(self) -> Self::BB;
 }
 
-pub struct SimpleConsequenceBuilder {
-    rule_data: SimpleRuleData,
-    consequence_data: SimpleConsequenceData,
-    base_builder: SimpleBaseBuilder,
+pub struct ArrayConsequenceBuilder {
+    rule_data: ArrayRuleData,
+    consequence_data: ArrayConsequenceData,
+    base_builder: ArrayBaseBuilder,
 }
 
-impl ConsequenceBuilder for SimpleConsequenceBuilder {
-    type BB = SimpleBaseBuilder;
+impl ConsequenceBuilder for ArrayConsequenceBuilder {
+    type BB = ArrayBaseBuilder;
 
     fn end(self) -> Self::BB {
         self.base_builder
