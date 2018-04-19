@@ -5,10 +5,12 @@ use shared::nodes::beta::BetaNode;
 use shared::compiler::prelude::Stage1Node;
 use runtime::memory::StringCache;
 use shared::compiler::prelude::DeclareNode;
-use shared::compiler::id_generator::{IdGenerator, StatementId, RuleId};
+use shared::compiler::id_generator::{IdGenerator, GroupId, StatementId, RuleId};
 use runtime::memory::SymbolId;
 use std::collections::HashSet;
 use std::collections::HashMap;
+use errors::CompileError;
+use std;
 
 struct BuilderContext {
 
@@ -110,7 +112,7 @@ impl StatementGroup {
         }
     }
 
-    fn add(&mut self, entry: StatementGroupEntry) {
+    fn push(&mut self, entry: StatementGroupEntry) {
         match *self {
             StatementGroup::All(_, ref mut entries) => entries.push(entry),
             StatementGroup::Any(_, ref mut entries) => entries.push(entry),
@@ -164,7 +166,7 @@ impl BaseBuilder for ArrayBaseBuilder {
         let root_group_id = self.id_generator.group_ids.next();
         let root_group = StatementGroup::all(root_group_id);
 
-        let mut statement_groups = Default::default();
+        let mut statement_groups: HashMap<GroupId, StatementGroup> = Default::default();
         statement_groups.insert(root_group_id, root_group);
 
         // NEXT - create group enum & add new one to the set. Need to know parent
@@ -194,14 +196,15 @@ pub trait RuleBuilder {
     fn salience(self, salience: i32) -> Self;
     fn agenda<S: AsRef<str>>(self, agenda: S) -> Self;
     fn no_loop(self, no_loop: bool) -> Self;
-    fn when<T:Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Self;
-    fn declare_when<T:Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]);
+    fn when<T:Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> where Self: std::marker::Sized;
+    fn declare_when<T:Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> where Self: std::marker::Sized;
     fn all_group(self) -> Self;
     fn any_group(self) -> Self;
     fn exists_group(self) -> Self;
     fn not_group(self) -> Self;
-    fn for_all_group<T:Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Self;
-    fn end_group(self) -> Self;
+    fn for_all_group<T:Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Result<Self, CompileError> where Self: std::marker::Sized;
+    fn declare_for_all_group<T:Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> where Self: std::marker::Sized;
+    fn end_group(self) -> Result<Self, CompileError> where Self: std::marker::Sized;
     fn then(self) -> Self::CB;
 }
 
@@ -239,50 +242,62 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn when<T: Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Self {
+    fn when<T: Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
         unimplemented!()
     }
 
-    fn declare_when<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) {
+    fn declare_when<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
         unimplemented!()
     }
 
     fn all_group(mut self) -> Self {
-        self.add_new_group(StatementGroup::all(self.rule_data.current_group));
+        let parent_group = self.rule_data.current_group;
+        self.add_new_group(StatementGroup::all(parent_group));
         self
     }
 
     fn any_group(mut self) -> Self {
-        self.add_new_group(StatementGroup::any(self.rule_data.current_group));
+        let parent_group = self.rule_data.current_group;
+        self.add_new_group(StatementGroup::any(parent_group));
         self
     }
 
     fn exists_group(mut self) -> Self {
-        self.add_new_group(StatementGroup::exists(self.rule_data.current_group));
+        let parent_group = self.rule_data.current_group;
+        self.add_new_group(StatementGroup::exists(parent_group));
         self
     }
 
     fn not_group(mut self) -> Self {
-        self.add_new_group(StatementGroup::not_all(self.rule_data.current_group));
+        let parent_group = self.rule_data.current_group;
+        self.add_new_group(StatementGroup::not_all(parent_group));
         self
     }
 
-    fn for_all_group<T: Fact, N: Stage1Compile<T>>(mut self, node: &[N]) -> Self {
+    fn for_all_group<T: Fact, N: Stage1Compile<T>>(mut self, node: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
         // TODO - compile the node
-        self.add_new_group(StatementGroup::for_all(self.rule_data.current_group, statement_id));
-        self
+        let result = Stage1Compile::stage1_compile_slice(node, &mut self.base_builder.cache);
+
+        let parent_group = self.rule_data.current_group;
+        self.add_new_group(StatementGroup::for_all(parent_group, statement_id));
+        Ok(self)
     }
 
-    fn end_group(mut self) -> Self {
+    fn declare_for_all_group<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+        let statement_id = self.base_builder.id_generator.statement_ids.next();
+        unimplemented!()
+    }
+
+    fn end_group(mut self) -> Result<Self, CompileError> {
         let parent_id = self.rule_data.statement_groups.get(&self.rule_data.current_group).unwrap().parent();
         if parent_id == self.rule_data.current_group {
             unreachable!("end_group at root {:?}", parent_id);
         }
         self.rule_data.current_group = parent_id;
-        self
+        Ok(self)
     }
 
     fn then(self) -> Self::CB {
