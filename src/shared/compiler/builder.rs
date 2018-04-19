@@ -8,6 +8,7 @@ use shared::compiler::prelude::DeclareNode;
 use shared::compiler::id_generator::{IdGenerator, StatementId, RuleId};
 use runtime::memory::SymbolId;
 use std::collections::HashSet;
+use std::collections::HashMap;
 
 struct BuilderContext {
 
@@ -64,6 +65,81 @@ pub struct ArrayKnowledgeBase {
 impl KnowledgeBase for ArrayKnowledgeBase {}
 
 
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
+enum StatementGroupEntry {
+    Statement(StatementId),
+    Child(GroupId),
+}
+
+enum StatementGroup {
+    All(GroupId, Vec<StatementGroupEntry>),
+    Any(GroupId, Vec<StatementGroupEntry>),
+    Exists(GroupId, Vec<StatementGroupEntry>),
+    NotAll(GroupId, Vec<StatementGroupEntry>),
+    ForAll(GroupId, StatementId, Vec<StatementGroupEntry>),
+}
+
+impl StatementGroup {
+    fn all(parent: GroupId) -> StatementGroup {
+        StatementGroup::All(parent, Vec::new())
+    }
+
+    fn any(parent: GroupId) -> StatementGroup {
+        StatementGroup::Any(parent, Vec::new())
+    }
+
+    fn exists(parent: GroupId) -> StatementGroup {
+        StatementGroup::Exists(parent, Vec::new())
+    }
+
+    fn not_all(parent: GroupId) -> StatementGroup {
+        StatementGroup::NotAll(parent, Vec::new())
+    }
+
+    fn for_all(parent: GroupId, statement: StatementId) -> StatementGroup {
+        StatementGroup::ForAll(parent, statement, Vec::new())
+    }
+
+    fn parent(&self) -> GroupId {
+        match *self {
+            StatementGroup::All(parent, _) => parent,
+            StatementGroup::Any(parent, _) => parent,
+            StatementGroup::Exists(parent, _) => parent,
+            StatementGroup::NotAll(parent, _) => parent,
+            StatementGroup::ForAll(parent, ..) => parent,
+        }
+    }
+
+    fn add(&mut self, entry: StatementGroupEntry) {
+        match *self {
+            StatementGroup::All(_, ref mut entries) => entries.push(entry),
+            StatementGroup::Any(_, ref mut entries) => entries.push(entry),
+            StatementGroup::Exists(_, ref mut entries) => entries.push(entry),
+            StatementGroup::NotAll(_, ref mut entries) => entries.push(entry),
+            StatementGroup::ForAll(_, _, ref mut entries) => entries.push(entry),
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+struct StatementReq {
+    declares: HashSet<SymbolId>, // HashSet or vec?
+    requires: HashSet<SymbolId>
+}
+
+// TODO: After we build up the groupings & requirements, cascade down the groupings to ensure that we're not screwing anything up
+
+struct ArrayRuleData {
+    id: RuleId,
+    name: SymbolId,
+    salience: i32,
+    no_loop: bool,
+    agenda: SymbolId,
+    current_group: GroupId,
+    statement_groups: HashMap<GroupId, StatementGroup>,
+    statement_requirements: HashMap<StatementId, StatementReq>,
+}
+
 pub trait BaseBuilder {
     type RB: RuleBuilder;
     type KB: KnowledgeBase;
@@ -86,6 +162,11 @@ impl BaseBuilder for ArrayBaseBuilder {
         let name_symbol = self.cache.get_or_intern(name.as_ref());
         let agenda_symbol = self.cache.get_or_intern("MAIN");
         let root_group_id = self.id_generator.group_ids.next();
+        let root_group = StatementGroup::all(root_group_id);
+
+        let mut statement_groups = Default::default();
+        statement_groups.insert(root_group_id, root_group);
+
         // NEXT - create group enum & add new one to the set. Need to know parent
         ArrayRuleBuilder {
             rule_data : ArrayRuleData {
@@ -94,6 +175,9 @@ impl BaseBuilder for ArrayBaseBuilder {
                 salience: 0,
                 no_loop: false,
                 agenda: agenda_symbol,
+                current_group: root_group_id,
+                statement_groups,
+                statement_requirements: Default::default(),
             },
             base_builder: self
         }
@@ -102,23 +186,6 @@ impl BaseBuilder for ArrayBaseBuilder {
     fn end(self) -> Self::KB {
         unimplemented!()
     }
-}
-
-enum StatementGroupEntry<L> {
-    Statement(L),
-    Child(GroupId),
-}
-
-enum StatementGroup<L> {
-    All(GroupId, Vec<StatementGroupEntry<L>>),
-    Any(GroupId, Vec<StatementGroupEntry<L>>),
-    Exists(GroupId, Vec<StatementGroupEntry<L>>),
-    SingleExists(GroupId, L),
-    Not(GroupId, Vec<StatementGroupEntry<L>>),
-    SingleNot(GroupId, L),
-    ForAll(GroupId, L, Vec<StatementGroupEntry<L>>),
-    SingleForAll(GroupId, L),
-
 }
 
 pub trait RuleBuilder {
@@ -138,26 +205,19 @@ pub trait RuleBuilder {
     fn then(self) -> Self::CB;
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
-struct StatementReq {
-    statement_id: StatementId,
-    declares: HashSet<SymbolId>, // HashSet or vec?
-    depends_on: HashSet<SymbolId>
-}
-
-// TODO: After we build up the groupings & requirements, cascade down the groupings to ensure that we're not screwing anything up
-
-struct ArrayRuleData {
-    id: RuleId,
-    name: SymbolId,
-    salience: i32,
-    no_loop: bool,
-    agenda: SymbolId,
-}
-
 pub struct ArrayRuleBuilder {
     rule_data: ArrayRuleData,
     base_builder: ArrayBaseBuilder,
+}
+
+impl ArrayRuleBuilder {
+    fn add_new_group(&mut self, new_group: StatementGroup) {
+        let new_group_id = self.base_builder.id_generator.group_ids.next();
+        let parent_id = new_group.parent();
+        self.rule_data.statement_groups.get_mut(&parent_id).unwrap().push(StatementGroupEntry::Child(new_group_id));
+        self.rule_data.statement_groups.insert(new_group_id, new_group);
+        self.rule_data.current_group = new_group_id;
+    }
 }
 
 impl RuleBuilder for ArrayRuleBuilder {
@@ -189,28 +249,40 @@ impl RuleBuilder for ArrayRuleBuilder {
         unimplemented!()
     }
 
-    fn all_group(self) -> Self {
-        unimplemented!()
+    fn all_group(mut self) -> Self {
+        self.add_new_group(StatementGroup::all(self.rule_data.current_group));
+        self
     }
 
-    fn any_group(self) -> Self {
-        unimplemented!()
+    fn any_group(mut self) -> Self {
+        self.add_new_group(StatementGroup::any(self.rule_data.current_group));
+        self
     }
 
-    fn exists_group(self) -> Self {
-        unimplemented!()
+    fn exists_group(mut self) -> Self {
+        self.add_new_group(StatementGroup::exists(self.rule_data.current_group));
+        self
     }
 
-    fn not_group(self) -> Self {
-        unimplemented!()
+    fn not_group(mut self) -> Self {
+        self.add_new_group(StatementGroup::not_all(self.rule_data.current_group));
+        self
     }
 
-    fn for_all_group<T: Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Self {
-        unimplemented!()
+    fn for_all_group<T: Fact, N: Stage1Compile<T>>(mut self, node: &[N]) -> Self {
+        let statement_id = self.base_builder.id_generator.statement_ids.next();
+        // TODO - compile the node
+        self.add_new_group(StatementGroup::for_all(self.rule_data.current_group, statement_id));
+        self
     }
 
-    fn end_group(self) -> Self {
-        unimplemented!()
+    fn end_group(mut self) -> Self {
+        let parent_id = self.rule_data.statement_groups.get(&self.rule_data.current_group).unwrap().parent();
+        if parent_id == self.rule_data.current_group {
+            unreachable!("end_group at root {:?}", parent_id);
+        }
+        self.rule_data.current_group = parent_id;
+        self
     }
 
     fn then(self) -> Self::CB {

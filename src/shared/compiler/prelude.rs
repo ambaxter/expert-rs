@@ -444,6 +444,16 @@ impl<T: Fact> Stage1Node<T> {
         }
     }
 
+    /*
+     * A while ago I was having a bad day and this quote made me laugh.
+     * Let it be immortalized here forever with these merge functions as it
+     * was posted around the same time I wrote the initial version of this algorithm.
+     * They are inextricably bound in my mind
+     *
+     * This tank ain't big enough for both of us.
+     * It's just the perfect size for a fish of our both's combined volume! And that fish is me!
+     * - /u/GregTheMad - https://www.reddit.com/r/WTF/comments/82o8jv/this_tank_aint_big_enough_for_both_of_us/dvboaqw/
+    */
     fn give(&mut self, to: &mut Vec<Self>) {
         use self::Stage1Node::*;
         match *self {
