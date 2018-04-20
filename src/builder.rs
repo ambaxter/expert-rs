@@ -338,10 +338,10 @@ impl<T: ReteIntrospection> Debug for AlphaTest<T> {
         write!(f, "Test{{");
         match self {
             &HashEq => {
-                write!(f, "HashEq");
+                write!(f, "HashEq")?;
             },
             &Ord{ref data, test} => {
-                write!(f, "Ord");
+                write!(f, "Ord")?;
             }
         }
         write!(f, "}}")

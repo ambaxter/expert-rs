@@ -164,7 +164,7 @@ pub struct ATestAspect {
 impl expert::shared::fact::Fact for ATestAspect {
     type HashEq = ();
 
-    fn getter(field: &str) -> Option<expert::shared::fact::Getter<Self>> {
+    fn getter(_field: &str) -> Option<expert::shared::fact::Getter<Self>> {
         unimplemented!()
     }
 
@@ -175,8 +175,6 @@ impl expert::shared::fact::Fact for ATestAspect {
 
 fn main() {
     use expert::builder::KnowledgeBuilder;
-    use ordered_float::NotNaN;
-    use expert::runtime::memory::SymbolId;
 
     println!("New AlphaNode: {:?}", std::mem::size_of::<expert::shared::nodes::alpha::AlphaNode<ATestAspect>>());
     println!("New BetaNode: {:?}", std::mem::size_of::<expert::shared::nodes::beta::BetaNode<ATestAspect>>());
@@ -187,7 +185,7 @@ fn main() {
         test_into.push(c);
     }
 
-    let mut builder: KnowledgeBuilder<Aspect> = KnowledgeBuilder::new()
+    let builder: KnowledgeBuilder<Aspect> = KnowledgeBuilder::new()
         .rule("test1")
             .when()
                 .eq("id", 6).eq("aspect_type", 12).btwn("impact", 8, false, 400, true)
