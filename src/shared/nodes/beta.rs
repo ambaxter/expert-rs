@@ -155,6 +155,16 @@ impl<T, U> MapAll<T, U> for SLimit<T, T> {
     }
 }
 
+impl<T> CollectSymbols for SLimit<T, SymbolId> {
+    fn collect_symbols(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::SLimit::*;
+        match *self {
+            Dyn(ref s) => {symbols.insert(*s);},
+            _ => {}
+        }
+    }
+}
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DLimit<T, S> {
     St(T, T),
@@ -260,6 +270,18 @@ impl<T, U> MapAll<T, U> for DLimit<T, T> {
             &StDyn(ref from, ref s_to) => StDyn(func(from), func(s_to)),
             &DynSt(ref s_from, ref to) => DynSt(func(s_from), func(to)),
             &Dyn(ref s_from, ref s_to) => Dyn(func(s_from), func(s_to)),
+        }
+    }
+}
+
+impl<T> CollectSymbols for DLimit<T, SymbolId> {
+    fn collect_symbols(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::DLimit::*;
+        match *self {
+            StDyn(_, ref s_to) => {symbols.insert(*s_to);},
+            DynSt(ref s_from, _) => {symbols.insert(*s_from);},
+            Dyn(ref s_from, ref s_to) => {symbols.insert(*s_from); symbols.insert(*s_to);},
+            _ => {}
         }
     }
 }
