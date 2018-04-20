@@ -173,7 +173,6 @@ impl BaseBuilder for ArrayBaseBuilder {
         let mut statement_groups: BTreeMap<GroupId, StatementGroup> = Default::default();
         statement_groups.insert(root_group_id, root_group);
 
-        // NEXT - create group enum & add new one to the set. Need to know parent
         ArrayRuleBuilder {
             rule_data : ArrayRuleData {
                 id,
@@ -269,6 +268,7 @@ impl RuleBuilder for ArrayRuleBuilder {
             .into_iter().map(|n| n.into()).collect();
 
         // Next TODO - Collect the requires bits from the dynamic limits
+        //CollectSymbols
 
         // TODO: Do prep the node for layout
         unimplemented!()

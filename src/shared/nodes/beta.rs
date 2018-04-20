@@ -18,6 +18,7 @@ use shared::nodes::alpha::AlphaNode;
 use enum_index;
 use enum_index::EnumIndex;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 
 
 pub trait IsAlpha {
@@ -53,6 +54,10 @@ pub trait MapAll<T, U> {
 
     fn map_all<F>(&self, func: F) -> Self::Output
         where F: FnMut(&T) -> U;
+}
+
+pub trait CollectSymbols {
+    fn collect_symbols(&self, symbols: &mut HashSet<SymbolId>);
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
