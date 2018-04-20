@@ -17,7 +17,7 @@ use std::borrow::Cow;
 use shared::nodes::tests::{Truth, EqTest, OrdTest, BetweenTest, StrArrayTest};
 use shared::fact::Fact;
 use runtime::memory::StringCache;
-use shared::nodes::beta::BetaNode;
+use shared::nodes::beta::{IsAlpha, BetaNode};
 use errors::CompileError;
 use enum_index;
 use enum_index::EnumIndex;
@@ -27,6 +27,7 @@ use std::mem;
 use shared::nodes::beta::StringIntern;
 use runtime::memory::SymbolId;
 use shared::fact::Getter;
+use shared::nodes::alpha::AlphaNode;
 
 pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}
@@ -386,6 +387,22 @@ impl<T: Fact> Stage1Node<T> {
         }
     }
 
+    pub fn is_alpha(&self) -> bool {
+        use self::Stage1Node::*;
+        match *self {
+            T(ref test) => test.is_alpha(),
+            _ => false
+        }
+    }
+
+    pub fn get_alpha(self) -> AlphaNode<T> {
+        use self::Stage1Node::*;
+        match self {
+            T(test) => test.into(),
+            _ => unreachable!("get_alpha on non alpha node")
+        }
+    }
+
     pub fn is_any(&self) -> bool {
         use self::Stage1Node::*;
         match *self {
@@ -553,6 +570,18 @@ impl<T: Fact> Stage1Node<T> {
         self.simplify();
         self.dedup();
         self
+    }
+
+    pub fn collect_alpha(&mut self) -> Vec<AlphaNode<T>> {
+        use self::Stage1Node::*;
+        match *self {
+            All(ref mut v) => {
+                v.drain_where(|n| n.is_alpha())
+                    .into_iter()
+                    .map(|n| n.get_alpha()).collect()
+            },
+            _ => unreachable!("collect_alpha on non-all node")
+        }
     }
 }
 

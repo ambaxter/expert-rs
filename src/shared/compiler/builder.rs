@@ -1,16 +1,20 @@
 use super::prelude::Stage1Compile;
 use super::super::nodes::beta::SDynLimit;
 use shared::fact::Fact;
+use shared::nodes::alpha::{IsHashEq, AlphaNode};
 use shared::nodes::beta::BetaNode;
 use shared::compiler::prelude::Stage1Node;
 use runtime::memory::StringCache;
-use shared::compiler::prelude::DeclareNode;
+use shared::compiler::prelude::{DrainWhere, DeclareNode};
 use shared::compiler::id_generator::{IdGenerator, GroupId, StatementId, RuleId};
 use runtime::memory::SymbolId;
 use std::collections::HashSet;
 use std::collections::HashMap;
 use errors::CompileError;
 use std;
+use std::collections::BTreeMap;
+use shared::fact::Getter;
+use shared::nodes::alpha::HashEqField;
 
 struct BuilderContext {
 
@@ -125,7 +129,7 @@ impl StatementGroup {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 struct StatementReq {
-    declares: HashSet<SymbolId>, // HashSet or vec?
+    provides: HashSet<SymbolId>, // HashSet or vec?
     requires: HashSet<SymbolId>
 }
 
@@ -138,8 +142,8 @@ struct ArrayRuleData {
     no_loop: bool,
     agenda: SymbolId,
     current_group: GroupId,
-    statement_groups: HashMap<GroupId, StatementGroup>,
-    statement_requirements: HashMap<StatementId, StatementReq>,
+    statement_groups: BTreeMap<GroupId, StatementGroup>,
+    statement_requirements: BTreeMap<StatementId, StatementReq>,
 }
 
 pub trait BaseBuilder {
@@ -166,7 +170,7 @@ impl BaseBuilder for ArrayBaseBuilder {
         let root_group_id = self.id_generator.group_ids.next();
         let root_group = StatementGroup::all(root_group_id);
 
-        let mut statement_groups: HashMap<GroupId, StatementGroup> = Default::default();
+        let mut statement_groups: BTreeMap<GroupId, StatementGroup> = Default::default();
         statement_groups.insert(root_group_id, root_group);
 
         // NEXT - create group enum & add new one to the set. Need to know parent
@@ -247,15 +251,25 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 
     fn when<T: Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Result<Self, CompileError> {
-        let statement_id = self.base_builder.id_generator.statement_ids.next();
-        let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(node, &mut self.base_builder.cache)?);
-        // TODO: Do prep the node for layout
-        unimplemented!()
+        self.declare_when::<T, &'static str, N>(&[], nodes)
     }
 
     fn declare_when<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
-        let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(node, &mut self.base_builder.cache)?);
+
+        // Retrieve the upfront declarations
+        // TODO - is there a way to do this in one line?
+        let declare_nodes_result: Result<Vec<DeclareNode<SymbolId, Getter<T>>>, CompileError>
+            = declare.iter().map(|d| d.compile(&mut self.base_builder.cache)).collect();
+        let declare_nodes = declare_nodes_result?;
+
+        let mut beta_nodes = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?).clean();
+        let mut alpha_nodes = beta_nodes.collect_alpha();
+        let hasheq_nodes: Vec<HashEqField> = alpha_nodes.drain_where(|n| n.is_hash_eq())
+            .into_iter().map(|n| n.into()).collect();
+
+        // Next TODO - Collect the requires bits from the dynamic limits
+
         // TODO: Do prep the node for layout
         unimplemented!()
     }
@@ -284,20 +298,17 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn for_all_group<T: Fact, N: Stage1Compile<T>>(mut self, node: &[N]) -> Result<Self, CompileError> {
-        let statement_id = self.base_builder.id_generator.statement_ids.next();
-        let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(node, &mut self.base_builder.cache)?);
-        // TODO: Do prep the node for layout
-        let parent_group = self.rule_data.current_group;
-        self.add_new_group(StatementGroup::for_all(parent_group, statement_id));
-        Ok(self)
+    fn for_all_group<T: Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Result<Self, CompileError> {
+        self.declare_for_all_group::<T, &'static str, N>(&[], nodes)
     }
 
     fn declare_for_all_group<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
-        let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(node, &mut self.base_builder.cache)?);
+        let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?);
         // TODO: Do prep the node for layout
-        unimplemented!()
+        let parent_group = self.rule_data.current_group;
+        self.add_new_group(StatementGroup::for_all(parent_group, statement_id));
+        Ok(self)
     }
 
     fn end_group(mut self) -> Result<Self, CompileError> {
