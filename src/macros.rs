@@ -21,15 +21,4 @@ macro_rules! index_id {
     };
 }
 
-macro_rules! into_dest {
-    ($dest: ident; $($id:ident => $sub:ident),+) => {
-        $(
-            impl Into<$dest> for $id {
-                fn into(self) -> $dest {
-                    $dest::$sub(self)
-                }
-            }
-        )*
-    };
-}
 

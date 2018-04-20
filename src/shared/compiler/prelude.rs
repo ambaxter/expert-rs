@@ -24,7 +24,6 @@ use enum_index::EnumIndex;
 use std::cmp::Ordering;
 use shared::nodes::tests::ApplyNot;
 use std::mem;
-use shared::nodes::beta::StringIntern;
 use runtime::memory::SymbolId;
 use shared::fact::Getter;
 use shared::nodes::alpha::AlphaNode;
@@ -430,7 +429,7 @@ impl<T: Fact> Stage1Node<T> {
         }
     }
 
-    fn extract_singleton(mut self) -> Self {
+    fn extract_singleton(self) -> Self {
         use self::Stage1Node::*;
         debug_assert!(self.is_singleton());
         match self {

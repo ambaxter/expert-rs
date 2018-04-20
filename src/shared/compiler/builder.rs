@@ -1,5 +1,4 @@
 use super::prelude::Stage1Compile;
-use super::super::nodes::beta::SDynLimit;
 use shared::fact::Fact;
 use shared::nodes::alpha::{IsHashEq, AlphaNode};
 use shared::nodes::beta::BetaNode;
@@ -249,7 +248,7 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn when<T: Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Result<Self, CompileError> {
+    fn when<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
         self.declare_when::<T, &'static str, N>(&[], nodes)
     }
 
@@ -298,7 +297,7 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn for_all_group<T: Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Result<Self, CompileError> {
+    fn for_all_group<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
         self.declare_for_all_group::<T, &'static str, N>(&[], nodes)
     }
 

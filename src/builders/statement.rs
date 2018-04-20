@@ -136,7 +136,6 @@ pub enum StatementConditions {
 impl StatementConditions {
     pub fn is_hash_eq(&self) -> bool {
         use self::StatementConditions::*;
-        use self::StatementValues::*;
         match self {
             &Eq(_, values) if values.is_hash_eq() => true,
             _ => false

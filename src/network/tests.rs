@@ -5,8 +5,6 @@ use traits::Fact;
 use ordered_float::NotNaN;
 use runtime::memory::SymbolId;
 use num::Float;
-use float_cmp::ApproxEqUlps;
-use runtime::memory::StringCache;
 
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub enum CLimits<T: Hash + Eq + Ord + Clone> {
@@ -128,43 +126,6 @@ pub enum OrdTest {
     GeLe
 }
 
-impl OrdTest {
-    fn test<T: Hash + Eq + Ord + Clone>(&self, val: &T, limits: &CLimits<T>) -> bool {
-        use self::OrdTest::*;
-        use self::CLimits::*;
-        match (self, limits) {
-            (&Ne, &S(ref to)) => {
-                val != to
-            },
-            (&Lt, &S(ref to)) => {
-                val < to
-            },
-            (&Le, &S(ref to)) => {
-                val <= to
-            },
-            (&Gt, &S(ref to)) => {
-                val > to
-            },
-            (&Ge, &S(ref to)) => {
-                val >= to
-            },
-            (&GtLt, &D(ref from, ref to)) => {
-                val > from && val < to
-            },
-            (&GeLt, &D(ref from, ref to)) => {
-                val >= from && val < to
-            },
-            (&GtLe, &D(ref from, ref to)) => {
-                val > from && val <= to
-            },
-            (&GeLe, &D(ref from, ref to)) => {
-                val >= from && val <= to
-            },
-            _ => unreachable!("Unexpected condition test combination.")
-        }
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum FLimits<T: Float> {
     S(NotNaN<T>),
@@ -246,46 +207,6 @@ pub enum FlTest {
     GeLe
 }
 
-impl FlTest {
-    fn test<T: Float>(&self, val: &T, limits: &FLimits<T>) -> bool {
-        use self::FlTest::*;
-        use self::FLimits::*;
-        match (self, limits) {
-            (&ApproxEq, &S(ref to)) => {
-                (val.to_f64().unwrap()).approx_eq_ulps(&to.to_f64().unwrap(), 2)
-            },
-            (&ApproxNe, &S(ref to)) => {
-                (val.to_f64().unwrap()).approx_ne_ulps(&to.to_f64().unwrap(), 2)
-            },
-            (&Lt, &S(ref to)) => {
-                val < to
-            },
-            (&Le, &S(ref to)) => {
-                val <= to
-            },
-            (&Gt, &S(ref to)) => {
-                val > to
-            },
-            (&Ge, &S(ref to)) => {
-                val >= to
-            },
-            (&GtLt, &D(ref from, ref to)) => {
-                val > from && val < to
-            },
-            (&GeLt, &D(ref from, ref to)) => {
-                val >= from && val < to
-            },
-            (&GtLe, &D(ref from, ref to)) => {
-                val > from && val <= to
-            },
-            (&GeLe, &D(ref from, ref to)) => {
-                val >= from && val <= to
-            },
-            _ => unreachable!("Unexpected condition test combination.")
-        }
-    }
-}
-
 #[derive(Clone)]
 pub enum StrData<T: Fact> {
     REF(fn(&T) -> &str, CLimits<SymbolId>),
@@ -341,68 +262,6 @@ pub enum StrTest {
     EndsWith
 }
 
-impl StrTest {
-    fn test<T: Hash + Eq + Ord + Clone>(&self, val: &str, limits: &CLimits<SymbolId>, cache: &StringCache) -> bool {
-        use self::StrTest::*;
-        use self::CLimits::*;
-        match (self, limits) {
-            (&Ne, &S(to)) => {
-                let to_str = cache.resolve(to).unwrap();
-                val != to_str
-            },
-            (&Lt, &S(to)) => {
-                let to_str = cache.resolve(to).unwrap();
-                val < to_str
-            },
-            (&Le, &S(to)) => {
-                let to_str = cache.resolve(to).unwrap();
-                val <= to_str
-            },
-            (&Gt, &S(to)) => {
-                let to_str = cache.resolve(to).unwrap();
-                val > to_str
-            },
-            (&Ge, &S(to)) => {
-                let to_str = cache.resolve(to).unwrap();
-                val >= to_str
-            },
-            (&GtLt, &D(from, to)) => {
-                let from_str = cache.resolve(from).unwrap();
-                let to_str = cache.resolve(to).unwrap();
-                val > from_str && val < to_str
-            },
-            (&GeLt, &D(from, to)) => {
-                let from_str = cache.resolve(from).unwrap();
-                let to_str = cache.resolve(to).unwrap();
-                val >= from_str && val < to_str
-            },
-            (&GtLe, &D(from, to)) => {
-                let from_str = cache.resolve(from).unwrap();
-                let to_str = cache.resolve(to).unwrap();
-                val > from_str && val <= to_str
-            },
-            (&GeLe, &D(from, to)) => {
-                let from_str = cache.resolve(from).unwrap();
-                let to_str = cache.resolve(to).unwrap();
-                val >= from_str && val <= to_str
-            },
-            (&Contains, &S(to)) => {
-                let to_str = cache.resolve(to).unwrap();
-                val.contains(to_str)
-            },
-            (&StartsWith, &S(to)) => {
-                let to_str = cache.resolve(to).unwrap();
-                val.starts_with(to_str)
-            },
-            (&EndsWith, &S(to)) => {
-                let to_str = cache.resolve(to).unwrap();
-                val.ends_with(to_str)
-            },
-            _ => unreachable!("Unexpected condition test combination.")
-        }
-    }
-}
-
 #[derive(Hash, Eq, PartialEq)]
 pub enum AlphaTest<T: Fact> {
     HashEq,
@@ -424,7 +283,7 @@ impl<T: Fact> AlphaTest<T> {
 impl<T: Fact> Debug for AlphaTest<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::AlphaTest::*;
-        write!(f, "Test{{");
+        write!(f, "Test{{")?;
         match self {
             &HashEq => {
                 write!(f, "HashEq")?

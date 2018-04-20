@@ -1,7 +1,5 @@
 use num::{One, Zero, Unsigned};
-use num::zero;
 use std::marker::PhantomData;
-use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct SerialGen<T: Unsigned  + Zero + One + Copy + Into<R>, R> {
@@ -9,7 +7,7 @@ pub struct SerialGen<T: Unsigned  + Zero + One + Copy + Into<R>, R> {
     serial: T
 }
 
-impl<T: Unsigned  + Zero + One + Copy + Into<R>, R> SerialGen<T, R>{
+impl<T: Unsigned + Zero + One + Copy + Into<R>, R> SerialGen<T, R>{
     pub fn new(serial: T) -> SerialGen<T, R> {
         SerialGen{r: PhantomData, serial}
     }
@@ -26,7 +24,7 @@ impl<T: Unsigned  + Zero + One + Copy + Into<R>, R> SerialGen<T, R>{
 }
 
 
-impl<T: Unsigned  + Zero + One + Copy + Into<R>, R> Default for SerialGen<T, R> {
+impl<T: Unsigned + Zero + One + Copy + Into<R>, R> Default for SerialGen<T, R> {
     fn default() -> Self {
         SerialGen::new(T::zero())
     }

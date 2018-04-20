@@ -1,15 +1,10 @@
-use std::hash::Hash;
 use std::marker::PhantomData;
-use std::fmt;
-use std::fmt::Debug;
 use std::rc::Rc;
 use itertools::Itertools;
-use string_interner;
-use string_interner::DefaultStringInterner;
 use std::collections::{HashMap, HashSet};
 use ::serial::SerialGen;
 use ::traits::ReteIntrospection;
-use ::builder::{AlphaTest, ConditionInfo, Rule, KnowledgeBuilder};
+use ::builder::{AlphaTest, ConditionInfo, KnowledgeBuilder};
 use ::network::ids::*;
 use ::builders::ids::{StatementId, RuleId};
 use runtime::memory::{AlphaMemoryId, MemoryId};

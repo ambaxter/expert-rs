@@ -3,7 +3,7 @@ Base test implementations and traits
 */
 
 use ordered_float::NotNaN;
-use float_cmp::{Ulps, ApproxEqUlps};
+use float_cmp::ApproxEqUlps;
 
 /// Updates a test's configuration to apply a not
 pub trait ApplyNot {

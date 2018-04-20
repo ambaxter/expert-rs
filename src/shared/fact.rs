@@ -2,11 +2,10 @@ use std::hash::Hash;
 use std;
 use std::fmt;
 use std::fmt::Debug;
-use std::any::TypeId;
 use ord_subset::OrdVar;
 use decimal::d128;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
-use ::runtime::memory::{StringCache, SymbolId};
+use ::runtime::memory::SymbolId;
 use ordered_float::NotNaN;
 use super::context::BetaContext;
 

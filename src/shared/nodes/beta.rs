@@ -14,7 +14,6 @@ use std::fmt::Debug;
 use string_interner::Symbol;
 use shared::context::BetaContext;
 use super::tests::*;
-use shared::nodes::alpha::AlphaNode;
 use enum_index;
 use enum_index::EnumIndex;
 use std::cmp::Ordering;

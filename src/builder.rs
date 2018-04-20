@@ -1,4 +1,3 @@
-use ::serial::SerialGen;
 use std::marker::PhantomData;
 use ::traits::ReteIntrospection;
 use ::base::KnowledgeBase;
@@ -7,11 +6,8 @@ use ::builders::ids::*;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::collections::{HashMap, HashSet};
-use ordered_float::NotNaN;
-use std::rc::Rc;
 use std::fmt;
 use std::fmt::Debug;
-use std::borrow::Cow;
 
 pub struct ReteIdGenerator {
     rule_ids: RuleIdGen,
@@ -72,26 +68,26 @@ pub struct KnowledgeBuilder<T: ReteIntrospection> {
 impl<T: ReteIntrospection> Debug for KnowledgeBuilder<T>
     where T::HashEq: Debug {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "KBuilder {{");
-        writeln!(f, "  Rules: [");
+        writeln!(f, "KBuilder {{")?;
+        writeln!(f, "  Rules: [")?;
         for rule in self.rules.values() {
-            writeln!(f, "    {:?} - sids: {:?}", self.build_shared.string_repo.resolve(rule.name_sym).unwrap(), rule.statement_ids);
+            writeln!(f, "    {:?} - sids: {:?}", self.build_shared.string_repo.resolve(rule.name_sym).unwrap(), rule.statement_ids)?;
         }
-        writeln!(f, "  ],");
-        writeln!(f, "  Alpha Nodes: [");
+        writeln!(f, "  ],")?;
+        writeln!(f, "  Alpha Nodes: [")?;
         for (root_hash, dependents) in &self.build_shared.condition_map {
             let root_info = dependents.get(&AlphaTest::HashEq).unwrap();
-            writeln!(f, "   -{:?} - sids: {:?}", root_hash, root_info.dependents);
+            writeln!(f, "   -{:?} - sids: {:?}", root_hash, root_info.dependents)?;
             for (test, info) in dependents.iter().filter(|&(t, _)| !t.is_hash_eq()) {
                 writeln!(f, "    +{:?}({:?}) - {:?} - sids: {:?}",
                          info.field_sym.and_then(|s| self.build_shared.string_repo.resolve(s)),
                          info.id,
                          test,
                          info.dependents
-                );
+                )?;
             }
         }
-        writeln!(f, "  ],");
+        writeln!(f, "  ],")?;
         write!(f, "}}")
     }
 }
@@ -196,13 +192,13 @@ impl<T: ReteIntrospection> StatementBuilder<T> {
         self
     }
 
-    pub fn then(mut self) -> RuleBuilder<T> {
+    pub fn then(self) -> RuleBuilder<T> {
         self.collapse_builder()
     }
 
     fn collapse_builder(mut self) -> RuleBuilder<T> {
         let hash_eq = T::create_hash_eq(&self.conditions, &self.rule_builder.get_shared().string_repo);
-        let (mut conditions, mut rule_builder) = (self.conditions, self.rule_builder);
+        let (conditions, mut rule_builder) = (self.conditions, self.rule_builder);
 
         if !conditions.is_empty() {
             let statement_id = {
@@ -335,7 +331,7 @@ impl<T: ReteIntrospection> AlphaTest<T> {
 impl<T: ReteIntrospection> Debug for AlphaTest<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::AlphaTest::*;
-        write!(f, "Test{{");
+        write!(f, "Test{{")?;
         match self {
             &HashEq => {
                 write!(f, "HashEq")?;
@@ -484,84 +480,4 @@ pub enum OrdTest {
     GeLe
 }
 
-impl OrdTest {
 
-    fn test<T: Hash + Eq + Ord + Clone>(&self, val: &T, limits: &CLimits<T>) -> bool {
-        use self::OrdTest::*;
-        use self::CLimits::*;
-        match (self, limits) {
-            (&Lt, &S(ref to)) => {
-                val < to
-            },
-            (&Le, &S(ref to)) => {
-                val <= to
-            },
-            (&Gt, &S(ref to)) => {
-                val > to
-            },
-            (&Ge, &S(ref to)) => {
-                val >= to
-            },
-            (&GtLt, &D(ref from, ref to)) => {
-                val > from && val < to
-            },
-            (&GeLt, &D(ref from, ref to)) => {
-                val >= from && val < to
-            },
-            (&GtLe, &D(ref from, ref to)) => {
-                val > from && val <= to
-            },
-            (&GeLe, &D(ref from, ref to)) => {
-                val >= from && val <= to
-            },
-            _ => unreachable!("Unexpected condition test combination.")
-        }
-    }
-}
-
-
-/*
-
-impl<T: ReteIntrospection> Debug for ConditionTest<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use self::ConditionTest::*;
-        write!(f, "Test{{");
-        match self {
-            &HashEq => {
-                write!(f, "HashEq");
-            },
-            &Lt{to, closed, ..} => {
-                if closed {
-                    write!(f, "[0,{:?}]", to);
-                } else {
-                    write!(f, "[0,{:?})", to);
-                }
-            },
-            &Gt{from, closed, ..} => {
-                if closed {
-                    write!(f, "[{:?},∞]", from);
-                } else {
-                    write!(f, "({:?},∞]", from);
-                }
-            },
-            &Btwn{from, from_closed, to, to_closed, ..} => {
-                match (from_closed, to_closed) {
-                    (false, false) => {
-                        write!(f, "({:?},{:?})", from, to);
-                    },
-                    (false, true) => {
-                        write!(f, "({:?},{:?}]", from, to);
-                    }
-                    (true, false) => {
-                        write!(f, "[{:?},{:?})", from, to);
-                    },
-                    (true, true) => {
-                        write!(f, "[{:?},{:?}]", from, to);
-                    }
-                }
-            }
-        }
-        write!(f, "}}")
-    }
-}
-*/
