@@ -178,11 +178,6 @@ fn main() {
     use ordered_float::NotNaN;
     use expert::runtime::memory::SymbolId;
 
-    println!("TestData: {:?}", std::mem::size_of::<expert::network::node_cmp::TestData<Aspect>>());
-    println!("StrTest: {:?}", std::mem::size_of::<expert::network::node_cmp::StrTest<SymbolId>>());
-    println!("FlTest: {:?}", std::mem::size_of::<expert::network::node_cmp::FlTest<NotNaN<f64>>>());
-    println!("NumTest: {:?}", std::mem::size_of::<expert::network::node_cmp::NumTest<usize>>());
-
     println!("New AlphaNode: {:?}", std::mem::size_of::<expert::shared::nodes::alpha::AlphaNode<ATestAspect>>());
     println!("New BetaNode: {:?}", std::mem::size_of::<expert::shared::nodes::beta::BetaNode<ATestAspect>>());
 
