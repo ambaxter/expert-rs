@@ -55,8 +55,8 @@ pub trait MapAll<T, U> {
         where F: FnMut(&T) -> U;
 }
 
-pub trait CollectSymbols {
-    fn collect_symbols(&self, symbols: &mut HashSet<SymbolId>);
+pub trait CollectRequired {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>);
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -154,8 +154,8 @@ impl<T, U> MapAll<T, U> for SLimit<T, T> {
     }
 }
 
-impl<T> CollectSymbols for SLimit<T, SymbolId> {
-    fn collect_symbols(&self, symbols: &mut HashSet<SymbolId>) {
+impl<T> CollectRequired for SLimit<T, SymbolId> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
         use self::SLimit::*;
         match *self {
             Dyn(ref s) => {symbols.insert(*s);},
@@ -273,8 +273,8 @@ impl<T, U> MapAll<T, U> for DLimit<T, T> {
     }
 }
 
-impl<T> CollectSymbols for DLimit<T, SymbolId> {
-    fn collect_symbols(&self, symbols: &mut HashSet<SymbolId>) {
+impl<T> CollectRequired for DLimit<T, SymbolId> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
         use self::DLimit::*;
         match *self {
             StDyn(_, ref s_to) => {symbols.insert(*s_to);},
@@ -339,6 +339,15 @@ impl BetaTestField<bool> for BoolTest<SymbolId> {
         use self::BoolTest::*;
         match self {
             &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context)
+        }
+    }
+}
+
+impl CollectRequired for BoolTest<SymbolId> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::BoolTest::*;
+        match *self {
+            Eq(.., ref limit) => limit.collect_required(symbols)
         }
     }
 }
@@ -413,6 +422,17 @@ macro_rules! beta_number_test {
                     }
                 }
             }
+
+            impl CollectRequired for $test<SymbolId> {
+                fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+                    use self::$test::*;
+                    match *self {
+                        Ord(.., ref limit) => limit.collect_required(symbols),
+                        Btwn(.., ref limit) => limit.collect_required(symbols),
+                        Eq(.., ref limit) => limit.collect_required(symbols)
+                    }
+                }
+            }
         )*
     };
 }
@@ -484,6 +504,17 @@ macro_rules! beta_float_test {
                         &Btwn(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
                         &ApproxEq(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
 
+                    }
+                }
+            }
+
+            impl CollectRequired for $test<SymbolId> {
+                fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+                    use self::$test::*;
+                    match *self {
+                        Ord(.., ref limit) => limit.collect_required(symbols),
+                        Btwn(.., ref limit) => limit.collect_required(symbols),
+                        ApproxEq(.., ref limit) => limit.collect_required(symbols)
                     }
                 }
             }
@@ -591,6 +622,19 @@ impl BetaTestField<str> for StrTest<SymbolId> {
     }
 }
 
+impl CollectRequired for StrTest<SymbolId> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::StrTest::*;
+        match *self {
+            Ord(.., ref limit) => limit.collect_required(symbols),
+            Btwn(.., ref limit) => limit.collect_required(symbols),
+            Eq(.., ref limit) => limit.collect_required(symbols),
+            Str(.., ref limit) => limit.collect_required(symbols),
+        }
+    }
+}
+
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum TimeTest<S> {
     Ord(Truth, OrdTest, SLimit<NaiveTime, S>),
@@ -657,6 +701,18 @@ impl BetaTestField<NaiveTime> for TimeTest<SymbolId> {
     }
 }
 
+impl CollectRequired for TimeTest<SymbolId> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::TimeTest::*;
+        match *self {
+            Ord(.., ref limit) => limit.collect_required(symbols),
+            Btwn(.., ref limit) => limit.collect_required(symbols),
+            Eq(.., ref limit) => limit.collect_required(symbols)
+        }
+    }
+}
+
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DateTest<S> {
     Ord(Truth, OrdTest, SLimit<Date<Utc>, S>),
@@ -719,6 +775,17 @@ impl BetaTestField<Date<Utc>> for DateTest<SymbolId> {
             &Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
             &Btwn(truth, ref test, ref limit) =>limit.test_field_ref(&(truth, test), value, context),
             &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context)
+        }
+    }
+}
+
+impl CollectRequired for DateTest<SymbolId> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::DateTest::*;
+        match *self {
+            Ord(.., ref limit) => limit.collect_required(symbols),
+            Btwn(.., ref limit) => limit.collect_required(symbols),
+            Eq(.., ref limit) => limit.collect_required(symbols)
         }
     }
 }
@@ -787,6 +854,17 @@ impl BetaTestField<DateTime<Utc>> for DateTimeTest<SymbolId> {
             &Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
             &Btwn(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
             &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context)
+        }
+    }
+}
+
+impl CollectRequired for DateTimeTest<SymbolId> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::DateTimeTest::*;
+        match *self {
+            Ord(.., ref limit) => limit.collect_required(symbols),
+            Btwn(.., ref limit) => limit.collect_required(symbols),
+            Eq(.., ref limit) => limit.collect_required(symbols)
         }
     }
 }
@@ -1327,6 +1405,35 @@ impl<T: Fact> ApplyNot for BetaNode<T> {
         }
     }
 }
+
+impl<T:Fact> CollectRequired for BetaNode<T> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::BetaNode::*;
+        match self {
+            &ALL => unreachable!("collect_required on ALL"),
+            &NOTALL => unreachable!("collect_required on NOTALL"),
+            &ANY => unreachable!("collect_required on ANY"),
+            &NOTANY => unreachable!("collect_required on NOTANY"),
+            &BOOL(_, test) => test.collect_required(symbols),
+            &I8(_, test) => test.collect_required(symbols),
+            &I16(_, test) => test.collect_required(symbols),
+            &I32(_, test) => test.collect_required(symbols),
+            &I64(_, test) => test.collect_required(symbols),
+            &U8(_, test) => test.collect_required(symbols),
+            &U16(_, test) => test.collect_required(symbols),
+            &U32(_, test) => test.collect_required(symbols),
+            &U64(_, test) => test.collect_required(symbols),
+            &F32(_, test) => test.collect_required(symbols),
+            &F64(_, test) => test.collect_required(symbols),
+            &D128(_, test) => test.collect_required(symbols),
+            &STR(_, test) => test.collect_required(symbols),
+            &TIME(_, test) => test.collect_required(symbols),
+            &DATE(_, test) => test.collect_required(symbols),
+            &DATETIME(_, test) => test.collect_required(symbols),
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
