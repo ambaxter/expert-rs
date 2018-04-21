@@ -8,6 +8,8 @@ use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ::runtime::memory::SymbolId;
 use ordered_float::NotNaN;
 use super::context::BetaContext;
+use runtime::memory::StringCache;
+use shared::nodes::alpha::HashEqField;
 
 #[derive(Copy, Clone)]
 pub enum Getter<I: Fact> {
@@ -59,8 +61,10 @@ pub trait Fact: Eq + Hash
     where Self: std::marker::Sized {
 
     type HashEq: Hash + Eq + Clone + Debug;
+
     fn getter(field: &str) -> Option<Getter<Self>>;
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
+    fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq;
 }
 
 pub trait FactField {}

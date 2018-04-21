@@ -113,6 +113,7 @@ impl<S: AsRef<str>, T: Fact> Stage1Compile<T> for VecNodes<S> {
 mod tests {
     use shared::fact::{Fact, Getter};
     use super::*;
+    use shared::nodes::alpha::HashEqField;
 
     #[derive(Clone, Hash, Eq, PartialEq, Debug)]
     struct Dummy {
@@ -136,6 +137,10 @@ mod tests {
         }
 
         fn exhaustive_hash(&self) -> Box<Iterator<Item=<Self as Fact>::HashEq>> {
+            unimplemented!()
+        }
+
+        fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq {
             unimplemented!()
         }
     }

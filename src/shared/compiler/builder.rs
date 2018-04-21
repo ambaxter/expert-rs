@@ -5,7 +5,7 @@ use shared::nodes::beta::{CollectRequired, BetaNode};
 use shared::compiler::prelude::Stage1Node;
 use runtime::memory::StringCache;
 use shared::compiler::prelude::{DrainWhere, DeclareNode};
-use shared::compiler::id_generator::{IdGenerator, GroupId, StatementId, RuleId};
+use shared::compiler::id_generator::{IdGenerator, GroupId, StatementId, ConditionId, RuleId};
 use runtime::memory::SymbolId;
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -14,6 +14,7 @@ use std;
 use std::collections::BTreeMap;
 use shared::fact::Getter;
 use shared::nodes::alpha::HashEqField;
+use mopa;
 
 struct BuilderContext {
 
@@ -153,9 +154,31 @@ pub trait BaseBuilder {
     fn end(self) -> Self::KB;
 }
 
+struct ConditionInfo {
+    condition_id: ConditionId,
+    dependents: HashSet<StatementId>,
+}
+
+trait CompileAlpha: mopa::Any {}
+
+mopafy!(CompileAlpha);
+
+trait CompileBeta {
+
+}
+
+impl ConditionInfo {
+    fn new(condition_id: ConditionId, dependent: StatementId) -> ConditionInfo {
+        let mut dependents = HashSet::new();
+        dependents.insert(dependent);
+        ConditionInfo{ condition_id, dependents }
+    }
+}
+
 pub struct ArrayBaseBuilder {
     id_generator: IdGenerator,
     cache: StringCache,
+    alpha_map: MopaMap<CompileAlpha>,
 }
 
 impl BaseBuilder for ArrayBaseBuilder {
@@ -383,6 +406,10 @@ mod tests {
         }
 
         fn exhaustive_hash(&self) -> Box<Iterator<Item=<Self as Fact>::HashEq>> {
+            unimplemented!()
+        }
+
+        fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq {
             unimplemented!()
         }
     }

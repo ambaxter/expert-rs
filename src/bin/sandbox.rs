@@ -20,6 +20,7 @@ use expert::runtime::memory::StringCache;
 use expert::iter::OptionIter;
 use expert::traits::ReteIntrospection;
 use expert::traits::{Introspect, Fact, Getters, FieldValue};
+use expert::shared::nodes::alpha::HashEqField;
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 struct Aspect {
@@ -169,6 +170,10 @@ impl expert::shared::fact::Fact for ATestAspect {
     }
 
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>> {
+        unimplemented!()
+    }
+
+    fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq {
         unimplemented!()
     }
 }
