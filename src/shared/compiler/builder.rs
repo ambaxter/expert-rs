@@ -1,7 +1,7 @@
 use super::prelude::Stage1Compile;
 use shared::fact::Fact;
 use shared::nodes::alpha::{IsHashEq, AlphaNode};
-use shared::nodes::beta::BetaNode;
+use shared::nodes::beta::{CollectRequired, BetaNode};
 use shared::compiler::prelude::Stage1Node;
 use runtime::memory::StringCache;
 use shared::compiler::prelude::{DrainWhere, DeclareNode};
@@ -261,13 +261,15 @@ impl RuleBuilder for ArrayRuleBuilder {
             = declare.iter().map(|d| d.compile(&mut self.base_builder.cache)).collect();
         let declare_nodes = declare_nodes_result?;
 
+        // TODO - low hanging fruit to do this without all of the extra allocations
         let mut beta_nodes = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?).clean();
         let mut alpha_nodes = beta_nodes.collect_alpha();
         let hasheq_nodes: Vec<HashEqField> = alpha_nodes.drain_where(|n| n.is_hash_eq())
             .into_iter().map(|n| n.into()).collect();
 
         // Next TODO - Collect the requires bits from the dynamic limits
-        //CollectSymbols
+        let mut required_symbols = Default::default();
+        beta_nodes.collect_required(&mut required_symbols);
 
         // TODO: Do prep the node for layout
         unimplemented!()

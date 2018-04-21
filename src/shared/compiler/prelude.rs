@@ -27,6 +27,8 @@ use std::mem;
 use runtime::memory::SymbolId;
 use shared::fact::Getter;
 use shared::nodes::alpha::AlphaNode;
+use shared::nodes::beta::CollectRequired;
+use std::collections::HashSet;
 
 pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}
@@ -580,6 +582,19 @@ impl<T: Fact> Stage1Node<T> {
                     .map(|n| n.get_alpha()).collect()
             },
             _ => unreachable!("collect_alpha on non-all node")
+        }
+    }
+}
+
+impl<T: Fact> CollectRequired for Stage1Node<T> {
+    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+        use self::Stage1Node::*;
+        match *self {
+            T(ref node) => node.collect_required(symbols),
+            Any(ref nodes) => nodes.iter().for_each(|n| n.collect_required(symbols)),
+            NotAny(ref nodes) => nodes.iter().for_each(|n| n.collect_required(symbols)),
+            All(ref nodes) => nodes.iter().for_each(|n| n.collect_required(symbols)),
+            NotAll(ref nodes) => nodes.iter().for_each(|n| n.collect_required(symbols)),
         }
     }
 }
