@@ -1,4 +1,4 @@
-use super::prelude::Stage1Compile;
+use super::super::prelude::Stage1Compile;
 use shared::fact::Fact;
 use shared::nodes::alpha::{IsHashEq, AlphaNode};
 use shared::nodes::beta::{CollectRequired, BetaNode};
@@ -14,35 +14,8 @@ use std;
 use std::collections::BTreeMap;
 use shared::fact::Getter;
 use shared::nodes::alpha::HashEqField;
-use mopa;
+use super::{ConsequenceBuilder, KnowledgeBase, BaseBuilder, RuleBuilder};
 
-struct BuilderContext {
-
-}
-
-// Have a single KnowledgeBuilder trait
-// Have a single RuleBuilder trait
-// Have a single Struct that implements both traits
-// it switches between the two traits via impl trait on the entrance and exit functions
-// stores current rule_id (0 by default)
-// fetches each rule during modification (set name, salience, other options)
-//
-//pub struct KnowledgeBaseBuilder {
-//
-//}
-//
-//pub struct RuleBuilder {
-//    cache: StringCache,
-//}
-//
-//impl RuleBuilder {
-//
-//    pub fn when<T:Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> RuleBuilder {
-//        Stage1Node::All(N::stage1_compile_slice(nodes, &mut self.cache).unwrap()).clean();
-//        self
-//    }
-//
-//}
 
 // TODO Beta compile
 /*
@@ -60,9 +33,6 @@ struct BuilderContext {
   * Arrays will remember their rules
 */
 
-pub trait KnowledgeBase {
-
-}
 
 pub struct ArrayKnowledgeBase {
 
@@ -146,25 +116,10 @@ struct ArrayRuleData {
     statement_requirements: BTreeMap<StatementId, StatementReq>,
 }
 
-pub trait BaseBuilder {
-    type RB: RuleBuilder;
-    type KB: KnowledgeBase;
-
-    fn rule<S: AsRef<str>>(self, name: S) -> Self::RB;
-    fn end(self) -> Self::KB;
-}
 
 struct ConditionInfo {
     condition_id: ConditionId,
     dependents: HashSet<StatementId>,
-}
-
-trait CompileAlpha: mopa::Any {}
-
-mopafy!(CompileAlpha);
-
-trait CompileBeta {
-
 }
 
 impl ConditionInfo {
@@ -178,7 +133,6 @@ impl ConditionInfo {
 pub struct ArrayBaseBuilder {
     id_generator: IdGenerator,
     cache: StringCache,
-    alpha_map: MopaMap<CompileAlpha>,
 }
 
 impl BaseBuilder for ArrayBaseBuilder {
@@ -215,27 +169,8 @@ impl BaseBuilder for ArrayBaseBuilder {
     }
 }
 
-pub trait RuleBuilder {
-    type CB: ConsequenceBuilder;
 
-    fn salience(self, salience: i32) -> Self;
-    fn agenda<S: AsRef<str>>(self, agenda: S) -> Self;
-    fn no_loop(self, no_loop: bool) -> Self;
-    fn when<T:Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError>
-        where Self: std::marker::Sized;
-    fn declare_when<T:Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
-        where Self: std::marker::Sized;
-    fn all_group(self) -> Self;
-    fn any_group(self) -> Self;
-    fn exists_group(self) -> Self;
-    fn not_group(self) -> Self;
-    fn for_all_group<T:Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Result<Self, CompileError>
-        where Self: std::marker::Sized;
-    fn declare_for_all_group<T:Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
-        where Self: std::marker::Sized;
-    fn end_group(self) -> Result<Self, CompileError> where Self: std::marker::Sized;
-    fn then(self) -> Self::CB;
-}
+
 
 pub struct ArrayRuleBuilder {
     rule_data: ArrayRuleData,
@@ -281,7 +216,7 @@ impl RuleBuilder for ArrayRuleBuilder {
         // Retrieve the upfront declarations
         // TODO - is there a way to do this in one line?
         let declare_nodes_result: Result<Vec<DeclareNode<SymbolId, Getter<T>>>, CompileError>
-            = declare.iter().map(|d| d.compile(&mut self.base_builder.cache)).collect();
+        = declare.iter().map(|d| d.compile(&mut self.base_builder.cache)).collect();
         let declare_nodes = declare_nodes_result?;
 
         // TODO - low hanging fruit to do this without all of the extra allocations
@@ -353,14 +288,12 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 }
 
+
+
 struct ArrayConsequenceData {
 
 }
 
-pub trait ConsequenceBuilder {
-    type BB: BaseBuilder;
-    fn end(self) -> Self::BB;
-}
 
 pub struct ArrayConsequenceBuilder {
     rule_data: ArrayRuleData,
@@ -373,53 +306,5 @@ impl ConsequenceBuilder for ArrayConsequenceBuilder {
 
     fn end(self) -> Self::BB {
         self.base_builder
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use shared::fact::{Fact, Getter};
-    use super::*;
-    use super::super::as_ref::*;
-    use runtime::memory::StringCache;
-    use shared::compiler::prelude::Stage1Node;
-
-    #[derive(Clone, Hash, Eq, PartialEq, Debug)]
-    struct Dummy {
-        d: u64
-    }
-
-    impl Dummy {
-        fn get_d(&self) -> &u64 {
-            &self.d
-        }
-    }
-
-    impl Fact for Dummy {
-        type HashEq = ();
-
-        fn getter(field: &str) -> Option<Getter<Self>> {
-            match field {
-                "d" => Some(Getter::U64(Dummy::get_d)),
-                _ => unimplemented!()
-            }
-        }
-
-        fn exhaustive_hash(&self) -> Box<Iterator<Item=<Self as Fact>::HashEq>> {
-            unimplemented!()
-        }
-
-        fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq {
-            unimplemented!()
-        }
-    }
-
-    #[test]
-    pub fn as_ref_test() {
-//        let cache = StringCache::new();
-//        let b = RuleBuilder{cache}
-//            .when::<Dummy, _>(&all(
-//                &[not(any(&[eq("d", 6u64)])), all(&[le("d", 64u64), le("d", dyn("ab"))])]
-//            ));
     }
 }
