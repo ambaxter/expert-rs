@@ -4,8 +4,6 @@ use shared::compiler::prelude::{DrainWhere, DeclareNode};
 use std;
 use shared::fact::Fact;
 
-pub mod array;
-
 // Have a single KnowledgeBuilder trait
 // Have a single RuleBuilder trait
 // Have a single Struct that implements both traits

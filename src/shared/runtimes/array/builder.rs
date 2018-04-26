@@ -1,4 +1,3 @@
-use super::super::prelude::Stage1Compile;
 use shared::fact::Fact;
 use shared::nodes::alpha::{IsHashEq, AlphaNode};
 use shared::nodes::beta::{CollectRequired, BetaNode};
@@ -14,10 +13,14 @@ use std;
 use std::collections::BTreeMap;
 use shared::fact::Getter;
 use shared::nodes::alpha::HashEqField;
-use super::{ConsequenceBuilder, KnowledgeBase, BaseBuilder, RuleBuilder};
 use std::any::Any as StdAny;
 use anymap::any::{IntoBox, Any, UncheckedAnyExt};
 use anymap::Map;
+use shared::compiler::builder::BaseBuilder;
+use shared::compiler::builder::RuleBuilder;
+use shared::compiler::prelude::Stage1Compile;
+use shared::compiler::builder::ConsequenceBuilder;
+use shared::compiler::builder::KnowledgeBase;
 
 // TODO Beta compile
 /*
@@ -290,7 +293,7 @@ impl RuleBuilder for ArrayRuleBuilder {
         // Retrieve the upfront declarations
         // TODO - is there a way to do this in one line?
         let declare_nodes_result: Result<Vec<DeclareNode<SymbolId, Getter<T>>>, CompileError>
-            = declare.iter()
+        = declare.iter()
             .map(|d| d.compile(&mut self.base_builder.cache))
             .collect();
         let declare_nodes = declare_nodes_result?;
