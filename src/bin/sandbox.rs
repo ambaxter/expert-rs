@@ -183,7 +183,12 @@ fn main() {
     use expert::builder::KnowledgeBuilder;
 
     println!("New AlphaNode: {:?}", std::mem::size_of::<expert::shared::nodes::alpha::AlphaNode<ATestAspect>>());
+    println!("New AlphaGroup: {:?}", std::mem::size_of::<expert::shared::runtimes::array::runtime::AlphaNodeData>());
+
     println!("New BetaNode: {:?}", std::mem::size_of::<expert::shared::nodes::beta::BetaNode<ATestAspect>>());
+    println!("New BetaGroup: {:?}", std::mem::size_of::<expert::shared::runtimes::array::runtime::BetaNodeData>());
+
+
 
     let default = vec![false, true, false];
     let mut test_into = Vec::with_capacity(default.len());

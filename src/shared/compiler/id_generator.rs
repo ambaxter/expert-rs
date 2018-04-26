@@ -55,8 +55,9 @@ macro_rules! id_generator {
 id_generator!(
     RuleId => RuleIdGen => rule_ids,
     StatementId => StatementIdGen => statement_ids,
-    GroupId => GroupIdGen => group_ids,
+    StatementGroupId => StatementGroupIdGen => statement_group_ids,
     ConditionId => ConditionIdGen => condition_ids,
+    ConditionGroupId => ConditionGroupIdGen => condition_group_ids,
     HashEqId => HashEqIdGen => hasheq_ids,
     AlphaId => AlphaIdGen => alpha_ids,
     BetaId => BetaIdGen => beta_ids

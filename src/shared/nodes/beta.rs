@@ -1195,10 +1195,6 @@ impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
 
 #[derive(Copy, Clone, EnumIndex)]
 pub enum BetaNode<T: Fact> {
-    ANY,
-    NOTANY,
-    ALL,
-    NOTALL,
     BOOL(fn(&T) -> &bool, BoolTest<SymbolId>),
     I8(fn(&T) -> &i8, I8Test<SymbolId>),
     I16(fn(&T) -> &i16, I16Test<SymbolId>),
@@ -1232,10 +1228,6 @@ macro_rules! beta_hash {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::BetaNode::*;
                     match self {
-                    ALL => self.enum_index().hash(state),
-                    NOTALL => self.enum_index().hash(state),
-                    ANY => self.enum_index().hash(state),
-                    NOTANY => self.enum_index().hash(state),
                     $ ( & $ t(getter, ref test) => Self::hash_self(self.enum_index(), getter as usize, test, state),
                     )*
                 }
@@ -1259,10 +1251,6 @@ macro_rules! beta_eq {
             fn eq(&self, other: &Self) -> bool {
                 use self::BetaNode::*;
                     match (self, other) {
-                    (ANY, ANY) => true,
-                    (NOTANY, NOTANY) => true,
-                    (ALL, ALL) => true,
-                    (NOTALL, NOTALL) => true,
                     $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
                         (getter1 as usize) == (getter2 as usize) && test1 == test2
                     },)*
@@ -1290,10 +1278,6 @@ macro_rules! beta_ord {
             fn cmp(&self, other: &Self) -> Ordering {
             use self::BetaNode::*;
                 match(self, other) {
-                    (ANY, ANY) => Ordering::Equal,
-                    (NOTANY, NOTANY) => Ordering::Equal,
-                    (ALL, ALL) => Ordering::Equal,
-                    (NOTALL, NOTALL) => Ordering::Equal,
                     $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
                         (getter1 as usize).cmp(&(getter2 as usize)).then_with(|| test1.cmp(test2))
                     },)*
@@ -1325,10 +1309,6 @@ impl<I: Fact> Debug for BetaNode<I> {
         use self::BetaNode::*;
         write!(f, "Getter(")?;
         match self {
-            &ALL => write!(f, "ALL")?,
-            &NOTALL => write!(f, "NOTALL")?,
-            &ANY => write!(f, "ANY")?,
-            &NOTANY => write!(f, "NOTANY")?,
             &BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", getter as usize, test)?,
             &I8(getter, test) => write!(f, "I8({:#x}) - {:?}", getter as usize, test)?,
             &I16(getter, test) => write!(f, "I16({:#x}) - {:?}", getter as usize, test)?,
@@ -1354,10 +1334,6 @@ impl<T:Fact> IsAlpha for BetaNode<T> {
     fn is_alpha(&self) -> bool {
         use self::BetaNode::*;
         match self {
-            &ALL => unreachable!("Asking ALL if it can be turned into a HashEq"),
-            &NOTALL => unreachable!("Asking NOTALL if it can be turned into a HashEq"),
-            &ANY => unreachable!("Asking ANY if it can be turned into a HashEq"),
-            &NOTANY => unreachable!("Asking NOTANY if it can be turned into a HashEq"),
             &BOOL(_, test) => test.is_alpha(),
             &I8(_, test) => test.is_alpha(),
             &I16(_, test) => test.is_alpha(),
@@ -1382,10 +1358,6 @@ impl<T: Fact> ApplyNot for BetaNode<T> {
     fn apply_not(&mut self) {
         use self::BetaNode::*;
         match *self {
-            ALL => *self = NOTALL,
-            NOTALL => *self = ALL,
-            ANY => *self = NOTANY,
-            NOTANY => *self = ANY,
             BOOL(_, ref mut test) => test.apply_not(),
             I8(_, ref mut test) => test.apply_not(),
             I16(_, ref mut test) => test.apply_not(),
@@ -1410,10 +1382,6 @@ impl<T:Fact> CollectRequired for BetaNode<T> {
     fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
         use self::BetaNode::*;
         match self {
-            &ALL => unreachable!("collect_required on ALL"),
-            &NOTALL => unreachable!("collect_required on NOTALL"),
-            &ANY => unreachable!("collect_required on ANY"),
-            &NOTANY => unreachable!("collect_required on NOTANY"),
             &BOOL(_, test) => test.collect_required(symbols),
             &I8(_, test) => test.collect_required(symbols),
             &I16(_, test) => test.collect_required(symbols),

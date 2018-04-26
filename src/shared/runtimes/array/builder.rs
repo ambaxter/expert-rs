@@ -4,7 +4,7 @@ use shared::nodes::beta::{CollectRequired, BetaNode};
 use shared::compiler::prelude::Stage1Node;
 use runtime::memory::StringCache;
 use shared::compiler::prelude::{DrainWhere, DeclareNode};
-use shared::compiler::id_generator::{IdGenerator, GroupId, StatementId, ConditionId, RuleId};
+use shared::compiler::id_generator::{IdGenerator, StatementGroupId, StatementId, ConditionId, RuleId};
 use runtime::memory::SymbolId;
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -13,7 +13,6 @@ use std;
 use std::collections::BTreeMap;
 use shared::fact::Getter;
 use shared::nodes::alpha::HashEqField;
-use std::any::Any as StdAny;
 use anymap::any::{IntoBox, Any, UncheckedAnyExt};
 use anymap::Map;
 use shared::compiler::builder::BaseBuilder;
@@ -49,39 +48,39 @@ impl KnowledgeBase for ArrayKnowledgeBase {}
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 enum StatementGroupEntry {
     Statement(StatementId),
-    Child(GroupId),
+    Child(StatementGroupId),
 }
 
 enum StatementGroup {
-    All(GroupId, Vec<StatementGroupEntry>),
-    Any(GroupId, Vec<StatementGroupEntry>),
-    Exists(GroupId, Vec<StatementGroupEntry>),
-    NotAll(GroupId, Vec<StatementGroupEntry>),
-    ForAll(GroupId, StatementId, Vec<StatementGroupEntry>),
+    All(StatementGroupId, Vec<StatementGroupEntry>),
+    Any(StatementGroupId, Vec<StatementGroupEntry>),
+    Exists(StatementGroupId, Vec<StatementGroupEntry>),
+    NotAll(StatementGroupId, Vec<StatementGroupEntry>),
+    ForAll(StatementGroupId, StatementId, Vec<StatementGroupEntry>),
 }
 
 impl StatementGroup {
-    fn all(parent: GroupId) -> StatementGroup {
+    fn all(parent: StatementGroupId) -> StatementGroup {
         StatementGroup::All(parent, Vec::new())
     }
 
-    fn any(parent: GroupId) -> StatementGroup {
+    fn any(parent: StatementGroupId) -> StatementGroup {
         StatementGroup::Any(parent, Vec::new())
     }
 
-    fn exists(parent: GroupId) -> StatementGroup {
+    fn exists(parent: StatementGroupId) -> StatementGroup {
         StatementGroup::Exists(parent, Vec::new())
     }
 
-    fn not_all(parent: GroupId) -> StatementGroup {
+    fn not_all(parent: StatementGroupId) -> StatementGroup {
         StatementGroup::NotAll(parent, Vec::new())
     }
 
-    fn for_all(parent: GroupId, statement: StatementId) -> StatementGroup {
+    fn for_all(parent: StatementGroupId, statement: StatementId) -> StatementGroup {
         StatementGroup::ForAll(parent, statement, Vec::new())
     }
 
-    fn parent(&self) -> GroupId {
+    fn parent(&self) -> StatementGroupId {
         match *self {
             StatementGroup::All(parent, _) => parent,
             StatementGroup::Any(parent, _) => parent,
@@ -116,8 +115,8 @@ struct ArrayRuleData {
     salience: i32,
     no_loop: bool,
     agenda: SymbolId,
-    current_group: GroupId,
-    statement_groups: BTreeMap<GroupId, StatementGroup>,
+    current_group: StatementGroupId,
+    statement_groups: BTreeMap<StatementGroupId, StatementGroup>,
     statement_requirements: BTreeMap<StatementId, StatementReq>,
 }
 
@@ -220,10 +219,10 @@ impl BaseBuilder for ArrayBaseBuilder {
         let id = self.id_generator.rule_ids.next();
         let name_symbol = self.cache.get_or_intern(name.as_ref());
         let agenda_symbol = self.cache.get_or_intern("MAIN");
-        let root_group_id = self.id_generator.group_ids.next();
+        let root_group_id = self.id_generator.statement_group_ids.next();
         let root_group = StatementGroup::all(root_group_id);
 
-        let mut statement_groups: BTreeMap<GroupId, StatementGroup> = Default::default();
+        let mut statement_groups: BTreeMap<StatementGroupId, StatementGroup> = Default::default();
         statement_groups.insert(root_group_id, root_group);
 
         ArrayRuleBuilder {
@@ -256,7 +255,7 @@ pub struct ArrayRuleBuilder {
 
 impl ArrayRuleBuilder {
     fn add_new_group(&mut self, new_group: StatementGroup) {
-        let new_group_id = self.base_builder.id_generator.group_ids.next();
+        let new_group_id = self.base_builder.id_generator.statement_group_ids.next();
         let parent_id = new_group.parent();
         self.rule_data.statement_groups.get_mut(&parent_id).unwrap().push(StatementGroupEntry::Child(new_group_id));
         self.rule_data.statement_groups.insert(new_group_id, new_group);
