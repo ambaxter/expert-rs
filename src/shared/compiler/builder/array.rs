@@ -15,7 +15,9 @@ use std::collections::BTreeMap;
 use shared::fact::Getter;
 use shared::nodes::alpha::HashEqField;
 use super::{ConsequenceBuilder, KnowledgeBase, BaseBuilder, RuleBuilder};
-
+use std::any::Any as StdAny;
+use anymap::any::{IntoBox, Any, UncheckedAnyExt};
+use anymap::Map;
 
 // TODO Beta compile
 /*
@@ -27,7 +29,7 @@ use super::{ConsequenceBuilder, KnowledgeBase, BaseBuilder, RuleBuilder};
   * take the most shared child
   * iterate parents' children to determine the set of most shared children
   * create a new intermediate node between the parent and the children. Update their information as necessary
-  * continue until no more nodes are shared (up to what point?)
+  * continue until no more nodes are shared (up to cd twhat point?)
 
   * Rules will remember their entry point
   * Arrays will remember their rules
@@ -123,16 +125,88 @@ struct ConditionInfo {
 }
 
 impl ConditionInfo {
-    fn new(condition_id: ConditionId, dependent: StatementId) -> ConditionInfo {
-        let mut dependents = HashSet::new();
-        dependents.insert(dependent);
-        ConditionInfo{ condition_id, dependents }
+    fn new(condition_id: ConditionId) -> ConditionInfo {
+        ConditionInfo{ condition_id, dependents: HashSet::new() }
     }
+}
+
+
+pub trait NetworkBuilder: Any {
+
+}
+
+//impl<T: StdAny> NetworkBuilder for T {}
+
+impl UncheckedAnyExt for NetworkBuilder {
+    #[inline]
+    unsafe fn downcast_ref_unchecked<T: 'static>(&self) -> &T {
+        &*(self as *const Self as *const T)
+    }
+
+    #[inline]
+    unsafe fn downcast_mut_unchecked<T: 'static>(&mut self) -> &mut T {
+        &mut *(self as *mut Self as *mut T)
+    }
+
+    #[inline]
+    unsafe fn downcast_unchecked<T: 'static>(self: Box<Self>) -> Box<T> {
+        Box::from_raw(Box::into_raw(self) as *mut T)
+    }
+}
+
+pub struct ArrayNetworkBuilder<T: Fact> {
+    alpha_nodes: HashMap<T::HashEq, HashMap<AlphaNode<T>, ConditionInfo>>,
+    beta_nodes: ()
+}
+
+impl<T:'static + Fact> IntoBox<NetworkBuilder + 'static> for ArrayNetworkBuilder<T> {
+    fn into_box(self) -> Box<NetworkBuilder> {
+        Box::new(self)
+    }
+}
+
+
+impl<T: Fact> ArrayNetworkBuilder<T> {
+    fn new() -> ArrayNetworkBuilder<T> {
+        ArrayNetworkBuilder{ alpha_nodes: Default::default(), beta_nodes: Default::default()}
+    }
+}
+
+impl<T:Fact> Default for ArrayNetworkBuilder<T> {
+    fn default() -> Self {
+        ArrayNetworkBuilder::new()
+    }
+}
+
+impl<T: 'static + Fact> NetworkBuilder for ArrayNetworkBuilder<T> {
+
 }
 
 pub struct ArrayBaseBuilder {
     id_generator: IdGenerator,
     cache: StringCache,
+    network_builders: Map<NetworkBuilder>
+}
+
+impl ArrayBaseBuilder {
+    fn insert_alpha<T: 'static + Fact>(&mut self, statement_id: StatementId, nodes: Vec<AlphaNode<T>>) {
+        let hash_eq = T::create_hash_eq(&nodes);
+        let (alpha_entries, id_generator) =
+            (
+                self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
+                    .alpha_nodes.entry(hash_eq).or_insert_with(|| Default::default()),
+                &mut self.id_generator
+            );
+        for node in nodes.into_iter().filter(|n| !n.is_hash_eq()) {
+            alpha_entries.entry(node)
+                .or_insert_with(|| ConditionInfo::new(id_generator.condition_ids.next()))
+                .dependents.insert(statement_id);
+        }
+    }
+
+    fn insert_beta<T: 'static + Fact>(&mut self, statement_id: StatementId, nodes: Stage1Node<T>) {
+
+    }
 }
 
 impl BaseBuilder for ArrayBaseBuilder {
@@ -206,24 +280,24 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn when<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+    fn when<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
         self.declare_when::<T, &'static str, N>(&[], nodes)
     }
 
-    fn declare_when<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+    fn declare_when<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
 
         // Retrieve the upfront declarations
         // TODO - is there a way to do this in one line?
         let declare_nodes_result: Result<Vec<DeclareNode<SymbolId, Getter<T>>>, CompileError>
-        = declare.iter().map(|d| d.compile(&mut self.base_builder.cache)).collect();
+            = declare.iter()
+            .map(|d| d.compile(&mut self.base_builder.cache))
+            .collect();
         let declare_nodes = declare_nodes_result?;
 
-        // TODO - low hanging fruit to do this without all of the extra allocations
         let mut beta_nodes = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?).clean();
-        let mut alpha_nodes = beta_nodes.collect_alpha();
-        let hasheq_nodes: Vec<HashEqField> = alpha_nodes.drain_where(|n| n.is_hash_eq())
-            .into_iter().map(|n| n.into()).collect();
+        let  alpha_nodes = beta_nodes.collect_alpha();
+        self.base_builder.insert_alpha(statement_id, alpha_nodes);
 
         // Next TODO - Collect the requires bits from the dynamic limits
         let mut required_symbols = Default::default();
@@ -257,11 +331,11 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn for_all_group<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+    fn for_all_group<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
         self.declare_for_all_group::<T, &'static str, N>(&[], nodes)
     }
 
-    fn declare_for_all_group<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+    fn declare_for_all_group<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
         let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?);
         // TODO: Do prep the node for layout

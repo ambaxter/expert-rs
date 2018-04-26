@@ -251,7 +251,6 @@ impl AlphaTestField<DateTime<Utc>> for DateTimeTest {
     }
 }
 
-#[derive(Copy, Clone)]
 pub enum AlphaNode<T: Fact> {
     HASHEQ,
     BOOL(fn(&T) -> &bool, BoolTest),
@@ -323,6 +322,30 @@ test_eq!(
     );
 
 impl<T: Fact> Eq for AlphaNode<T> {}
+
+macro_rules! test_clone {
+    ($($t:ident),+ ) => {
+        impl <T:Fact> Clone for AlphaNode<T> {
+            fn clone(&self) -> Self {
+                use self::AlphaNode::*;
+                    match self {
+                    HASHEQ => HASHEQ,
+                    $ ( & $t(getter, ref test) => $t(getter, test.clone()),
+                    )*
+                }
+            }
+        }
+    };
+}
+
+test_clone!(
+    BOOL,
+    I8, I16, I32, I64,
+    U8, U16, U32, U64,
+    F32, F64, D128,
+    STR,
+    TIME, DATE, DATETIME
+    );
 
 impl<I: Fact> Debug for AlphaNode<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

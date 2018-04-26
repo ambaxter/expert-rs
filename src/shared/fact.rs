@@ -10,6 +10,7 @@ use ordered_float::NotNaN;
 use super::context::BetaContext;
 use runtime::memory::StringCache;
 use shared::nodes::alpha::HashEqField;
+use shared::nodes::alpha::AlphaNode;
 
 #[derive(Copy, Clone)]
 pub enum Getter<I: Fact> {
@@ -64,7 +65,7 @@ pub trait Fact: Eq + Hash
 
     fn getter(field: &str) -> Option<Getter<Self>>;
     fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
-    fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq;
+    fn create_hash_eq(conditions: &[AlphaNode<Self>]) -> Self::HashEq;
 }
 
 pub trait FactField {}

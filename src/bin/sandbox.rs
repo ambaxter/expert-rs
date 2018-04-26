@@ -21,6 +21,7 @@ use expert::iter::OptionIter;
 use expert::traits::ReteIntrospection;
 use expert::traits::{Introspect, Fact, Getters, FieldValue};
 use expert::shared::nodes::alpha::HashEqField;
+use expert::shared::nodes::alpha::AlphaNode;
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 struct Aspect {
@@ -173,7 +174,7 @@ impl expert::shared::fact::Fact for ATestAspect {
         unimplemented!()
     }
 
-    fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq {
+    fn create_hash_eq(conditions: &[AlphaNode<Self>]) -> Self::HashEq {
         unimplemented!()
     }
 }
