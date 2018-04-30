@@ -570,7 +570,13 @@ impl<T: Fact> Stage1Node<T> {
         // TODO - add a walker to determine if there are any singletons, then do this until there are none
         self.simplify();
         self.dedup();
-        self
+
+        let mut node = self;
+        while node.is_singleton() {
+            node = node.extract_singleton();
+        }
+
+        node
     }
 
     pub fn collect_alpha(&mut self) -> Vec<AlphaNode<T>> {

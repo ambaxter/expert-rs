@@ -31,7 +31,6 @@ pub struct BetaNodeData {
     child_test_len: usize,
     child_data_index: usize,
     child_data_len: usize,
-    group_type: BetaGroupType,
 }
 
 #[derive(Debug)]

@@ -4,7 +4,7 @@ use shared::nodes::beta::{CollectRequired, BetaNode};
 use shared::compiler::prelude::Stage1Node;
 use runtime::memory::StringCache;
 use shared::compiler::prelude::{DrainWhere, DeclareNode};
-use shared::compiler::id_generator::{IdGenerator, StatementGroupId, StatementId, ConditionId, RuleId};
+use shared::compiler::id_generator::{IdGenerator, StatementGroupId, StatementId, ConditionId, ConditionGroupId, RuleId};
 use runtime::memory::SymbolId;
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -102,9 +102,10 @@ impl StatementGroup {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-struct StatementReq {
+struct StatementData {
     provides: HashSet<SymbolId>, // HashSet or vec?
-    requires: HashSet<SymbolId>
+    requires: HashSet<SymbolId>,
+    groups: Vec<ConditionGroupId>
 }
 
 // TODO: After we build up the groupings & requirements, cascade down the groupings to ensure that we're not screwing anything up
@@ -117,7 +118,7 @@ struct ArrayRuleData {
     agenda: SymbolId,
     current_group: StatementGroupId,
     statement_groups: BTreeMap<StatementGroupId, StatementGroup>,
-    statement_requirements: BTreeMap<StatementId, StatementReq>,
+    statement_data: BTreeMap<StatementId, StatementData>,
 }
 
 
@@ -209,6 +210,10 @@ impl ArrayBaseBuilder {
     fn insert_beta<T: 'static + Fact>(&mut self, statement_id: StatementId, nodes: Stage1Node<T>) {
 
     }
+
+    fn insert_beta_child<T: 'static + Fact>(id_generator: &mut IdGenerator, statement_id: StatementId, nodes: Stage1Node<T>) {
+
+    }
 }
 
 impl BaseBuilder for ArrayBaseBuilder {
@@ -234,7 +239,7 @@ impl BaseBuilder for ArrayBaseBuilder {
                 agenda: agenda_symbol,
                 current_group: root_group_id,
                 statement_groups,
-                statement_requirements: Default::default(),
+                statement_data: Default::default(),
             },
             base_builder: self
         }
