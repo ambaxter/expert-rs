@@ -27,6 +27,8 @@ extern crate enum_index_derive;
 #[macro_use]
 extern crate anymap;
 
+extern crate bimap;
+
 #[macro_use]
 mod macros;
 

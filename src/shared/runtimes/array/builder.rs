@@ -20,6 +20,7 @@ use shared::compiler::builder::RuleBuilder;
 use shared::compiler::prelude::Stage1Compile;
 use shared::compiler::builder::ConsequenceBuilder;
 use shared::compiler::builder::KnowledgeBase;
+use bimap::BiMap;
 
 // TODO Beta compile
 /*
@@ -102,10 +103,18 @@ impl StatementGroup {
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
+pub enum ConditionGroupType {
+    Any,
+    NotAny,
+    All,
+    NotAll
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
 struct StatementData {
     provides: HashSet<SymbolId>, // HashSet or vec?
     requires: HashSet<SymbolId>,
-    groups: Vec<ConditionGroupId>
+    condition_groups: HashMap<ConditionGroupId, ConditionGroupType>
 }
 
 // TODO: After we build up the groupings & requirements, cascade down the groupings to ensure that we're not screwing anything up
@@ -122,17 +131,16 @@ struct ArrayRuleData {
 }
 
 
-struct ConditionInfo {
+struct AlphaConditionInfo {
     condition_id: ConditionId,
     dependents: HashSet<StatementId>,
 }
 
-impl ConditionInfo {
-    fn new(condition_id: ConditionId) -> ConditionInfo {
-        ConditionInfo{ condition_id, dependents: HashSet::new() }
+impl AlphaConditionInfo {
+    fn new(condition_id: ConditionId) -> AlphaConditionInfo {
+        AlphaConditionInfo{ condition_id, dependents: HashSet::new() }
     }
 }
-
 
 pub trait NetworkBuilder: Any {
 
@@ -157,9 +165,33 @@ impl UncheckedAnyExt for NetworkBuilder {
     }
 }
 
+#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+enum ConditionGroupChild {
+    Condition(ConditionId),
+    Group(ConditionGroupId),
+}
+
+struct BetaGraph<T: Fact> {
+    rule_rel: HashMap<ConditionGroupChild, Vec<RuleId>>,
+    parent_child_rel: BiMap<ConditionGroupId, Vec<ConditionGroupChild>>,
+    child_group_rel: HashMap<ConditionId, ConditionGroupId>,
+    test_nodes: BiMap<BetaNode<T>, ConditionId>
+}
+
+impl<T: Fact> Default for BetaGraph<T> {
+    fn default() -> Self {
+        BetaGraph {
+            rule_rel: Default::default(),
+            parent_child_rel: Default::default(),
+            child_group_rel: Default::default(),
+            test_nodes: Default::default()
+        }
+    }
+}
+
 pub struct ArrayNetworkBuilder<T: Fact> {
-    alpha_nodes: HashMap<T::HashEq, HashMap<AlphaNode<T>, ConditionInfo>>,
-    beta_nodes: ()
+    alpha_graph: HashMap<T::HashEq, HashMap<AlphaNode<T>, AlphaConditionInfo>>,
+    beta_graph: BetaGraph<T>
 }
 
 impl<T:'static + Fact> IntoBox<NetworkBuilder + 'static> for ArrayNetworkBuilder<T> {
@@ -171,7 +203,7 @@ impl<T:'static + Fact> IntoBox<NetworkBuilder + 'static> for ArrayNetworkBuilder
 
 impl<T: Fact> ArrayNetworkBuilder<T> {
     fn new() -> ArrayNetworkBuilder<T> {
-        ArrayNetworkBuilder{ alpha_nodes: Default::default(), beta_nodes: Default::default()}
+        ArrayNetworkBuilder{ alpha_graph: Default::default(), beta_graph: Default::default()}
     }
 }
 
@@ -194,21 +226,22 @@ pub struct ArrayBaseBuilder {
 impl ArrayBaseBuilder {
     fn insert_alpha<T: 'static + Fact>(&mut self, statement_id: StatementId, nodes: Vec<AlphaNode<T>>) {
         let hash_eq = T::create_hash_eq(&nodes);
-        let (alpha_entries, id_generator) =
+        let (alpha_graph, id_generator) =
             (
                 self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
-                    .alpha_nodes.entry(hash_eq).or_insert_with(|| Default::default()),
+                    .alpha_graph.entry(hash_eq).or_insert_with(|| Default::default()),
                 &mut self.id_generator
             );
         for node in nodes.into_iter().filter(|n| !n.is_hash_eq()) {
-            alpha_entries.entry(node)
-                .or_insert_with(|| ConditionInfo::new(id_generator.condition_ids.next()))
+            alpha_graph.entry(node)
+                .or_insert_with(|| AlphaConditionInfo::new(id_generator.condition_ids.next()))
                 .dependents.insert(statement_id);
         }
     }
 
-    fn insert_beta<T: 'static + Fact>(&mut self, statement_id: StatementId, nodes: Stage1Node<T>) {
-
+    fn insert_beta<T: 'static + Fact>(&mut self, statement_id: StatementId, beta_nodes: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
+        let mut condition_groups = Default::default();
+        condition_groups
     }
 
     fn insert_beta_child<T: 'static + Fact>(id_generator: &mut IdGenerator, statement_id: StatementId, nodes: Stage1Node<T>) {
@@ -296,19 +329,20 @@ impl RuleBuilder for ArrayRuleBuilder {
 
         // Retrieve the upfront declarations
         // TODO - is there a way to do this in one line?
-        let declare_nodes_result: Result<Vec<DeclareNode<SymbolId, Getter<T>>>, CompileError>
+        let declares_result: Result<Vec<DeclareNode<SymbolId, Getter<T>>>, CompileError>
         = declare.iter()
             .map(|d| d.compile(&mut self.base_builder.cache))
             .collect();
-        let declare_nodes = declare_nodes_result?;
+        let declares = declares_result?;
 
         let mut beta_nodes = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?).clean();
         let  alpha_nodes = beta_nodes.collect_alpha();
         self.base_builder.insert_alpha(statement_id, alpha_nodes);
 
-        // Next TODO - Collect the requires bits from the dynamic limits
         let mut required_symbols = Default::default();
         beta_nodes.collect_required(&mut required_symbols);
+
+        let condition_groups = self.base_builder.insert_beta(statement_id, beta_nodes);
 
         // TODO: Do prep the node for layout
         unimplemented!()
