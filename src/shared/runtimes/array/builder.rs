@@ -52,6 +52,7 @@ enum StatementGroupEntry {
     Child(StatementGroupId),
 }
 
+#[derive(Clone, Eq, PartialEq, Debug)]
 enum StatementGroup {
     All(StatementGroupId, Vec<StatementGroupEntry>),
     Any(StatementGroupId, Vec<StatementGroupEntry>),
@@ -102,7 +103,7 @@ impl StatementGroup {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ConditionGroupType {
     Any,
     NotAny,
@@ -165,7 +166,7 @@ impl UncheckedAnyExt for NetworkBuilder {
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 enum ConditionGroupChild {
     Condition(ConditionId),
     Group(ConditionGroupId),
@@ -240,7 +241,7 @@ impl ArrayBaseBuilder {
     }
 
     fn insert_beta<T: 'static + Fact>(&mut self, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
-        use self::Stage1Node::*;
+        // use Stage1Node::*;
         let mut condition_groups = Default::default();
         let(beta_graph, id_generator) =
             (
@@ -249,11 +250,14 @@ impl ArrayBaseBuilder {
                 &mut self.id_generator
                 );
 
+        // Compiler bug - uncomment the use statement and remove the below Stage1Node:: text. This will cause a type error on
+        // &mut self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
+        //                    .beta_graph,
         match beta_node {
-            Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups),
-            NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups),
-            All(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, &mut condition_groups),
-            NotAll(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, &mut condition_groups),
+            Stage1Node::Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups),
+            Stage1Node::NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups),
+            Stage1Node::All(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, &mut condition_groups),
+            Stage1Node::NotAll(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, &mut condition_groups),
             _ => unreachable!("Should not find a test at the topmost level")
         };
         condition_groups
@@ -268,7 +272,7 @@ impl ArrayBaseBuilder {
                                             condition_groups: &mut HashMap<ConditionGroupId, ConditionGroupType>) -> ConditionGroupChild {
         use self::Stage1Node::*;
         let mut children: Vec<ConditionGroupChild> = beta_nodes.iter()
-            .map(|beta_node| Self::insert_beta_child(beta_graph, id_generator, rule_id, statement_id, beta_node, &mut condition_groups))
+            .map(|beta_node| Self::insert_beta_child(beta_graph, id_generator, rule_id, statement_id, beta_node, condition_groups))
             .collect();
         children.sort();
         let group_id = {
