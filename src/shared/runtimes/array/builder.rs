@@ -250,12 +250,12 @@ impl ArrayBaseBuilder {
                 );
 
         match beta_node {
-            Any(ref beta_nodes) => {Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups);},
-            NotAny(ref beta_nodes) => {Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups);},
-            All(ref beta_nodes) => {Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, &mut condition_groups);},
-            NotAll(ref beta_nodes) => {Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, &mut condition_groups);},
+            Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups),
+            NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups),
+            All(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, &mut condition_groups),
+            NotAll(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, &mut condition_groups),
             _ => unreachable!("Should not find a test at the topmost level")
-        }
+        };
         condition_groups
     }
 
