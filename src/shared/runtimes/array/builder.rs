@@ -241,7 +241,7 @@ impl ArrayBaseBuilder {
     }
 
     fn insert_beta<T: 'static + Fact>(&mut self, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
-        // use Stage1Node::*;
+        //use self::Stage1Node::*;
         let mut condition_groups = Default::default();
         let(beta_graph, id_generator) =
             (
@@ -250,9 +250,26 @@ impl ArrayBaseBuilder {
                 &mut self.id_generator
                 );
 
-        // Compiler bug - uncomment the use statement and remove the below Stage1Node:: text. This will cause a type error on
-        // &mut self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
-        //                    .beta_graph,
+        // Compiler bug? - uncomment the above use statement and remove the below Stage1Node:: text. This will cause a type error on
+        /*
+                error[E0573]: expected type, found variant `T`
+           --> src/shared/runtimes/array/builder.rs:248:72
+            |
+        248 |                 &mut self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
+            |                                                                        ^ not a type
+        help: you can try using the variant's enum
+            |
+        248 |                 &mut self.network_builders.entry::<ArrayNetworkBuilder<shared::compiler::prelude::Stage1Node>>().or_insert_with(|| Default::default())
+            |                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        help: you can try using the variant's enum
+            |
+        248 |                 &mut self.network_builders.entry::<ArrayNetworkBuilder<shared::compiler::as_ref::RefNodes>>().or_insert_with(|| Default::default())
+            |                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        help: you can try using the variant's enum
+            |
+        248 |                 &mut self.network_builders.entry::<ArrayNetworkBuilder<shared::compiler::as_vec::VecNodes>>().or_insert_with(|| Default::default())
+            |                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        */
         match beta_node {
             Stage1Node::Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups),
             Stage1Node::NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups),
