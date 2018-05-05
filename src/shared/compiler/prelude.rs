@@ -330,7 +330,7 @@ impl<T, F> DrainWhere<T, F> for Vec<T>
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug, EnumIndex)]
 pub enum Stage1Node<T: Fact> {
-    T(BetaNode<T>),
+    Test(BetaNode<T>),
     Any(Vec<Stage1Node<T>>),
     NotAny(Vec<Stage1Node<T>>),
     All(Vec<Stage1Node<T>>),
@@ -344,9 +344,9 @@ impl<T: Fact> ApplyNot for Stage1Node<T> {
         let interim = unsafe { mem::zeroed() };
         let prev = mem::replace(self, interim);
         let next = match prev {
-            T(mut node) => {
+            Test(mut node) => {
                 node.apply_not();
-                T(node)
+                Test(node)
             },
             Any(nodes) => NotAny(nodes),
             NotAny(nodes) => Any(nodes),
@@ -362,7 +362,7 @@ impl<T: Fact> Ord for Stage1Node<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         use self::Stage1Node::*;
         match (self, other) {
-            (T(ref n1), T(ref n2)) => n1.cmp(n2),
+            (Test(ref n1), Test(ref n2)) => n1.cmp(n2),
             (Any(ref v1), Any(ref v2)) => v1.cmp(v2),
             (NotAny(ref v1), NotAny(ref v2)) => v1.cmp(v2),
             (All(ref v1), All(ref v2)) => v1.cmp(v2),
@@ -383,7 +383,7 @@ impl<T: Fact> Stage1Node<T> {
     pub fn is_test(&self) -> bool {
         use self::Stage1Node::*;
         match *self {
-            T(_) => true,
+            Test(_) => true,
             _ => false
         }
     }
@@ -391,7 +391,7 @@ impl<T: Fact> Stage1Node<T> {
     pub fn is_alpha(&self) -> bool {
         use self::Stage1Node::*;
         match *self {
-            T(ref test) => test.is_alpha(),
+            Test(ref test) => test.is_alpha(),
             _ => false
         }
     }
@@ -399,7 +399,7 @@ impl<T: Fact> Stage1Node<T> {
     pub fn get_alpha(self) -> AlphaNode<T> {
         use self::Stage1Node::*;
         match self {
-            T(test) => test.into(),
+            Test(test) => test.into(),
             _ => unreachable!("get_alpha on non alpha node")
         }
     }
@@ -596,7 +596,7 @@ impl<T: Fact> CollectRequired for Stage1Node<T> {
     fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
         use self::Stage1Node::*;
         match *self {
-            T(ref node) => node.collect_required(symbols),
+            Test(ref node) => node.collect_required(symbols),
             Any(ref nodes) => nodes.iter().for_each(|n| n.collect_required(symbols)),
             NotAny(ref nodes) => nodes.iter().for_each(|n| n.collect_required(symbols)),
             All(ref nodes) => nodes.iter().for_each(|n| n.collect_required(symbols)),

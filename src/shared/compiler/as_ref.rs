@@ -8,7 +8,7 @@ use shared::fact::Fact;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum RefNodes<'a, S: 'a + AsRef<str>> {
-    T(TestRepr<S>),
+    Test(TestRepr<S>),
     Any(&'a [RefNodes<'a, S>]),
     NotAny(&'a [RefNodes<'a, S>]),
     All(&'a [RefNodes<'a, S>]),
@@ -16,67 +16,67 @@ pub enum RefNodes<'a, S: 'a + AsRef<str>> {
 }
 
 pub fn eq<'a, S: AsRef<str>, T: IntoEqTest<S>>(field: S, to: T) -> RefNodes<'a, S> {
-    RefNodes::T(to.into_eq_test(field, EqTest::Eq))
+    RefNodes::Test(to.into_eq_test(field, EqTest::Eq))
 }
 
 pub fn ne<'a, S: AsRef<str>, T: IntoEqTest<S>>(field: S, to: T) -> RefNodes<'a, S> {
-    RefNodes::T(to.into_eq_test(field, EqTest::Ne))
+    RefNodes::Test(to.into_eq_test(field, EqTest::Ne))
 }
 
 pub fn lt<'a, S: AsRef<str>, T: IntoOrdTest<S>>(field: S, to: T) -> RefNodes<'a, S> {
-    RefNodes::T(to.into_ord_test(field, OrdTest::Lt))
+    RefNodes::Test(to.into_ord_test(field, OrdTest::Lt))
 }
 
 pub fn le<'a, S: AsRef<str>, T: IntoOrdTest<S>>(field: S, to: T) -> RefNodes<'a, S> {
-    RefNodes::T(to.into_ord_test(field, OrdTest::Le))
+    RefNodes::Test(to.into_ord_test(field, OrdTest::Le))
 }
 
 pub fn gt<'a, S: AsRef<str>, T: IntoOrdTest<S>>(field: S, to: T) -> RefNodes<'a, S> {
-    RefNodes::T(to.into_ord_test(field, OrdTest::Gt))
+    RefNodes::Test(to.into_ord_test(field, OrdTest::Gt))
 }
 
 pub fn ge<'a, S: AsRef<str>, T: IntoOrdTest<S>>(field: S, to: T) -> RefNodes<'a, S> {
-    RefNodes::T(to.into_ord_test(field, OrdTest::Ge))
+    RefNodes::Test(to.into_ord_test(field, OrdTest::Ge))
 }
 
 pub fn gtlt<'a, S: AsRef<str>, T>(field: S, from: T, to: T) -> RefNodes<'a, S>
     where (T, T): IntoBtwnTest<S>{
-    RefNodes::T((from, to).into_btwn_test(field, BetweenTest::GtLt))
+    RefNodes::Test((from, to).into_btwn_test(field, BetweenTest::GtLt))
 }
 
 pub fn gelt<'a, S: AsRef<str>, T>(field: S, from: T, to: T) -> RefNodes<'a, S>
     where (T, T): IntoBtwnTest<S>{
-    RefNodes::T((from, to).into_btwn_test(field, BetweenTest::GeLt))
+    RefNodes::Test((from, to).into_btwn_test(field, BetweenTest::GeLt))
 }
 
 pub fn gtle<'a, S: AsRef<str>, T>(field: S, from: T, to: T) -> RefNodes<'a, S>
     where (T, T): IntoBtwnTest<S>{
-    RefNodes::T((from, to).into_btwn_test(field, BetweenTest::GtLe))
+    RefNodes::Test((from, to).into_btwn_test(field, BetweenTest::GtLe))
 }
 
 pub fn gele<'a, S: AsRef<str>, T>(field: S, from: T, to: T) -> RefNodes<'a, S>
     where (T, T): IntoBtwnTest<S>{
-    RefNodes::T((from, to).into_btwn_test(field, BetweenTest::GeLe))
+    RefNodes::Test((from, to).into_btwn_test(field, BetweenTest::GeLe))
 }
 
 pub fn contains<'a, S: AsRef<str>, T: IntoStrTest<S>>(field: S, val: T) -> RefNodes<'a, S> {
-    RefNodes::T(val.into_str_test(field, StrArrayTest::Contains))
+    RefNodes::Test(val.into_str_test(field, StrArrayTest::Contains))
 }
 
 pub fn starts_with<'a, S: AsRef<str>, T: IntoStrTest<S>>(field: S, val: T) -> RefNodes<'a, S> {
-    RefNodes::T(val.into_str_test(field, StrArrayTest::StartsWith))
+    RefNodes::Test(val.into_str_test(field, StrArrayTest::StartsWith))
 }
 
 pub fn ends_with<'a, S: AsRef<str>, T: IntoStrTest<S>>(field: S, val: T) -> RefNodes<'a, S> {
-    RefNodes::T(val.into_str_test(field, StrArrayTest::EndsWith))
+    RefNodes::Test(val.into_str_test(field, StrArrayTest::EndsWith))
 }
 
 pub fn not<'a, S: AsRef<str>>(node: RefNodes<'a, S>) -> RefNodes<'a, S> {
     use self::RefNodes::*;
     match node {
-        T(mut t) => {
+        Test(mut t) => {
             t.apply_not();
-            T(t)
+            Test(t)
         },
         Any(t) => NotAny(t),
         NotAny(t) => Any(t),
@@ -97,7 +97,7 @@ impl<'a, S: AsRef<str>, T: Fact> Stage1Compile<T> for RefNodes<'a, S> {
     fn stage1_compile(&self, cache: &mut StringCache) -> Result<Stage1Node<T>, CompileError> {
         use self::RefNodes::*;
         match *self {
-            T(ref t) => Ok(Stage1Node::T(t.compile(cache)?)),
+            Test(ref t) => Ok(Stage1Node::Test(t.compile(cache)?)),
             Any(ref v) => Ok(Stage1Node::Any(Stage1Compile::stage1_compile_slice(v, cache)?)),
             NotAny(ref v) => Ok(Stage1Node::NotAny(Stage1Compile::stage1_compile_slice(v, cache)?)),
             All(ref v) => Ok(Stage1Node::All(Stage1Compile::stage1_compile_slice(v, cache)?)),
