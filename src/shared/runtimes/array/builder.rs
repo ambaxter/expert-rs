@@ -174,7 +174,7 @@ enum ConditionGroupChild {
 struct BetaGraph<T: Fact> {
     rule_rel: HashMap<ConditionGroupChild, Vec<RuleId>>,
     parent_child_rel: BiMap<ConditionGroupId, Vec<ConditionGroupChild>>,
-    child_group_rel: HashMap<ConditionId, ConditionGroupId>,
+    child_group_rel: HashMap<ConditionGroupChild, ConditionGroupId>,
     test_nodes: BiMap<BetaNode<T>, ConditionId>
 }
 
@@ -265,7 +265,7 @@ impl ArrayBaseBuilder {
                                             statement_id: StatementId,
                                             condition_group_type: ConditionGroupType,
                                             beta_nodes: &[Stage1Node<T>],
-                                            condition_groups: &mut HashMap<ConditionGroupId, ConditionGroupType>) {
+                                            condition_groups: &mut HashMap<ConditionGroupId, ConditionGroupType>) -> ConditionGroupChild {
         use self::Stage1Node::*;
         let mut children: Vec<ConditionGroupChild> = beta_nodes.iter()
             .map(|beta_node| Self::insert_beta_child(beta_graph, id_generator, rule_id, statement_id, beta_node, &mut condition_groups))
@@ -280,7 +280,13 @@ impl ArrayBaseBuilder {
                 *beta_graph.parent_child_rel.get_by_right(&children).unwrap()
             }
         };
-
+        for child in children {
+            beta_graph.child_group_rel.insert(child, group_id);
+        }
+        condition_groups.insert(group_id, condition_group_type);
+        let child_id = ConditionGroupChild::Group(group_id);
+        beta_graph.rule_rel.entry(child_id).or_insert_with(|| Default::default()).push(rule_id);
+        child_id
     }
 
     fn insert_beta_child<T: 'static + Fact>(beta_graph: &mut BetaGraph<T>,
