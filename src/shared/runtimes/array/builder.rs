@@ -244,22 +244,24 @@ impl ArrayBaseBuilder {
 
     fn insert_beta<T: 'static + Fact>(&mut self, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
         let mut condition_groups = Default::default();
-        let(beta_graph, id_generator) =
-            (
-                &mut self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
-                    .beta_graph,
-                &mut self.id_generator
+        if !beta_node.is_empty() {
+            let(beta_graph, id_generator) =
+                (
+                    &mut self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
+                        .beta_graph,
+                    &mut self.id_generator
                 );
-
-        use self::Stage1Node::*;
-        let statement_root = match beta_node {
-            Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups),
-            NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups),
-            All(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, &mut condition_groups),
-            NotAll(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, &mut condition_groups),
-            _ => unreachable!("Should not find a test at the topmost level")
-        };
-        beta_graph.statement_root.insert(statement_id, statement_root);
+            // Thank you @moxian in the Rust Discord for figuring out my monumental mistake!
+            use self::Stage1Node::*;
+            let statement_root = match beta_node {
+                Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups),
+                NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups),
+                All(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, &mut condition_groups),
+                NotAll(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, &mut condition_groups),
+                _ => unreachable!("Should not find a test at the topmost level")
+            };
+            beta_graph.statement_root.insert(statement_id, statement_root);
+        }
         condition_groups
     }
 

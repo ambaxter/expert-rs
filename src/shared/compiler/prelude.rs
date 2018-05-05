@@ -431,6 +431,17 @@ impl<T: Fact> Stage1Node<T> {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        use self::Stage1Node::*;
+        match *self {
+            Any(ref nodes) => nodes.is_empty(),
+            NotAny(ref nodes) => nodes.is_empty(),
+            All(ref nodes) => nodes.is_empty(),
+            NotAll(ref nodes) => nodes.is_empty(),
+            _ => false
+        }
+    }
+
     fn extract_singleton(self) -> Self {
         use self::Stage1Node::*;
         debug_assert!(self.is_singleton());
