@@ -174,6 +174,7 @@ enum ConditionGroupChild {
 
 struct BetaGraph<T: Fact> {
     rule_rel: HashMap<ConditionGroupChild, Vec<RuleId>>,
+    statement_root: HashMap<StatementId, ConditionGroupChild>,
     parent_child_rel: BiMap<ConditionGroupId, Vec<ConditionGroupChild>>,
     child_group_rel: HashMap<ConditionGroupChild, ConditionGroupId>,
     test_nodes: BiMap<BetaNode<T>, ConditionId>
@@ -183,6 +184,7 @@ impl<T: Fact> Default for BetaGraph<T> {
     fn default() -> Self {
         BetaGraph {
             rule_rel: Default::default(),
+            statement_root: Default::default(),
             parent_child_rel: Default::default(),
             child_group_rel: Default::default(),
             test_nodes: Default::default()
@@ -250,13 +252,14 @@ impl ArrayBaseBuilder {
                 );
 
         use self::Stage1Node::*;
-        match beta_node {
+        let statement_root = match beta_node {
             Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups),
             NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups),
             All(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, &mut condition_groups),
             NotAll(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, &mut condition_groups),
             _ => unreachable!("Should not find a test at the topmost level")
         };
+        beta_graph.statement_root.insert(statement_id, statement_root);
         condition_groups
     }
 
@@ -272,7 +275,7 @@ impl ArrayBaseBuilder {
             .map(|beta_node| Self::insert_beta_child(beta_graph, id_generator, rule_id, statement_id, beta_node, condition_groups))
             .collect();
         children.sort();
-        let group_id = {
+        let parent_group_id = {
             if !beta_graph.parent_child_rel.contains_right(&children) {
                 let new_group_id = id_generator.condition_group_ids.next();
                 beta_graph.parent_child_rel.insert(new_group_id, children.clone());
@@ -282,10 +285,10 @@ impl ArrayBaseBuilder {
             }
         };
         for child in children {
-            beta_graph.child_group_rel.insert(child, group_id);
+            beta_graph.child_group_rel.insert(child, parent_group_id);
         }
-        condition_groups.insert(group_id, condition_group_type);
-        let child_id = ConditionGroupChild::Group(group_id);
+        condition_groups.insert(parent_group_id, condition_group_type);
+        let child_id = ConditionGroupChild::Group(parent_group_id);
         beta_graph.rule_rel.entry(child_id).or_insert_with(|| Default::default()).push(rule_id);
         child_id
     }
