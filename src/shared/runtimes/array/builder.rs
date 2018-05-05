@@ -165,7 +165,7 @@ impl UncheckedAnyExt for NetworkBuilder {
     }
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, Debug)]
+#[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 enum ConditionGroupChild {
     Condition(ConditionId),
     Group(ConditionGroupId),
@@ -239,13 +239,58 @@ impl ArrayBaseBuilder {
         }
     }
 
-    fn insert_beta<T: 'static + Fact>(&mut self, statement_id: StatementId, beta_nodes: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
+    fn insert_beta<T: 'static + Fact>(&mut self, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
+        use self::Stage1Node::*;
         let mut condition_groups = Default::default();
+        let(beta_graph, id_generator) =
+            (
+                &mut self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
+                    .beta_graph,
+                &mut self.id_generator
+                );
+
+        match beta_node {
+            Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, &mut condition_groups),
+            NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, &mut condition_groups),
+            All(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, &mut condition_groups),
+            NotAll(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, &mut condition_groups),
+            T(_) => unreachable!("Should not find a test at the topmost level")
+        }
         condition_groups
     }
 
-    fn insert_beta_child<T: 'static + Fact>(id_generator: &mut IdGenerator, statement_id: StatementId, nodes: Stage1Node<T>) {
+    fn insert_beta_group<T: 'static + Fact>(beta_graph: &mut BetaGraph<T>,
+                                            id_generator: &mut IdGenerator,
+                                            rule_id: RuleId,
+                                            statement_id: StatementId,
+                                            condition_group_type: ConditionGroupType,
+                                            beta_nodes: &[Stage1Node<T>],
+                                            condition_groups: &mut HashMap<ConditionGroupId, ConditionGroupType>) {
+        use self::Stage1Node::*;
+        let mut children: Vec<ConditionGroupChild> = beta_nodes.iter()
+            .map(|beta_node| Self::insert_beta_child(beta_graph, id_generator, rule_id, statement_id, beta_node, &mut condition_groups))
+            .collect();
+        children.sort();
+        let group_id = {
+            if !beta_graph.parent_child_rel.contains_right(&children) {
+                let new_group_id = id_generator.condition_group_ids.next();
+                beta_graph.parent_child_rel.insert(new_group_id, children.clone());
+                new_group_id
+            } else {
+                *beta_graph.parent_child_rel.get_by_right(&children).unwrap()
+            }
+        };
 
+    }
+
+    fn insert_beta_child<T: 'static + Fact>(beta_graph: &mut BetaGraph<T>,
+                                            id_generator: &mut IdGenerator,
+                                            rule_id: RuleId,
+                                            statement_id: StatementId,
+                                            beta_node: &Stage1Node<T>,
+                                            condition_groups: &mut HashMap<ConditionGroupId, ConditionGroupType>) -> ConditionGroupChild {
+        use self::Stage1Node::*;
+        unimplemented!()
     }
 }
 
@@ -325,6 +370,7 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 
     fn declare_when<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+        let rule_id = self.rule_data.id;
         let statement_id = self.base_builder.id_generator.statement_ids.next();
 
         // Retrieve the upfront declarations
@@ -342,7 +388,7 @@ impl RuleBuilder for ArrayRuleBuilder {
         let mut required_symbols = Default::default();
         beta_nodes.collect_required(&mut required_symbols);
 
-        let condition_groups = self.base_builder.insert_beta(statement_id, beta_nodes);
+        let condition_groups = self.base_builder.insert_beta(rule_id, statement_id, beta_nodes);
 
         // TODO: Do prep the node for layout
         unimplemented!()
