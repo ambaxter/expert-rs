@@ -3,7 +3,7 @@ use shared::nodes::alpha::{IsHashEq, AlphaNode};
 use shared::nodes::beta::{CollectRequired, BetaNode};
 use shared::compiler::prelude::Stage1Node;
 use runtime::memory::StringCache;
-use shared::compiler::prelude::{DrainWhere, DeclareNode};
+use shared::compiler::prelude::{DrainWhere, ProvidesNode};
 use shared::compiler::id_generator::{IdGenerator, StatementGroupId, StatementId, ConditionId, ConditionGroupId, RuleId};
 use runtime::memory::SymbolId;
 use std::collections::HashSet;
@@ -388,34 +388,43 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 
     fn when<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
-        self.declare_when::<T, &'static str, N>(&[], nodes)
+        self.provides_when::<T, &'static str, N>(&[], nodes)
     }
 
-    fn declare_when<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+    fn provides_when<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let rule_id = self.rule_data.id;
         let statement_id = self.base_builder.id_generator.statement_ids.next();
+        let statement_group = self.rule_data.current_group;
 
         // Retrieve the upfront declarations
         // TODO - is there a way to do this in one line?
-        let declares_result: Result<Vec<DeclareNode<SymbolId, Getter<T>>>, CompileError>
-        = declare.iter()
+        let provides_result: Result<HashSet<ProvidesNode<SymbolId, Getter<T>>>, CompileError>
+        = provides.iter()
             .map(|d| d.compile(&mut self.base_builder.cache))
             .collect();
-        let declares = declares_result?;
+        let provided = provides_result?;
 
         let mut beta_nodes = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?).clean();
         let  alpha_nodes = beta_nodes.collect_alpha();
         self.base_builder.insert_alpha(statement_id, alpha_nodes);
 
-        let mut required_symbols = Default::default();
-        beta_nodes.collect_required(&mut required_symbols);
+        // For speed purposes, requires & condition_groups should be done in the same step?
+        let mut requires = Default::default();
+        beta_nodes.collect_required(&mut requires);
 
         let condition_groups =
             self.base_builder.insert_beta(self.rule_data.agenda_group, rule_id, statement_id, beta_nodes);
 
-        // TODO: Validate statement groups & requirements
-        // TODO: How do we want to handle consequences?
-        unimplemented!()
+        self.rule_data.statement_groups.get(&statement_group)
+            .unwrap().push(StatementGroupEntry::Statement(statement_id));
+
+        // TODO - how to store in a type safe manner? where Statement Id is typed somehow?
+        self.rule_data.statement_data.insert(statement_id, StatementData {
+            provides: provided,
+            requires,
+            condition_groups,
+        });
+        Ok(self)
     }
 
     fn all_group(mut self) -> Self {
@@ -443,10 +452,10 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 
     fn for_all_group<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
-        self.declare_for_all_group::<T, &'static str, N>(&[], nodes)
+        self.provides_for_all_group::<T, &'static str, N>(&[], nodes)
     }
 
-    fn declare_for_all_group<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+    fn provides_for_all_group<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
         let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?);
         // TODO: Do prep the node for layout
@@ -465,6 +474,8 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 
     fn then(self) -> Self::CB {
+        // TODO: Validate statement groups & requirements
+        // TODO: How do we want to handle consequences?
         ArrayConsequenceBuilder{
             rule_data: self.rule_data,
             consequence_data: ArrayConsequenceData {},

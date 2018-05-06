@@ -628,14 +628,14 @@ pub trait Stage1Compile<T: Fact> {
 
 
 #[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug, EnumIndex)]
-pub enum DeclareNode<S, G> {
+pub enum ProvidesNode<S, G> {
     Var(S),
     Field(S, G)
 }
 
-impl<S, G> DeclareNode<S, G> {
+impl<S, G> ProvidesNode<S, G> {
     pub fn is_variable(&self) -> bool {
-        use self::DeclareNode::*;
+        use self::ProvidesNode::*;
         match *self {
             Var(_) => true,
             _ => false,
@@ -643,7 +643,7 @@ impl<S, G> DeclareNode<S, G> {
     }
 
     pub fn is_field(&self) -> bool {
-        use self::DeclareNode::*;
+        use self::ProvidesNode::*;
         match *self {
             Field(..) => true,
             _ => false,
@@ -651,9 +651,9 @@ impl<S, G> DeclareNode<S, G> {
     }
 }
 
-impl<S> DeclareNode<S, S> where S: AsRef<str> {
-    pub fn compile<T: Fact>(&self, cache: &mut StringCache) -> Result<DeclareNode<SymbolId, Getter<T>>, CompileError> {
-        use self::DeclareNode::*;
+impl<S> ProvidesNode<S, S> where S: AsRef<str> {
+    pub fn compile<T: Fact>(&self, cache: &mut StringCache) -> Result<ProvidesNode<SymbolId, Getter<T>>, CompileError> {
+        use self::ProvidesNode::*;
         match *self {
             Var(ref s) => Ok(Var(cache.get_or_intern(s.as_ref()))),
             Field(ref s, ref g) => Ok(Field(
@@ -664,10 +664,10 @@ impl<S> DeclareNode<S, S> where S: AsRef<str> {
     }
 }
 
-pub fn var<S: AsRef<str>>(s: S) -> DeclareNode<S, S> {
-    DeclareNode::Var(s)
+pub fn var<S: AsRef<str>>(s: S) -> ProvidesNode<S, S> {
+    ProvidesNode::Var(s)
 }
 
-pub fn field<S: AsRef<str>>(s: S, g: S) -> DeclareNode<S, S> {
-    DeclareNode::Field(s, g)
+pub fn field<S: AsRef<str>>(s: S, g: S) -> ProvidesNode<S, S> {
+    ProvidesNode::Field(s, g)
 }

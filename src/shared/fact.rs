@@ -11,8 +11,12 @@ use super::context::BetaContext;
 use runtime::memory::StringCache;
 use shared::nodes::alpha::HashEqField;
 use shared::nodes::alpha::AlphaNode;
+use std::hash::Hasher;
+use std::cmp::Ordering;
+use enum_index;
+use enum_index::EnumIndex;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, EnumIndex)]
 pub enum Getter<I: Fact> {
     BOOL(fn(&I) -> &bool),
     I8(fn(&I) -> &i8),
@@ -30,6 +34,13 @@ pub enum Getter<I: Fact> {
     TIME(fn(&I) -> &NaiveTime),
     DATE(fn(&I) -> &Date<Utc>),
     DATETIME(fn(&I) -> &DateTime<Utc>),
+}
+
+impl<I: Fact> Getter<I> {
+    fn hash_self<H: Hasher>(ord: usize, getter: usize, state: &mut H) {
+        ord.hash(state);
+        getter.hash(state);
+    }
 }
 
 impl<I: Fact> Debug for Getter<I> {
@@ -57,6 +68,75 @@ impl<I: Fact> Debug for Getter<I> {
         write!(f, ")")
     }
 }
+
+
+macro_rules! getter_derive {
+    ($($t:ident),+ ) => {
+
+        impl<I: Fact> Clone for Getter<I> {
+            fn clone(&self) -> Self {
+                use self::Getter::*;
+                match *self {
+                    $(
+                    $t(getter) => $t(getter),
+                    )*
+                }
+            }
+        }
+
+        impl <I:Fact> Hash for Getter<I> {
+            fn hash < H: Hasher > ( & self, state: & mut H) {
+                use self::Getter::*;
+                    match self {
+                    $ ( & $ t(getter) => Self::hash_self(self.enum_index(), getter as usize, state),
+                    )*
+                }
+            }
+        }
+
+        impl<I:Fact> PartialEq for Getter<I> {
+            fn eq(&self, other: &Self) -> bool {
+                use self::Getter::*;
+                    match (self, other) {
+                    $( (&$t(getter1), &$t(getter2)) => {
+                        (getter1 as usize) == (getter2 as usize)
+                    },)*
+                    _ => false
+                }
+            }
+        }
+
+        impl<I: Fact> Eq for Getter<I> {}
+
+        impl<I:Fact> Ord for Getter<I> {
+            fn cmp(&self, other: &Self) -> Ordering {
+            use self::Getter::*;
+                match(self, other) {
+                    $( (&$t(getter1), &$t(getter2)) => {
+                        (getter1 as usize).cmp(&(getter2 as usize))
+                    },)*
+                    _ => self.enum_index().cmp(&other.enum_index())
+                }
+            }
+        }
+
+        impl<I:Fact> PartialOrd for Getter<I> {
+            fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+    };
+}
+
+getter_derive!(
+        BOOL,
+        I8, I16, I32, I64,
+        U8, U16, U32, U64,
+        F32, F64, D128,
+        STR ,
+        TIME, DATE, DATETIME
+    );
+
 
 pub trait Fact: Eq + Hash
     where Self: std::marker::Sized {

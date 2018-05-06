@@ -1,6 +1,6 @@
 use super::prelude::Stage1Compile;
 use errors::CompileError;
-use shared::compiler::prelude::{DrainWhere, DeclareNode};
+use shared::compiler::prelude::{DrainWhere, ProvidesNode};
 use std;
 use shared::fact::Fact;
 
@@ -48,7 +48,7 @@ pub trait RuleBuilder {
     fn no_loop(self, no_loop: bool) -> Self;
     fn when<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError>
         where Self: std::marker::Sized;
-    fn declare_when<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
+    fn provides_when<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
         where Self: std::marker::Sized;
     fn all_group(self) -> Self;
     fn any_group(self) -> Self;
@@ -56,7 +56,7 @@ pub trait RuleBuilder {
     fn not_group(self) -> Self;
     fn for_all_group<T:'static + Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Result<Self, CompileError>
         where Self: std::marker::Sized;
-    fn declare_for_all_group<T:'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, declare: &[DeclareNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
+    fn provides_for_all_group<T:'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
         where Self: std::marker::Sized;
     fn end_group(self) -> Result<Self, CompileError> where Self: std::marker::Sized;
     fn then(self) -> Self::CB;
