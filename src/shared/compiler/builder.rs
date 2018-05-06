@@ -37,6 +37,7 @@ pub trait BaseBuilder {
     type KB: KnowledgeBase;
 
     fn rule<S: AsRef<str>>(self, name: S) -> Self::RB;
+    fn rule_with_agenda<S: AsRef<str>, A: AsRef<str>>(mut self, name: S, agenda_group: A) -> Self::RB;
     fn end(self) -> Self::KB;
 }
 
@@ -44,7 +45,6 @@ pub trait RuleBuilder {
     type CB: ConsequenceBuilder;
 
     fn salience(self, salience: i32) -> Self;
-    fn agenda<S: AsRef<str>>(self, agenda: S) -> Self;
     fn no_loop(self, no_loop: bool) -> Self;
     fn when<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError>
         where Self: std::marker::Sized;

@@ -1193,7 +1193,7 @@ impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
     }
 }
 
-#[derive(Copy, Clone, EnumIndex)]
+#[derive(Copy, EnumIndex)]
 pub enum BetaNode<T: Fact> {
     BOOL(fn(&T) -> &bool, BoolTest<SymbolId>),
     I8(fn(&T) -> &i8, I8Test<SymbolId>),
@@ -1222,8 +1222,20 @@ impl<T: Fact> BetaNode<T> {
 
 }
 
-macro_rules! beta_hash {
+macro_rules! beta_derive {
     ($($t:ident),+ ) => {
+
+        impl<T: Fact> Clone for BetaNode<T> {
+            fn clone(&self) -> Self {
+                use self::BetaNode::*;
+                match *self {
+                    $(
+                    $t(getter, ref test) => $t(getter, test.clone()),
+                    )*
+                }
+            }
+        }
+
         impl <T:Fact> Hash for BetaNode<T> {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::BetaNode::*;
@@ -1233,20 +1245,7 @@ macro_rules! beta_hash {
                 }
             }
         }
-    };
-}
 
-beta_hash!(
-        BOOL,
-        I8, I16, I32, I64,
-        U8, U16, U32, U64,
-        F32, F64, D128,
-        STR ,
-        TIME, DATE, DATETIME
-    );
-
-macro_rules! beta_eq {
-    ($($t:ident),+ ) => {
         impl<T:Fact> PartialEq for BetaNode<T> {
             fn eq(&self, other: &Self) -> bool {
                 use self::BetaNode::*;
@@ -1258,22 +1257,9 @@ macro_rules! beta_eq {
                 }
             }
         }
-    };
-}
 
-beta_eq!(
-    BOOL,
-    I8, I16, I32, I64,
-    U8, U16, U32, U64,
-    F32, F64, D128,
-    STR,
-    TIME, DATE, DATETIME
-    );
+        impl<T: Fact> Eq for BetaNode<T> {}
 
-impl<T: Fact> Eq for BetaNode<T> {}
-
-macro_rules! beta_ord {
-    ($($t:ident),+ ) => {
         impl<T:Fact> Ord for BetaNode<T> {
             fn cmp(&self, other: &Self) -> Ordering {
             use self::BetaNode::*;
@@ -1291,18 +1277,51 @@ macro_rules! beta_ord {
                 Some(self.cmp(other))
             }
         }
+
+        impl<T:Fact> IsAlpha for BetaNode<T> {
+            fn is_alpha(&self) -> bool {
+                use self::BetaNode::*;
+                match self {
+                    $(
+                    &$t(_, test) => test.is_alpha(),
+                    )*
+                }
+            }
+        }
+
+        impl<T: Fact> ApplyNot for BetaNode<T> {
+            fn apply_not(&mut self) {
+                use self::BetaNode::*;
+                match *self {
+                    $(
+                    $t(_, ref mut test) => test.apply_not(),
+                    )*
+                }
+            }
+        }
+
+        impl<T:Fact> CollectRequired for BetaNode<T> {
+            fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+                use self::BetaNode::*;
+                match self {
+                    $(
+                    &$t(_, test) => test.collect_required(symbols),
+                    )*
+                }
+            }
+        }
+
     };
 }
 
-beta_ord!(
-    BOOL,
-    I8, I16, I32, I64,
-    U8, U16, U32, U64,
-    F32, F64, D128,
-    STR,
-    TIME, DATE, DATETIME
+beta_derive!(
+        BOOL,
+        I8, I16, I32, I64,
+        U8, U16, U32, U64,
+        F32, F64, D128,
+        STR ,
+        TIME, DATE, DATETIME
     );
-
 
 impl<I: Fact> Debug for BetaNode<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1327,78 +1346,6 @@ impl<I: Fact> Debug for BetaNode<I> {
             &DATETIME(getter, test) => write!(f, "DATETIME({:#x}) - {:?}", getter as usize, test)?,
         }
         write!(f, ")")
-    }
-}
-
-impl<T:Fact> IsAlpha for BetaNode<T> {
-    fn is_alpha(&self) -> bool {
-        use self::BetaNode::*;
-        match self {
-            &BOOL(_, test) => test.is_alpha(),
-            &I8(_, test) => test.is_alpha(),
-            &I16(_, test) => test.is_alpha(),
-            &I32(_, test) => test.is_alpha(),
-            &I64(_, test) => test.is_alpha(),
-            &U8(_, test) => test.is_alpha(),
-            &U16(_, test) => test.is_alpha(),
-            &U32(_, test) => test.is_alpha(),
-            &U64(_, test) => test.is_alpha(),
-            &F32(_, test) => test.is_alpha(),
-            &F64(_, test) => test.is_alpha(),
-            &D128(_, test) => test.is_alpha(),
-            &STR(_, test) => test.is_alpha(),
-            &TIME(_, test) => test.is_alpha(),
-            &DATE(_, test) => test.is_alpha(),
-            &DATETIME(_, test) => test.is_alpha(),
-        }
-    }
-}
-
-impl<T: Fact> ApplyNot for BetaNode<T> {
-    fn apply_not(&mut self) {
-        use self::BetaNode::*;
-        match *self {
-            BOOL(_, ref mut test) => test.apply_not(),
-            I8(_, ref mut test) => test.apply_not(),
-            I16(_, ref mut test) => test.apply_not(),
-            I32(_, ref mut test) => test.apply_not(),
-            I64(_, ref mut test) => test.apply_not(),
-            U8(_, ref mut test) => test.apply_not(),
-            U16(_, ref mut test) => test.apply_not(),
-            U32(_, ref mut test) => test.apply_not(),
-            U64(_, ref mut test) => test.apply_not(),
-            F32(_, ref mut test) => test.apply_not(),
-            F64(_, ref mut test) => test.apply_not(),
-            D128(_, ref mut test) => test.apply_not(),
-            STR(_, ref mut test) => test.apply_not(),
-            TIME(_, ref mut test) => test.apply_not(),
-            DATE(_, ref mut test) => test.apply_not(),
-            DATETIME(_, ref mut test) => test.apply_not(),
-        }
-    }
-}
-
-impl<T:Fact> CollectRequired for BetaNode<T> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
-        use self::BetaNode::*;
-        match self {
-            &BOOL(_, test) => test.collect_required(symbols),
-            &I8(_, test) => test.collect_required(symbols),
-            &I16(_, test) => test.collect_required(symbols),
-            &I32(_, test) => test.collect_required(symbols),
-            &I64(_, test) => test.collect_required(symbols),
-            &U8(_, test) => test.collect_required(symbols),
-            &U16(_, test) => test.collect_required(symbols),
-            &U32(_, test) => test.collect_required(symbols),
-            &U64(_, test) => test.collect_required(symbols),
-            &F32(_, test) => test.collect_required(symbols),
-            &F64(_, test) => test.collect_required(symbols),
-            &D128(_, test) => test.collect_required(symbols),
-            &STR(_, test) => test.collect_required(symbols),
-            &TIME(_, test) => test.collect_required(symbols),
-            &DATE(_, test) => test.collect_required(symbols),
-            &DATETIME(_, test) => test.collect_required(symbols),
-        }
     }
 }
 

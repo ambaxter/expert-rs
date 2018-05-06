@@ -125,7 +125,7 @@ struct ArrayRuleData {
     name: SymbolId,
     salience: i32,
     no_loop: bool,
-    agenda: SymbolId,
+    agenda_group: SymbolId,
     current_group: StatementGroupId,
     statement_groups: BTreeMap<StatementGroupId, StatementGroup>,
     statement_data: BTreeMap<StatementId, StatementData>,
@@ -177,7 +177,7 @@ struct BetaGraph<T: Fact> {
     statement_root: HashMap<StatementId, ConditionGroupChild>,
     parent_child_rel: BiMap<ConditionGroupId, Vec<ConditionGroupChild>>,
     child_group_rel: HashMap<ConditionGroupChild, ConditionGroupId>,
-    test_nodes: BiMap<BetaNode<T>, ConditionId>
+    test_nodes: BiMap<ConditionId, BetaNode<T>>
 }
 
 impl<T: Fact> Default for BetaGraph<T> {
@@ -194,7 +194,7 @@ impl<T: Fact> Default for BetaGraph<T> {
 
 pub struct ArrayNetworkBuilder<T: Fact> {
     alpha_graph: HashMap<T::HashEq, HashMap<AlphaNode<T>, AlphaConditionInfo>>,
-    beta_graph: BetaGraph<T>
+    beta_graph_map: HashMap<SymbolId, BetaGraph<T>>
 }
 
 impl<T:'static + Fact> IntoBox<NetworkBuilder + 'static> for ArrayNetworkBuilder<T> {
@@ -206,7 +206,7 @@ impl<T:'static + Fact> IntoBox<NetworkBuilder + 'static> for ArrayNetworkBuilder
 
 impl<T: Fact> ArrayNetworkBuilder<T> {
     fn new() -> ArrayNetworkBuilder<T> {
-        ArrayNetworkBuilder{ alpha_graph: Default::default(), beta_graph: Default::default()}
+        ArrayNetworkBuilder{ alpha_graph: Default::default(), beta_graph_map: Default::default()}
     }
 }
 
@@ -242,13 +242,13 @@ impl ArrayBaseBuilder {
         }
     }
 
-    fn insert_beta<T: 'static + Fact>(&mut self, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
+    fn insert_beta<T: 'static + Fact>(&mut self, agenda_group: SymbolId, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
         let mut condition_groups = Default::default();
         if !beta_node.is_empty() {
             let(beta_graph, id_generator) =
                 (
-                    &mut self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
-                        .beta_graph,
+                    self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
+                        .beta_graph_map.entry(agenda_group).or_insert_with(|| Default::default()),
                     &mut self.id_generator
                 );
             // Thank you @moxian in the Rust Discord for figuring out my monumental mistake!
@@ -302,7 +302,21 @@ impl ArrayBaseBuilder {
                                             beta_node: &Stage1Node<T>,
                                             condition_groups: &mut HashMap<ConditionGroupId, ConditionGroupType>) -> ConditionGroupChild {
         use self::Stage1Node::*;
-        unimplemented!()
+        match beta_node {
+            Any(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::Any, beta_nodes, condition_groups),
+            NotAny(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAny, beta_nodes, condition_groups),
+            All(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::All, beta_nodes, condition_groups),
+            NotAll(ref beta_nodes) => Self::insert_beta_group(beta_graph, id_generator, rule_id, statement_id, ConditionGroupType::NotAll, beta_nodes, condition_groups),
+            Test(ref node) => {
+                if !beta_graph.test_nodes.contains_right(node) {
+                    let new_condition_id = id_generator.condition_ids.next();
+                    beta_graph.test_nodes.insert(new_condition_id, node.clone());
+                    ConditionGroupChild::Condition(new_condition_id)
+                } else {
+                    ConditionGroupChild::Condition(*beta_graph.test_nodes.get_by_right(node).unwrap())
+                }
+            }
+        }
     }
 }
 
@@ -311,9 +325,13 @@ impl BaseBuilder for ArrayBaseBuilder {
     type KB = ArrayKnowledgeBase;
 
     fn rule<S: AsRef<str>>(mut self, name: S) -> Self::RB {
+        self.rule_with_agenda(name, "MAIN")
+    }
+
+    fn rule_with_agenda<S: AsRef<str>, A: AsRef<str>>(mut self, name: S, agenda_group: A) -> Self::RB {
         let id = self.id_generator.rule_ids.next();
         let name_symbol = self.cache.get_or_intern(name.as_ref());
-        let agenda_symbol = self.cache.get_or_intern("MAIN");
+        let agenda_symbol = self.cache.get_or_intern(agenda_group.as_ref());
         let root_group_id = self.id_generator.statement_group_ids.next();
         let root_group = StatementGroup::all(root_group_id);
 
@@ -326,7 +344,7 @@ impl BaseBuilder for ArrayBaseBuilder {
                 name: name_symbol,
                 salience: 0,
                 no_loop: false,
-                agenda: agenda_symbol,
+                agenda_group: agenda_symbol,
                 current_group: root_group_id,
                 statement_groups,
                 statement_data: Default::default(),
@@ -339,8 +357,6 @@ impl BaseBuilder for ArrayBaseBuilder {
         unimplemented!()
     }
 }
-
-
 
 
 pub struct ArrayRuleBuilder {
@@ -363,12 +379,6 @@ impl RuleBuilder for ArrayRuleBuilder {
 
     fn salience(mut self, salience: i32) -> Self {
         self.rule_data.salience = salience;
-        self
-    }
-
-    fn agenda<S: AsRef<str>>(mut self, agenda: S) -> Self {
-        let agenda_symbol = self.base_builder.cache.get_or_intern(agenda.as_ref());
-        self.rule_data.agenda = agenda_symbol;
         self
     }
 
@@ -400,9 +410,11 @@ impl RuleBuilder for ArrayRuleBuilder {
         let mut required_symbols = Default::default();
         beta_nodes.collect_required(&mut required_symbols);
 
-        let condition_groups = self.base_builder.insert_beta(rule_id, statement_id, beta_nodes);
+        let condition_groups =
+            self.base_builder.insert_beta(self.rule_data.agenda_group, rule_id, statement_id, beta_nodes);
 
-        // TODO: Do prep the node for layout
+        // TODO: Validate statement groups & requirements
+        // TODO: How do we want to handle consequences?
         unimplemented!()
     }
 
