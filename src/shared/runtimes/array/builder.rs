@@ -415,7 +415,7 @@ impl RuleBuilder for ArrayRuleBuilder {
         let condition_groups =
             self.base_builder.insert_beta(self.rule_data.agenda_group, rule_id, statement_id, beta_nodes);
 
-        self.rule_data.statement_groups.get(&statement_group)
+        self.rule_data.statement_groups.get_mut(&statement_group)
             .unwrap().push(StatementGroupEntry::Statement(statement_id));
 
         // TODO - how to store in a type safe manner? where Statement Id is typed somehow?
