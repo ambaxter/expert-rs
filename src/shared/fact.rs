@@ -15,6 +15,7 @@ use std::hash::Hasher;
 use std::cmp::Ordering;
 use enum_index;
 use enum_index::EnumIndex;
+use std::any::Any;
 
 #[derive(Copy, EnumIndex)]
 pub enum Getter<I: Fact> {
@@ -138,7 +139,7 @@ getter_derive!(
     );
 
 
-pub trait Fact: Eq + Hash
+pub trait Fact: 'static + Eq + Hash + Any
     where Self: std::marker::Sized {
 
     type HashEq: Hash + Eq + Clone + Debug;

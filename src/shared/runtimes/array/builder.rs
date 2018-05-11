@@ -197,7 +197,7 @@ pub struct ArrayNetworkBuilder<T: Fact> {
     beta_graph_map: HashMap<SymbolId, BetaGraph<T>>
 }
 
-impl<T:'static + Fact> IntoBox<NetworkBuilder + 'static> for ArrayNetworkBuilder<T> {
+impl<T:Fact> IntoBox<NetworkBuilder + 'static> for ArrayNetworkBuilder<T> {
     fn into_box(self) -> Box<NetworkBuilder> {
         Box::new(self)
     }
@@ -216,7 +216,7 @@ impl<T:Fact> Default for ArrayNetworkBuilder<T> {
     }
 }
 
-impl<T: 'static + Fact> NetworkBuilder for ArrayNetworkBuilder<T> {
+impl<T: Fact> NetworkBuilder for ArrayNetworkBuilder<T> {
 
 }
 
@@ -227,7 +227,7 @@ pub struct ArrayBaseBuilder {
 }
 
 impl ArrayBaseBuilder {
-    fn insert_alpha<T: 'static + Fact>(&mut self, statement_id: StatementId, nodes: Vec<AlphaNode<T>>) {
+    fn insert_alpha<T: Fact>(&mut self, statement_id: StatementId, nodes: Vec<AlphaNode<T>>) {
         let hash_eq = T::create_hash_eq(&nodes);
         let (alpha_graph, id_generator) =
             (
@@ -242,7 +242,7 @@ impl ArrayBaseBuilder {
         }
     }
 
-    fn insert_beta<T: 'static + Fact>(&mut self, agenda_group: SymbolId, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
+    fn insert_beta<T: Fact>(&mut self, agenda_group: SymbolId, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
         let mut condition_groups = Default::default();
         if !beta_node.is_empty() {
             let(beta_graph, id_generator) =
@@ -265,7 +265,7 @@ impl ArrayBaseBuilder {
         condition_groups
     }
 
-    fn insert_beta_group<T: 'static + Fact>(beta_graph: &mut BetaGraph<T>,
+    fn insert_beta_group<T: Fact>(beta_graph: &mut BetaGraph<T>,
                                             id_generator: &mut IdGenerator,
                                             rule_id: RuleId,
                                             statement_id: StatementId,
@@ -295,7 +295,7 @@ impl ArrayBaseBuilder {
         child_id
     }
 
-    fn insert_beta_child<T: 'static + Fact>(beta_graph: &mut BetaGraph<T>,
+    fn insert_beta_child<T: Fact>(beta_graph: &mut BetaGraph<T>,
                                             id_generator: &mut IdGenerator,
                                             rule_id: RuleId,
                                             statement_id: StatementId,
@@ -387,11 +387,11 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn when<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+    fn when<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
         self.provides_when::<T, &'static str, N>(&[], nodes)
     }
 
-    fn provides_when<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+    fn provides_when<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let rule_id = self.rule_data.id;
         let statement_id = self.base_builder.id_generator.statement_ids.next();
         let statement_group = self.rule_data.current_group;
@@ -451,11 +451,11 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn for_all_group<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+    fn for_all_group<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
         self.provides_for_all_group::<T, &'static str, N>(&[], nodes)
     }
 
-    fn provides_for_all_group<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+    fn provides_for_all_group<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let statement_id = self.base_builder.id_generator.statement_ids.next();
         let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?);
         // TODO: Do prep the node for layout
