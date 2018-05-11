@@ -527,10 +527,12 @@ beta_number_test!(
     i16 => I16Test,
     i32 => I32Test,
     i64 => I64Test,
+    i128 => I128Test,
     u8 => U8Test,
     u16 => U16Test,
     u32 => U32Test,
     u64 => U64Test,
+    u128 => U128Test,
     OrdVar<d128> => D128Test
     );
 
@@ -929,10 +931,12 @@ pub enum TestRepr<S: AsRef<str>> {
     I16(S, I16Test<S>),
     I32(S, I32Test<S>),
     I64(S, I64Test<S>),
+    I128(S, I128Test<S>),
     U8(S, U8Test<S>),
     U16(S, U16Test<S>),
     U32(S, U32Test<S>),
     U64(S, U64Test<S>),
+    U128(S, U128Test<S>),
     F32(S, F32Test<S>),
     F64(S, F64Test<S>),
     D128(S, D128Test<S>),
@@ -948,48 +952,52 @@ impl<S: AsRef<str>> TestRepr<S>  {
     pub fn field(&self) -> &str {
         use self::TestRepr::*;
         match self {
-            &BOOL(ref field, _) => field.as_ref(),
-            &I8(ref field, _) => field.as_ref(),
-            &I16(ref field, _) => field.as_ref(),
-            &I32(ref field, _) => field.as_ref(),
-            &I64(ref field, _) => field.as_ref(),
-            &U8(ref field, _) => field.as_ref(),
-            &U16(ref field, _) => field.as_ref(),
-            &U32(ref field, _) => field.as_ref(),
-            &U64(ref field, _) => field.as_ref(),
-            &F32(ref field, _) => field.as_ref(),
-            &F64(ref field, _) => field.as_ref(),
-            &D128(ref field, _) => field.as_ref(),
-            &STR(ref field, _) => field.as_ref(),
-            &TIME(ref field, _) => field.as_ref(),
-            &DATE(ref field, _) => field.as_ref(),
-            &DATETIME(ref field, _) => field.as_ref(),
-            &SDYN(ref field, ..) => field.as_ref(),
-            &DDYN(ref field, ..) => field.as_ref(),
+            BOOL(field, _) => field.as_ref(),
+            I8(field, _) => field.as_ref(),
+            I16(field, _) => field.as_ref(),
+            I32(field, _) => field.as_ref(),
+            I64(field, _) => field.as_ref(),
+            I128(field, _) => field.as_ref(),
+            U8(field, _) => field.as_ref(),
+            U16(field, _) => field.as_ref(),
+            U32(field, _) => field.as_ref(),
+            U64(field, _) => field.as_ref(),
+            U128(field, _) => field.as_ref(),
+            F32(field, _) => field.as_ref(),
+            F64(field, _) => field.as_ref(),
+            D128(field, _) => field.as_ref(),
+            STR(field, _) => field.as_ref(),
+            TIME(field, _) => field.as_ref(),
+            DATE(field, _) => field.as_ref(),
+            DATETIME(field, _) => field.as_ref(),
+            SDYN(field, ..) => field.as_ref(),
+            DDYN(field, ..) => field.as_ref(),
         }
     }
 
     pub fn field_type(&self) -> &'static str {
         use self::TestRepr::*;
         match self {
-            &BOOL(..) => "BOOL",
-            &I8(..) => "I8",
-            &I16(..) => "I16",
-            &I32(..) => "I32",
-            &I64(..) => "I64",
-            &U8(..) => "U8",
-            &U16(..) => "U16",
-            &U32(..) => "U32",
-            &U64(..) => "U64",
-            &F32(..) => "F32",
-            &F64(..) => "F64",
-            &D128(..) => "D128",
-            &STR(..) => "STR",
-            &TIME(..) => "TIME",
-            &DATE(..) => "DATE",
-            &DATETIME(..) => "DATETIME",
-            &SDYN(..) => "SDYN",
-            &DDYN(..) => "DDYN",
+            BOOL(..) => "BOOL",
+            I8(..) => "I8",
+            I16(..) => "I16",
+            I32(..) => "I32",
+            I64(..) => "I64",
+            I128(..) => "I128",
+            U8(..) => "U8",
+            U16(..) => "U16",
+            U32(..) => "U32",
+            U64(..) => "U64",
+            U128(..) => "U128",
+            F32(..) => "F32",
+            F64(..) => "F64",
+            D128(..) => "D128",
+            STR(..) => "STR",
+            TIME(..) => "TIME",
+            DATE(..) => "DATE",
+            DATETIME(..) => "DATETIME",
+            SDYN(..) => "SDYN",
+            DDYN(..) => "DDYN",
         }
     }
 
@@ -1045,6 +1053,16 @@ impl<S: AsRef<str>> TestRepr<S>  {
                 Ok(BetaNode::I64(getter, I64Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
 
+            // I128
+            (&Getter::I128(getter), &TestRepr::I128(_, ref test)) =>
+                Ok(BetaNode::I128(getter, test.string_intern(cache))),
+            (&Getter::I128(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::I128(getter, I128Test::Eq(truth, test, limit.string_intern(cache).into()))),
+            (&Getter::I128(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::I128(getter, I128Test::Ord(truth, test, limit.string_intern(cache).into()))),
+            (&Getter::I128(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::I128(getter, I128Test::Btwn(truth, test, limit.string_intern(cache).into()))),
+
             // U8
             (&Getter::U8(getter), &TestRepr::U8(_, ref test)) =>
                 Ok(BetaNode::U8(getter, test.string_intern(cache))),
@@ -1084,7 +1102,18 @@ impl<S: AsRef<str>> TestRepr<S>  {
                 Ok(BetaNode::U64(getter, U64Test::Ord(truth, test, limit.string_intern(cache).into()))),
             (&Getter::U64(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::U64(getter, U64Test::Btwn(truth, test, limit.string_intern(cache).into()))),
-            
+
+            // U128
+            (&Getter::U128(getter), &TestRepr::U128(_, ref test)) =>
+                Ok(BetaNode::U128(getter, test.string_intern(cache))),
+            (&Getter::U128(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+                Ok(BetaNode::U128(getter, U128Test::Eq(truth, test, limit.string_intern(cache).into()))),
+            (&Getter::U128(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+                Ok(BetaNode::U128(getter, U128Test::Ord(truth, test, limit.string_intern(cache).into()))),
+            (&Getter::U128(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+                Ok(BetaNode::U128(getter, U128Test::Btwn(truth, test, limit.string_intern(cache).into()))),
+
+
             // F32
             (&Getter::F32(getter), &TestRepr::F32(_, ref test)) =>
                 Ok(BetaNode::F32(getter, test.string_intern(cache))),
@@ -1200,10 +1229,12 @@ pub enum BetaNode<T: Fact> {
     I16(fn(&T) -> &i16, I16Test<SymbolId>),
     I32(fn(&T) -> &i32, I32Test<SymbolId>),
     I64(fn(&T) -> &i64, I64Test<SymbolId>),
+    I128(fn(&T) -> &i128, I128Test<SymbolId>),
     U8(fn(&T) -> &u8, U8Test<SymbolId>),
     U16(fn(&T) -> &u16, U16Test<SymbolId>),
     U32(fn(&T) -> &u32, U32Test<SymbolId>),
     U64(fn(&T) -> &u64, U64Test<SymbolId>),
+    U128(fn(&T) -> &u128, U128Test<SymbolId>),
     F32(fn(&T) -> &NotNaN<f32>, F32Test<SymbolId>),
     F64(fn(&T) -> &NotNaN<f64>, F64Test<SymbolId>),
     D128(fn(&T) -> &OrdVar<d128>, D128Test<SymbolId>),

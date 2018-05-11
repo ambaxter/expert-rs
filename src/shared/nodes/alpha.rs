@@ -14,6 +14,8 @@ use shared::context::AlphaContext;
 use std::fmt::Debug;
 use std::fmt;
 use shared::nodes::beta::{BetaNode, IsAlpha};
+use enum_index;
+use enum_index::EnumIndex;
 
 pub trait IsHashEq {
     fn is_hash_eq(&self) -> bool;
@@ -117,10 +119,12 @@ alpha_number_test!(
     i16 => I16Test,
     i32 => I32Test,
     i64 => I64Test,
+    i128 => I128Test,
     u8 => U8Test,
     u16 => U16Test,
     u32 => U32Test,
     u64 => U64Test,
+    u128 => U128Test,
     OrdVar<d128> => D128Test
     );
 
@@ -251,6 +255,7 @@ impl AlphaTestField<DateTime<Utc>> for DateTimeTest {
     }
 }
 
+#[derive(Copy, EnumIndex)]
 pub enum AlphaNode<T: Fact> {
     HASHEQ,
     BOOL(fn(&T) -> &bool, BoolTest),
@@ -258,10 +263,12 @@ pub enum AlphaNode<T: Fact> {
     I16(fn(&T) -> &i16, I16Test),
     I32(fn(&T) -> &i32, I32Test),
     I64(fn(&T) -> &i64, I64Test),
+    I128(fn(&T) -> &i128, I128Test),
     U8(fn(&T) -> &u8, U8Test),
     U16(fn(&T) -> &u16, U16Test),
     U32(fn(&T) -> &u32, U32Test),
     U64(fn(&T) -> &u64, U64Test),
+    U128(fn(&T) -> &u128, U128Test),
     F32(fn(&T) -> &NotNaN<f32>, F32Test),
     F64(fn(&T) -> &NotNaN<f64>, F64Test),
     D128(fn(&T) -> &OrdVar<d128>, D128Test),
@@ -271,77 +278,76 @@ pub enum AlphaNode<T: Fact> {
     DATETIME(fn(&T) -> &DateTime<Utc>, DateTimeTest),
 }
 
-macro_rules! test_hash {
-    ($($t:ident => $ord:expr),+ ) => {
-        impl <T:Fact> Hash for AlphaNode<T> {
-            fn hash < H: Hasher > ( & self, state: & mut H) {
+macro_rules! alpha_derive {
+    ($($t:ident),+ ) => {
+        impl<T: Fact> Clone for AlphaNode<T> {
+            fn clone(&self) -> Self {
                 use self::AlphaNode::*;
-                    match self {
-                    HASHEQ => 0.hash(state),
-                    $ ( & $ t(getter, ref test) => Self::hash_self($ord, getter as usize, test, state),
+                match self {
+                    HASHEQ => HASHEQ,
+                    $(
+                    $t(getter, test) => $t(*getter, test.clone()),
                     )*
                 }
             }
         }
-    };
-}
 
-test_hash!(
-        BOOL => 1,
-        I8 => 2, I16 => 3, I32 => 4, I64 => 5,
-        U8 => 6, U16 => 7, U32 => 8, U64 => 9,
-        F32 => 10, F64 => 11, D128 => 12,
-        STR => 13,
-        TIME => 14, DATE => 15, DATETIME => 16
-    );
+        impl <T:Fact> Hash for AlphaNode<T> {
+            fn hash < H: Hasher > ( &self, state: & mut H) {
+                use self::AlphaNode::*;
+                    match self {
+                    HASHEQ => self.enum_index().hash(state),
+                    $(
+                    $t(getter, test) => Self::hash_self(self.enum_index(), (*getter) as usize, test, state),
+                    )*
+                }
+            }
+        }
 
-macro_rules! test_eq {
-    ($($t:ident),+ ) => {
         impl<T:Fact> PartialEq for AlphaNode<T> {
             fn eq(&self, other: &Self) -> bool {
                 use self::AlphaNode::*;
                     match (self, other) {
                     (HASHEQ, HASHEQ) => true,
-                    $( (&$t(getter1, ref test1), &$t(getter2, ref test2)) => {
-                        (getter1 as usize) == (getter2 as usize) && test1 == test2
+                    $( ($t(getter1, test1), $t(getter2, test2)) => {
+                        (*getter1 as usize) == (*getter2 as usize) && test1 == test2
                     },)*
                     _ => false
                 }
             }
         }
-    };
-}
 
-test_eq!(
-    BOOL,
-    I8, I16, I32, I64,
-    U8, U16, U32, U64,
-    F32, F64, D128,
-    STR,
-    TIME, DATE, DATETIME
-    );
+        impl<T: Fact> Eq for AlphaNode<T> {}
 
-impl<T: Fact> Eq for AlphaNode<T> {}
-
-macro_rules! test_clone {
-    ($($t:ident),+ ) => {
-        impl <T:Fact> Clone for AlphaNode<T> {
-            fn clone(&self) -> Self {
+        impl<T:Fact> IsHashEq for AlphaNode<T> {
+            fn is_hash_eq(&self) -> bool {
                 use self::AlphaNode::*;
-                    match self {
-                    HASHEQ => HASHEQ,
-                    $ ( & $t(getter, ref test) => $t(getter, test.clone()),
+                match self {
+                    $(
+                    $t(_, test) => test.is_hash_eq(),
                     )*
+                }
+            }
+        }
+
+        impl<T: Fact> From<BetaNode<T>> for AlphaNode<T> {
+            fn from(node: BetaNode<T>) -> AlphaNode<T> {
+                use self::BetaNode::*;
+                match node {
+                    $(
+                    $t(getter, test) if test.is_alpha() => AlphaNode::$t(getter, test.into()),
+                    )*
+                    _ => unreachable!("Into AlphaNode with unsupported config")
                 }
             }
         }
     };
 }
 
-test_clone!(
+alpha_derive!(
     BOOL,
-    I8, I16, I32, I64,
-    U8, U16, U32, U64,
+    I8, I16, I32, I64, I128,
+    U8, U16, U32, U64, U128,
     F32, F64, D128,
     STR,
     TIME, DATE, DATETIME
@@ -352,23 +358,25 @@ impl<I: Fact> Debug for AlphaNode<I> {
         use self::AlphaNode::*;
         write!(f, "Getter(")?;
         match self {
-            &HASHEQ => write!(f, "HASHEQ")?,
-            &BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", getter as usize, test)?,
-            &I8(getter, test) => write!(f, "I8({:#x}) - {:?}", getter as usize, test)?,
-            &I16(getter, test) => write!(f, "I16({:#x}) - {:?}", getter as usize, test)?,
-            &I32(getter, test) => write!(f, "I32({:#x}) - {:?}", getter as usize, test)?,
-            &I64(getter, test) => write!(f, "I64({:#x}) - {:?}", getter as usize, test)?,
-            &U8(getter, test) => write!(f, "U8({:#x}) - {:?}", getter as usize, test)?,
-            &U16(getter, test) => write!(f, "U16({:#x}) - {:?}", getter as usize, test)?,
-            &U32(getter, test) => write!(f, "U32({:#x}) - {:?}", getter as usize, test)?,
-            &U64(getter, test) => write!(f, "U64({:#x}) - {:?}", getter as usize, test)?,
-            &F32(getter, test) => write!(f, "F32({:#x}) - {:?}", getter as usize, test)?,
-            &F64(getter, test) => write!(f, "F64({:#x}) - {:?}", getter as usize, test)?,
-            &D128(getter, test) => write!(f, "D128({:#x}) - {:?}", getter as usize, test)?,
-            &STR(getter, test) => write!(f, "STR({:#x}) - {:?}", getter as usize, test)?,
-            &TIME(getter, test) => write!(f, "TIME({:#x}) - {:?}", getter as usize, test)?,
-            &DATE(getter, test) => write!(f, "DATE({:#x}) - {:?}", getter as usize, test)?,
-            &DATETIME(getter, test) => write!(f, "DATETIME({:#x}) - {:?}", getter as usize, test)?,
+            HASHEQ => write!(f, "HASHEQ")?,
+            BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", (*getter) as usize, test)?,
+            I8(getter, test) => write!(f, "I8({:#x}) - {:?}", (*getter) as usize, test)?,
+            I16(getter, test) => write!(f, "I16({:#x}) - {:?}", (*getter) as usize, test)?,
+            I32(getter, test) => write!(f, "I32({:#x}) - {:?}", (*getter) as usize, test)?,
+            I64(getter, test) => write!(f, "I64({:#x}) - {:?}", (*getter) as usize, test)?,
+            I128(getter, test) => write!(f, "I128({:#x}) - {:?}", (*getter) as usize, test)?,
+            U8(getter, test) => write!(f, "U8({:#x}) - {:?}", (*getter) as usize, test)?,
+            U16(getter, test) => write!(f, "U16({:#x}) - {:?}", (*getter) as usize, test)?,
+            U32(getter, test) => write!(f, "U32({:#x}) - {:?}", (*getter) as usize, test)?,
+            U64(getter, test) => write!(f, "U64({:#x}) - {:?}", (*getter) as usize, test)?,
+            U128(getter, test) => write!(f, "U128({:#x}) - {:?}", (*getter) as usize, test)?,
+            F32(getter, test) => write!(f, "F32({:#x}) - {:?}", (*getter) as usize, test)?,
+            F64(getter, test) => write!(f, "F64({:#x}) - {:?}", (*getter) as usize, test)?,
+            D128(getter, test) => write!(f, "D128({:#x}) - {:?}", (*getter) as usize, test)?,
+            STR(getter, test) => write!(f, "STR({:#x}) - {:?}", (*getter) as usize, test)?,
+            TIME(getter, test) => write!(f, "TIME({:#x}) - {:?}", (*getter) as usize, test)?,
+            DATE(getter, test) => write!(f, "DATE({:#x}) - {:?}", (*getter) as usize, test)?,
+            DATETIME(getter, test) => write!(f, "DATETIME({:#x}) - {:?}", (*getter) as usize, test)?,
         }
         write!(f, ")")
     }
@@ -379,56 +387,6 @@ impl<T: Fact> AlphaNode<T> {
         ord.hash(state);
         getter.hash(state);
         test.hash(state);
-    }
-}
-
-impl<T: Fact> IsHashEq for AlphaNode<T> {
-    fn is_hash_eq(&self) -> bool {
-        use self::AlphaNode::*;
-        match self {
-            HASHEQ => unreachable!("Asking HASHEQ if it can be turned into a HashEq"),
-            BOOL(_, ref test) => test.is_hash_eq(),
-            I8(_, ref test) => test.is_hash_eq(),
-            I16(_, ref test) => test.is_hash_eq(),
-            I32(_, ref test) => test.is_hash_eq(),
-            I64(_, ref test) => test.is_hash_eq(),
-            U8(_, ref test) => test.is_hash_eq(),
-            U16(_, ref test) => test.is_hash_eq(),
-            U32(_, ref test) => test.is_hash_eq(),
-            U64(_, ref test) => test.is_hash_eq(),
-            F32(_, ref test) => test.is_hash_eq(),
-            F64(_, ref test) => test.is_hash_eq(),
-            D128(_, ref test) => test.is_hash_eq(),
-            STR(_, ref test) => test.is_hash_eq(),
-            TIME(_, ref test) => test.is_hash_eq(),
-            DATE(_, ref test) => test.is_hash_eq(),
-            DATETIME(_, ref test) => test.is_hash_eq(),
-        }
-    }
-}
-
-impl<T: Fact> From<BetaNode<T>> for AlphaNode<T> {
-    fn from(node: BetaNode<T>) -> AlphaNode<T> {
-        use self::BetaNode::*;
-        match node {
-            BOOL(getter, test) if test.is_alpha() => AlphaNode::BOOL(getter, test.into()),
-            I8(getter, test) if test.is_alpha() => AlphaNode::I8(getter, test.into()),
-            I16(getter, test) if test.is_alpha() => AlphaNode::I16(getter, test.into()),
-            I32(getter, test) if test.is_alpha() => AlphaNode::I32(getter, test.into()),
-            I64(getter, test) if test.is_alpha() => AlphaNode::I64(getter, test.into()),
-            U8(getter, test) if test.is_alpha() => AlphaNode::U8(getter, test.into()),
-            U16(getter, test) if test.is_alpha() => AlphaNode::U16(getter, test.into()),
-            U32(getter, test) if test.is_alpha() => AlphaNode::U32(getter, test.into()),
-            U64(getter, test) if test.is_alpha() => AlphaNode::U64(getter, test.into()),
-            F32(getter, test) if test.is_alpha() => AlphaNode::F32(getter, test.into()),
-            F64(getter, test) if test.is_alpha() => AlphaNode::F64(getter, test.into()),
-            D128(getter, test) if test.is_alpha() => AlphaNode::D128(getter, test.into()),
-            STR(getter, test) if test.is_alpha() => AlphaNode::STR(getter, test.into()),
-            TIME(getter, test) if test.is_alpha() => AlphaNode::TIME(getter, test.into()),
-            DATE(getter, test) if test.is_alpha() => AlphaNode::DATE(getter, test.into()),
-            DATETIME(getter, test) if test.is_alpha() => AlphaNode::DATETIME(getter, test.into()),
-            _ => unreachable!("Into AlphaNode with unsupported config")
-        }
     }
 }
 
