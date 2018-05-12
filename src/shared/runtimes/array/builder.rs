@@ -21,6 +21,8 @@ use shared::compiler::prelude::Stage1Compile;
 use shared::compiler::builder::ConsequenceBuilder;
 use shared::compiler::builder::KnowledgeBase;
 use bimap::BiMap;
+use std::any::TypeId;
+use std::fmt::Debug;
 
 // TODO Beta compile
 /*
@@ -111,11 +113,29 @@ pub enum ConditionGroupType {
     NotAll
 }
 
+pub trait StatementDetails {}
+
 #[derive(Clone, Eq, PartialEq, Debug)]
-struct StatementData {
-    provides: HashSet<SymbolId>, // HashSet or vec?
-    requires: HashSet<SymbolId>,
+struct StatementProvides<T: Fact> {
+    var: Option<SymbolId>,
+    fields: HashMap<SymbolId, Getter<T>>
+}
+
+impl<T: Fact> Default for StatementProvides<T> {
+    fn default() -> Self {
+        StatementProvides{var: None, fields: Default::default()}
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+struct StatementData<T: Fact> {
+    statement_provides: StatementProvides<T>,
+    statement_requires: HashSet<SymbolId>,
     condition_groups: HashMap<ConditionGroupId, ConditionGroupType>
+}
+
+impl<T: Fact> StatementDetails for StatementData<T> {
+
 }
 
 // TODO: After we build up the groupings & requirements, cascade down the groupings to ensure that we're not screwing anything up
@@ -128,7 +148,7 @@ struct ArrayRuleData {
     agenda_group: SymbolId,
     current_group: StatementGroupId,
     statement_groups: BTreeMap<StatementGroupId, StatementGroup>,
-    statement_data: BTreeMap<StatementId, StatementData>,
+    statement_data: BTreeMap<StatementId, Box<StatementDetails>>,
 }
 
 
@@ -404,13 +424,31 @@ impl RuleBuilder for ArrayRuleBuilder {
             .collect();
         let provided = provides_result?;
 
+        // TODO: Move into TryFrom once stable
+        if provided.iter()
+            .filter(|p| p.is_variable())
+            .count() > 1 {
+            let rule = self.base_builder.cache.resolve(self.rule_data.name).unwrap();
+            return Err(CompileError::MultipleVariables {rule: rule.to_owned(), statement_id});
+        }
+
+        let mut statement_provides: StatementProvides<T> = Default::default();
+
+        for node in provided {
+            match node {
+                ProvidesNode::Var(s) => {statement_provides.var = Some(s);},
+                ProvidesNode::Field(s, g) => {statement_provides.fields.insert(s, g);},
+            }
+        }
+
+
         let mut beta_nodes = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?).clean();
         let  alpha_nodes = beta_nodes.collect_alpha();
         self.base_builder.insert_alpha(statement_id, alpha_nodes);
 
         // For speed purposes, requires & condition_groups should be done in the same step?
-        let mut requires = Default::default();
-        beta_nodes.collect_required(&mut requires);
+        let mut statement_requires = Default::default();
+        beta_nodes.collect_required(&mut statement_requires);
 
         let condition_groups =
             self.base_builder.insert_beta(self.rule_data.agenda_group, rule_id, statement_id, beta_nodes);
@@ -418,12 +456,13 @@ impl RuleBuilder for ArrayRuleBuilder {
         self.rule_data.statement_groups.get_mut(&statement_group)
             .unwrap().push(StatementGroupEntry::Statement(statement_id));
 
-        // TODO - how to store in a type safe manner? where Statement Id is typed somehow?
-        self.rule_data.statement_data.insert(statement_id, StatementData {
-            provides: provided,
-            requires,
-            condition_groups,
-        });
+        self.rule_data.statement_data.insert(statement_id,
+                                             Box::new(StatementData {
+                                                            statement_provides,
+                                                            statement_requires,
+                                                            condition_groups,
+                                                        })
+        );
         Ok(self)
     }
 

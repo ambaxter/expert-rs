@@ -326,6 +326,7 @@ macro_rules! alpha_derive {
                     $(
                     $t(_, test) => test.is_hash_eq(),
                     )*
+                    _ => unreachable!(),
                 }
             }
         }
