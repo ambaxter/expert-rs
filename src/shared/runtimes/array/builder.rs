@@ -392,29 +392,10 @@ impl ArrayRuleBuilder {
         self.rule_data.statement_groups.insert(new_group_id, new_group);
         self.rule_data.current_group = new_group_id;
     }
-}
 
-impl RuleBuilder for ArrayRuleBuilder {
-    type CB = ArrayConsequenceBuilder;
-
-    fn salience(mut self, salience: i32) -> Self {
-        self.rule_data.salience = salience;
-        self
-    }
-
-    fn no_loop(mut self, no_loop: bool) -> Self {
-        self.rule_data.no_loop = no_loop;
-        self
-    }
-
-    fn when<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
-        self.provides_when::<T, &'static str, N>(&[], nodes)
-    }
-
-    fn provides_when<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+    fn add_new_statement<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(&mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<(StatementId, Box<StatementDetails>), CompileError> {
         let rule_id = self.rule_data.id;
         let statement_id = self.base_builder.id_generator.statement_ids.next();
-        let statement_group = self.rule_data.current_group;
 
         // Retrieve the upfront declarations
         // TODO - is there a way to do this in one line?
@@ -441,7 +422,6 @@ impl RuleBuilder for ArrayRuleBuilder {
             }
         }
 
-
         let mut beta_nodes = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?).clean();
         let  alpha_nodes = beta_nodes.collect_alpha();
         self.base_builder.insert_alpha(statement_id, alpha_nodes);
@@ -453,16 +433,41 @@ impl RuleBuilder for ArrayRuleBuilder {
         let condition_groups =
             self.base_builder.insert_beta(self.rule_data.agenda_group, rule_id, statement_id, beta_nodes);
 
-        self.rule_data.statement_groups.get_mut(&statement_group)
-            .unwrap().push(StatementGroupEntry::Statement(statement_id));
+        let statement_details = Box::new(StatementData {
+            statement_provides,
+            statement_requires,
+            condition_groups,
+        });
 
-        self.rule_data.statement_data.insert(statement_id,
-                                             Box::new(StatementData {
-                                                            statement_provides,
-                                                            statement_requires,
-                                                            condition_groups,
-                                                        })
-        );
+        Ok((statement_id, statement_details))
+    }
+}
+
+impl RuleBuilder for ArrayRuleBuilder {
+    type CB = ArrayConsequenceBuilder;
+
+    fn salience(mut self, salience: i32) -> Self {
+        self.rule_data.salience = salience;
+        self
+    }
+
+    fn no_loop(mut self, no_loop: bool) -> Self {
+        self.rule_data.no_loop = no_loop;
+        self
+    }
+
+    fn when<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+        self.provides_when::<T, &'static str, N>(&[], nodes)
+    }
+
+    fn provides_when<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+        let (statement_id, statement_details) = self.add_new_statement(provides, nodes)?;
+        let statement_group = self.rule_data.current_group;
+        self.rule_data.statement_groups.get_mut(&statement_group)
+            .unwrap()
+            .push(StatementGroupEntry::Statement(statement_id));
+
+        self.rule_data.statement_data.insert(statement_id, statement_details);
         Ok(self)
     }
 
@@ -495,8 +500,8 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 
     fn provides_for_all_group<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
-        let statement_id = self.base_builder.id_generator.statement_ids.next();
-        let node = Stage1Node::All(Stage1Compile::stage1_compile_slice(nodes, &mut self.base_builder.cache)?);
+        let (statement_id, statement_details) = self.add_new_statement(provides, nodes)?;
+        self.rule_data.statement_data.insert(statement_id, statement_details);
         // TODO: Do prep the node for layout
         let parent_group = self.rule_data.current_group;
         self.add_new_group(StatementGroup::for_all(parent_group, statement_id));
