@@ -1,4 +1,4 @@
-use shared::fact::Fact;
+use shared::fact::{Fact, Getter, FactFieldType};
 use shared::nodes::alpha::{IsHashEq, AlphaNode};
 use shared::nodes::beta::{CollectRequired, BetaNode};
 use shared::compiler::prelude::Stage1Node;
@@ -11,7 +11,6 @@ use std::collections::HashMap;
 use errors::CompileError;
 use std;
 use std::collections::BTreeMap;
-use shared::fact::Getter;
 use shared::nodes::alpha::HashEqField;
 use anymap::any::{IntoBox, Any, UncheckedAnyExt};
 use anymap::Map;
@@ -113,7 +112,11 @@ pub enum ConditionGroupType {
     NotAll
 }
 
-pub trait StatementDetails {}
+pub trait StatementDetails {
+    fn provides_var(&self) -> Option<SymbolId>;
+    fn provides_fields<'a>(&'a self) -> Box<Iterator<Item = (SymbolId, FactFieldType)> + 'a>;
+    fn requires_fields(&self) -> &HashSet<SymbolId>;
+}
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 struct StatementProvides<T: Fact> {
@@ -135,7 +138,20 @@ struct StatementData<T: Fact> {
 }
 
 impl<T: Fact> StatementDetails for StatementData<T> {
+    fn provides_var(&self) -> Option<SymbolId> {
+        self.statement_provides.var
+    }
 
+    fn provides_fields<'a>(&'a self) -> Box<Iterator<Item = (SymbolId, FactFieldType)> + 'a> {
+        Box::new(
+            self.statement_provides.fields.iter()
+            .map(|(key, val)| (*key, FactFieldType::from(val.clone())))
+        )
+    }
+
+    fn requires_fields(&self) -> &HashSet<SymbolId> {
+        &self.statement_requires
+    }
 }
 
 // TODO: After we build up the groupings & requirements, cascade down the groupings to ensure that we're not screwing anything up

@@ -137,6 +137,18 @@ macro_rules! getter_derive {
                $t,
             )*
         }
+
+        impl<T: Fact> From<Getter<T>> for FactFieldType {
+            fn from(getter: Getter<T>) -> FactFieldType {
+                use self::Getter::*;
+                match getter {
+                    $(
+                        $t(_) => FactFieldType::$t,
+                    )*
+                }
+            }
+
+        }
     };
 }
 
@@ -151,7 +163,12 @@ getter_derive!(
 
 
 impl FactFieldType {
+
     pub fn is_compatible(&self, other: &Self) -> bool {
+        self.is_number_compatible(other)
+    }
+
+    pub fn is_number_compatible(&self, other: &Self) -> bool {
         match (self.is_number(), other.is_number()) {
             (true, true) => true,
             _ => false
