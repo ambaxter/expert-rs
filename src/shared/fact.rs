@@ -130,6 +130,13 @@ macro_rules! getter_derive {
                 Some(self.cmp(other))
             }
         }
+
+        #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
+        pub enum FactFieldType {
+            $(
+               $t,
+            )*
+        }
     };
 }
 
@@ -142,6 +149,25 @@ getter_derive!(
         TIME, DATE, DATETIME
     );
 
+
+impl FactFieldType {
+    pub fn is_compatible(&self, other: &Self) -> bool {
+        match (self.is_number(), other.is_number()) {
+            (true, true) => true,
+            _ => false
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        use self::FactFieldType::*;
+        match self {
+            I8 | I16 | I32 | I64 | I128
+            | U8 | U16 | U32 | U64 | U128
+            | F32 | F64 | D128 => true,
+            _ => false
+        }
+    }
+}
 
 pub trait Fact: 'static + Eq + Hash + Any
     where Self: std::marker::Sized {
