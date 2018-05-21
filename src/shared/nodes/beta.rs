@@ -4,7 +4,7 @@ use num::{Integer, Float, ToPrimitive, NumCast};
 use num::cast;
 use ordered_float::NotNaN;
 use runtime::memory::{StringCache, SymbolId};
-use super::super::fact::{Getter, Fact, FactField, RefField, CastField};
+use super::super::fact::{Getter, Fact, FactField, RefField, CastField, FactFieldType, GetFieldType};
 use errors::CompileError;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ord_subset::OrdVar;
@@ -1339,6 +1339,17 @@ macro_rules! beta_derive {
                 match self {
                     $(
                     &$t(_, test) => test.collect_required(symbols),
+                    )*
+                }
+            }
+        }
+
+        impl<T: Fact> GetFieldType for BetaNode<T> {
+            fn get_field_type(&self) -> FactFieldType {
+                use self::BetaNode::*;
+                match self {
+                    $(
+                        $t(..) => FactFieldType::$t,
                     )*
                 }
             }

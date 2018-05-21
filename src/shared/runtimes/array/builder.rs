@@ -1,4 +1,4 @@
-use shared::fact::{Fact, Getter, FactFieldType};
+use shared::fact::{Fact, Getter, FactFieldType, GetFieldType};
 use shared::nodes::alpha::{IsHashEq, AlphaNode};
 use shared::nodes::beta::{CollectRequired, BetaNode};
 use shared::compiler::prelude::Stage1Node;
@@ -145,7 +145,7 @@ impl<T: Fact> StatementDetails for StatementData<T> {
     fn provides_fields<'a>(&'a self) -> Box<Iterator<Item = (SymbolId, FactFieldType)> + 'a> {
         Box::new(
             self.statement_provides.fields.iter()
-            .map(|(key, val)| (*key, FactFieldType::from(val.clone())))
+            .map(|(key, val)| (*key, val.get_field_type()))
         )
     }
 

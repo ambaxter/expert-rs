@@ -18,35 +18,35 @@ use enum_index::EnumIndex;
 use std::any::Any;
 
 #[derive(Copy, EnumIndex)]
-pub enum Getter<I: Fact> {
-    BOOL(fn(&I) -> &bool),
-    I8(fn(&I) -> &i8),
-    I16(fn(&I) -> &i16),
-    I32(fn(&I) -> &i32),
-    I64(fn(&I) -> &i64),
-    I128(fn(&I) -> &i128),
-    U8(fn(&I) -> &u8),
-    U16(fn(&I) -> &u16),
-    U32(fn(&I) -> &u32),
-    U64(fn(&I) -> &u64),
-    U128(fn(&I) -> &u128),
-    F32(fn(&I) -> &NotNaN<f32>),
-    F64(fn(&I) -> &NotNaN<f64>),
-    D128(fn(&I) -> &OrdVar<d128>),
-    STR(fn(&I) -> &str),
-    TIME(fn(&I) -> &NaiveTime),
-    DATE(fn(&I) -> &Date<Utc>),
-    DATETIME(fn(&I) -> &DateTime<Utc>),
+pub enum Getter<T: Fact> {
+    BOOL(fn(&T) -> &bool),
+    I8(fn(&T) -> &i8),
+    I16(fn(&T) -> &i16),
+    I32(fn(&T) -> &i32),
+    I64(fn(&T) -> &i64),
+    I128(fn(&T) -> &i128),
+    U8(fn(&T) -> &u8),
+    U16(fn(&T) -> &u16),
+    U32(fn(&T) -> &u32),
+    U64(fn(&T) -> &u64),
+    U128(fn(&T) -> &u128),
+    F32(fn(&T) -> &NotNaN<f32>),
+    F64(fn(&T) -> &NotNaN<f64>),
+    D128(fn(&T) -> &OrdVar<d128>),
+    STR(fn(&T) -> &str),
+    TIME(fn(&T) -> &NaiveTime),
+    DATE(fn(&T) -> &Date<Utc>),
+    DATETIME(fn(&T) -> &DateTime<Utc>),
 }
 
-impl<I: Fact> Getter<I> {
+impl<T: Fact> Getter<T> {
     fn hash_self<H: Hasher>(ord: usize, getter: usize, state: &mut H) {
         ord.hash(state);
         getter.hash(state);
     }
 }
 
-impl<I: Fact> Debug for Getter<I> {
+impl<T: Fact> Debug for Getter<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Getter::*;
         write!(f, "Getter(")?;
@@ -74,11 +74,10 @@ impl<I: Fact> Debug for Getter<I> {
     }
 }
 
-
 macro_rules! getter_derive {
     ($($t:ident),+ ) => {
 
-        impl<I: Fact> Clone for Getter<I> {
+        impl<T: Fact> Clone for Getter<T> {
             fn clone(&self) -> Self {
                 use self::Getter::*;
                 match *self {
@@ -89,7 +88,7 @@ macro_rules! getter_derive {
             }
         }
 
-        impl <I:Fact> Hash for Getter<I> {
+        impl <T:Fact> Hash for Getter<T> {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::Getter::*;
                     match self {
@@ -99,7 +98,7 @@ macro_rules! getter_derive {
             }
         }
 
-        impl<I:Fact> PartialEq for Getter<I> {
+        impl<T:Fact> PartialEq for Getter<T> {
             fn eq(&self, other: &Self) -> bool {
                 use self::Getter::*;
                     match (self, other) {
@@ -111,9 +110,9 @@ macro_rules! getter_derive {
             }
         }
 
-        impl<I: Fact> Eq for Getter<I> {}
+        impl<T: Fact> Eq for Getter<T> {}
 
-        impl<I:Fact> Ord for Getter<I> {
+        impl<T:Fact> Ord for Getter<T> {
             fn cmp(&self, other: &Self) -> Ordering {
             use self::Getter::*;
                 match(self, other) {
@@ -125,7 +124,7 @@ macro_rules! getter_derive {
             }
         }
 
-        impl<I:Fact> PartialOrd for Getter<I> {
+        impl<T:Fact> PartialOrd for Getter<T> {
             fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
                 Some(self.cmp(other))
             }
@@ -138,16 +137,19 @@ macro_rules! getter_derive {
             )*
         }
 
-        impl<T: Fact> From<Getter<T>> for FactFieldType {
-            fn from(getter: Getter<T>) -> FactFieldType {
+        pub trait GetFieldType {
+            fn get_field_type(&self) -> FactFieldType;
+        }
+
+        impl<T: Fact> GetFieldType for Getter<T> {
+            fn get_field_type(&self) -> FactFieldType {
                 use self::Getter::*;
-                match getter {
+                match self {
                     $(
                         $t(_) => FactFieldType::$t,
                     )*
                 }
             }
-
         }
     };
 }
