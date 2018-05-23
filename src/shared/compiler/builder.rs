@@ -59,10 +59,10 @@ pub trait RuleBuilder {
     fn provides_for_all_group<T:'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
         where Self: std::marker::Sized;
     fn end_group(self) -> Result<Self, CompileError> where Self: std::marker::Sized;
-    fn then(self) -> Self::CB;
+    fn then(self) -> Result<Self::CB, CompileError>;
 }
 
 pub trait ConsequenceBuilder {
     type BB: BaseBuilder;
-    fn end(self) -> Self::BB;
+    fn end(self) -> Result<Self::BB, CompileError>;
 }

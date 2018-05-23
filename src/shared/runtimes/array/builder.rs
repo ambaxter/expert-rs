@@ -533,14 +533,14 @@ impl RuleBuilder for ArrayRuleBuilder {
         Ok(self)
     }
 
-    fn then(self) -> Self::CB {
+    fn then(self) -> Result<Self::CB, CompileError> {
         // TODO: Validate statement groups & requirements
         // TODO: How do we want to handle consequences?
-        ArrayConsequenceBuilder{
+        Ok(ArrayConsequenceBuilder{
             rule_data: self.rule_data,
             consequence_data: ArrayConsequenceData {},
             base_builder: self.base_builder
-        }
+        })
     }
 }
 
@@ -560,7 +560,7 @@ pub struct ArrayConsequenceBuilder {
 impl ConsequenceBuilder for ArrayConsequenceBuilder {
     type BB = ArrayBaseBuilder;
 
-    fn end(self) -> Self::BB {
-        self.base_builder
+    fn end(self) -> Result<Self::BB, CompileError> {
+        Ok(self.base_builder)
     }
 }
