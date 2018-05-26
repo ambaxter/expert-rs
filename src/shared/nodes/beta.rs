@@ -18,6 +18,7 @@ use enum_index;
 use enum_index::EnumIndex;
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::collections::HashMap;
 
 
 pub trait IsAlpha {
@@ -56,7 +57,7 @@ pub trait MapAll<T, U> {
 }
 
 pub trait CollectRequired {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>);
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>);
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
@@ -154,11 +155,12 @@ impl<T, U> MapAll<T, U> for SLimit<T, T> {
     }
 }
 
-impl<T> CollectRequired for SLimit<T, SymbolId> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+impl<T> CollectRequired for SLimit<T, SymbolId>
+    where T: FactField {
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::SLimit::*;
         match *self {
-            Dyn(ref s) => {symbols.insert(*s);},
+            Dyn(ref s) => {symbols.entry(*s).or_insert_with(|| Default::default()).insert(T::get_field_type());},
             _ => {}
         }
     }
@@ -273,13 +275,17 @@ impl<T, U> MapAll<T, U> for DLimit<T, T> {
     }
 }
 
-impl<T> CollectRequired for DLimit<T, SymbolId> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+impl<T> CollectRequired for DLimit<T, SymbolId>
+    where T: FactField {
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::DLimit::*;
         match *self {
-            StDyn(_, ref s_to) => {symbols.insert(*s_to);},
-            DynSt(ref s_from, _) => {symbols.insert(*s_from);},
-            Dyn(ref s_from, ref s_to) => {symbols.insert(*s_from); symbols.insert(*s_to);},
+            StDyn(_, ref s_to) => {symbols.entry(*s_to).or_insert_with(|| Default::default()).insert(T::get_field_type());},
+            DynSt(ref s_from, _) => {symbols.entry(*s_from).or_insert_with(|| Default::default()).insert(T::get_field_type());},
+            Dyn(ref s_from, ref s_to) => {
+                symbols.entry(*s_from).or_insert_with(|| Default::default()).insert(T::get_field_type());
+                symbols.entry(*s_to).or_insert_with(|| Default::default()).insert(T::get_field_type());
+            },
             _ => {}
         }
     }
@@ -344,7 +350,7 @@ impl BetaTestField<bool> for BoolTest<SymbolId> {
 }
 
 impl CollectRequired for BoolTest<SymbolId> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::BoolTest::*;
         match *self {
             Eq(.., ref limit) => limit.collect_required(symbols)
@@ -424,7 +430,7 @@ macro_rules! beta_number_test {
             }
 
             impl CollectRequired for $test<SymbolId> {
-                fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+                fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
                     use self::$test::*;
                     match *self {
                         Ord(.., ref limit) => limit.collect_required(symbols),
@@ -509,7 +515,7 @@ macro_rules! beta_float_test {
             }
 
             impl CollectRequired for $test<SymbolId> {
-                fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+                fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
                     use self::$test::*;
                     match *self {
                         Ord(.., ref limit) => limit.collect_required(symbols),
@@ -625,7 +631,7 @@ impl BetaTestField<str> for StrTest<SymbolId> {
 }
 
 impl CollectRequired for StrTest<SymbolId> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::StrTest::*;
         match *self {
             Ord(.., ref limit) => limit.collect_required(symbols),
@@ -704,7 +710,7 @@ impl BetaTestField<NaiveTime> for TimeTest<SymbolId> {
 }
 
 impl CollectRequired for TimeTest<SymbolId> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::TimeTest::*;
         match *self {
             Ord(.., ref limit) => limit.collect_required(symbols),
@@ -782,7 +788,7 @@ impl BetaTestField<Date<Utc>> for DateTest<SymbolId> {
 }
 
 impl CollectRequired for DateTest<SymbolId> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::DateTest::*;
         match *self {
             Ord(.., ref limit) => limit.collect_required(symbols),
@@ -861,7 +867,7 @@ impl BetaTestField<DateTime<Utc>> for DateTimeTest<SymbolId> {
 }
 
 impl CollectRequired for DateTimeTest<SymbolId> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::DateTimeTest::*;
         match *self {
             Ord(.., ref limit) => limit.collect_required(symbols),
@@ -1334,7 +1340,7 @@ macro_rules! beta_derive {
         }
 
         impl<T:Fact> CollectRequired for BetaNode<T> {
-            fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+            fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
                 use self::BetaNode::*;
                 match self {
                     $(

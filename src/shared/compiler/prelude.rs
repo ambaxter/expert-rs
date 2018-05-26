@@ -15,7 +15,7 @@ use decimal::d128;
 use chrono::{Utc, NaiveTime, Date, DateTime};
 use std::borrow::Cow;
 use shared::nodes::tests::{Truth, EqTest, OrdTest, BetweenTest, StrArrayTest};
-use shared::fact::Fact;
+use shared::fact::{Fact, FactFieldType};
 use runtime::memory::StringCache;
 use shared::nodes::beta::{IsAlpha, BetaNode};
 use errors::CompileError;
@@ -29,6 +29,7 @@ use shared::fact::Getter;
 use shared::nodes::alpha::AlphaNode;
 use shared::nodes::beta::CollectRequired;
 use std::collections::HashSet;
+use std::collections::HashMap;
 
 pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}
@@ -610,7 +611,7 @@ impl<T: Fact> Stage1Node<T> {
 }
 
 impl<T: Fact> CollectRequired for Stage1Node<T> {
-    fn collect_required(&self, symbols: &mut HashSet<SymbolId>) {
+    fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::Stage1Node::*;
         match *self {
             Test(ref node) => node.collect_required(symbols),

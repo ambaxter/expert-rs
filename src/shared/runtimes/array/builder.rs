@@ -115,7 +115,7 @@ pub enum ConditionGroupType {
 pub trait StatementDetails {
     fn provides_var(&self) -> Option<SymbolId>;
     fn provides_fields<'a>(&'a self) -> Box<Iterator<Item = (SymbolId, FactFieldType)> + 'a>;
-    fn requires_fields(&self) -> &HashSet<SymbolId>;
+    fn requires_fields(&self) -> &HashMap<SymbolId, HashSet<FactFieldType>>;
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -133,7 +133,7 @@ impl<T: Fact> Default for StatementProvides<T> {
 #[derive(Clone, Eq, PartialEq, Debug)]
 struct StatementData<T: Fact> {
     statement_provides: StatementProvides<T>,
-    statement_requires: HashSet<SymbolId>,
+    statement_requires: HashMap<SymbolId, HashSet<FactFieldType>>,
     condition_groups: HashMap<ConditionGroupId, ConditionGroupType>
 }
 
@@ -149,7 +149,7 @@ impl<T: Fact> StatementDetails for StatementData<T> {
         )
     }
 
-    fn requires_fields(&self) -> &HashSet<SymbolId> {
+    fn requires_fields(&self) -> &HashMap<SymbolId, HashSet<FactFieldType>> {
         &self.statement_requires
     }
 }
@@ -457,6 +457,12 @@ impl ArrayRuleBuilder {
 
         Ok((statement_id, statement_details))
     }
+
+    // ALL - there may only be a single source of a particular ID
+    // ANY - all must supply the same IDs
+    fn test(&mut self) {
+
+    }
 }
 
 impl RuleBuilder for ArrayRuleBuilder {
@@ -518,7 +524,6 @@ impl RuleBuilder for ArrayRuleBuilder {
     fn provides_for_all_group<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
         let (statement_id, statement_details) = self.add_new_statement(provides, nodes)?;
         self.rule_data.statement_data.insert(statement_id, statement_details);
-        // TODO: Do prep the node for layout
         let parent_group = self.rule_data.current_group;
         self.add_new_group(StatementGroup::for_all(parent_group, statement_id));
         Ok(self)

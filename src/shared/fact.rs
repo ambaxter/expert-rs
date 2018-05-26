@@ -198,7 +198,9 @@ pub trait Fact: 'static + Eq + Hash + Any
     fn create_hash_eq(conditions: &[AlphaNode<Self>]) -> Self::HashEq;
 }
 
-pub trait FactField {}
+pub trait FactField {
+    fn get_field_type() -> FactFieldType;
+}
 
 pub trait RefField : FactField {
     #[inline]
@@ -211,9 +213,13 @@ pub trait CastField : FactField {
 }
 
 macro_rules! impl_ref_field {
-    ($($id:ty => $getter:ident),+) => {
+    ($($id:ty => $getter:ident => $field_type:ident),+) => {
         $(
-            impl FactField for $id {}
+            impl FactField for $id {
+                fn get_field_type() -> FactFieldType {
+                    FactFieldType::$field_type
+                }
+            }
 
             impl RefField for $id {
                 #[inline]
@@ -226,9 +232,13 @@ macro_rules! impl_ref_field {
 }
 
 macro_rules! impl_cast_field {
-    ($($id:ty => $getter:ident),+) => {
+    ($($id:ty => $getter:ident => $field_type:ident),+) => {
         $(
-            impl FactField for $id {}
+            impl FactField for $id {
+                fn get_field_type() -> FactFieldType {
+                    FactFieldType::$field_type
+                }
+            }
 
             impl CastField for $id {
                 #[inline]
@@ -241,25 +251,31 @@ macro_rules! impl_cast_field {
 }
 
 impl_ref_field!(
-    bool => get_bool,
-    str => get_str,
-    NaiveTime => get_time,
-    Date<Utc> => get_date,
-    DateTime<Utc> => get_datetime
+    bool => get_bool => BOOL,
+    str => get_str => STR,
+    NaiveTime => get_time => TIME,
+    Date<Utc> => get_date => DATE,
+    DateTime<Utc> => get_datetime => DATETIME
 );
 
 impl_cast_field!(
-    i8 => get_i8,
-    i16 => get_i16,
-    i32 => get_i32,
-    i64 => get_i64,
-    i128 => get_i128,
-    u8 => get_u8,
-    u16 => get_u16,
-    u32 => get_u32,
-    u64 => get_u64,
-    u128 => get_u128,
-    NotNaN<f32> => get_f32,
-    NotNaN<f64> => get_f64,
-    OrdVar<d128> => get_d128
+    i8 => get_i8 => I8,
+    i16 => get_i16 => I16,
+    i32 => get_i32 => I32,
+    i64 => get_i64 => I64,
+    i128 => get_i128 => I128,
+    u8 => get_u8 => U8,
+    u16 => get_u16 => U16,
+    u32 => get_u32 => U32,
+    u64 => get_u64 => U64,
+    u128 => get_u128 => U128,
+    NotNaN<f32> => get_f32 => F32,
+    NotNaN<f64> => get_f64 => F64,
+    OrdVar<d128> => get_d128 => D128
 );
+
+impl FactField for SymbolId {
+    fn get_field_type() -> FactFieldType {
+        FactFieldType::STR
+    }
+}
