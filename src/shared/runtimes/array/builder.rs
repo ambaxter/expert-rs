@@ -126,8 +126,8 @@ impl StatementGroup {
     fn extract_single_entry(self) -> StatementGroupEntry {
         use self::StatementGroup::*;
         match self {
-            StatementGroup::All(_, mut entries) => entries[0],
-            StatementGroup::Any(_, mut entries) => entries[0],
+            StatementGroup::All(_, entries) => entries[0],
+            StatementGroup::Any(_, entries) => entries[0],
             _ => unreachable!("extract single entry from non optimizable group {:?}", self)
         }
     }
