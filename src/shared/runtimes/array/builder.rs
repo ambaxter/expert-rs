@@ -570,7 +570,19 @@ impl RuleBuilder for ArrayRuleBuilder {
     }
 
     fn end_group(mut self) -> Result<Self, CompileError> {
-        let parent_id = self.rule_data.statement_groups.get(&self.rule_data.current_group).unwrap().parent();
+        let current_group_id = self.rule_data.current_group;
+        let parent_id = {
+            // TODO: This can probably be done better
+            let current_group = self.rule_data.statement_groups.remove(&current_group_id).unwrap();
+            let parent_id = current_group.parent();
+            if current_group.can_single_entry_optimize() {
+                let entry = current_group.extract_single_entry();
+                self.rule_data.statement_groups.get_mut(&parent_id).unwrap().push(entry);
+            } else {
+                self.rule_data.statement_groups.insert(current_group_id, current_group);
+            }
+            parent_id
+        };
         if parent_id == self.rule_data.current_group {
             unreachable!("end_group at root {:?}", parent_id);
         }
