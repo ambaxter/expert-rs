@@ -102,6 +102,17 @@ impl StatementGroup {
             StatementGroup::ForAll(_, _, ref mut entries) => entries.push(entry),
         }
     }
+
+    fn should_merge(&self, other: &Self) -> bool {
+        use self::StatementGroup::*;
+        match (self, other) {
+            (All(..), All(..)) => true,
+            (Any(..), Any(..)) => true,
+            (Exists(..), Exists(..)) => true,
+            (NotAll(..), NotAll(..)) => true,
+            _ => false
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -401,14 +412,6 @@ pub struct ArrayRuleBuilder {
 }
 
 impl ArrayRuleBuilder {
-    fn add_new_group(&mut self, new_group: StatementGroup) {
-        let new_group_id = self.base_builder.id_generator.statement_group_ids.next();
-        let parent_id = new_group.parent();
-        self.rule_data.statement_groups.get_mut(&parent_id).unwrap().push(StatementGroupEntry::Child(new_group_id));
-        self.rule_data.statement_groups.insert(new_group_id, new_group);
-        self.rule_data.current_group = new_group_id;
-    }
-
     fn add_new_statement<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(&mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<(StatementId, Box<StatementDetails>), CompileError> {
         let rule_id = self.rule_data.id;
         let statement_id = self.base_builder.id_generator.statement_ids.next();
@@ -456,6 +459,25 @@ impl ArrayRuleBuilder {
         });
 
         Ok((statement_id, statement_details))
+    }
+
+    fn add_new_group(&mut self, new_group: StatementGroup) {
+
+        let parent_id = new_group.parent();
+        let mut has_group_id = None;
+        {
+            let parent_group = self.rule_data.statement_groups.get_mut(&parent_id).unwrap();
+            if !parent_group.should_merge(&new_group) {
+                let new_group_id = self.base_builder.id_generator.statement_group_ids.next();
+                parent_group.push(StatementGroupEntry::Child(new_group_id));
+                has_group_id = Some(new_group_id);
+            }
+        }
+        if let Some(new_group_id) = has_group_id {
+            self.rule_data.statement_groups.insert(new_group_id, new_group);
+            self.rule_data.current_group = new_group_id;
+        };
+
     }
 
     // ALL - there may only be a single source of a particular ID
