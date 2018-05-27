@@ -113,6 +113,24 @@ impl StatementGroup {
             _ => false
         }
     }
+
+    fn can_single_entry_optimize(&self) -> bool {
+        use self::StatementGroup::*;
+        match self {
+            StatementGroup::All(_, entries) => entries.len() == 1,
+            StatementGroup::Any(_, entries) => entries.len() == 1,
+            _ => false
+        }
+    }
+
+    fn extract_single_entry(self) -> StatementGroupEntry {
+        use self::StatementGroup::*;
+        match self {
+            StatementGroup::All(_, mut entries) => entries[0],
+            StatementGroup::Any(_, mut entries) => entries[0],
+            _ => unreachable!("extract single entry from non optimizable group {:?}", self)
+        }
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
