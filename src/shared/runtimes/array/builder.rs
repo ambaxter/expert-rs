@@ -50,6 +50,8 @@ impl KnowledgeBase for ArrayKnowledgeBase {}
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 enum StatementGroupEntry {
     Statement(StatementId),
+    Exists(StatementId),
+    Absent(StatementId),
     Child(StatementGroupId),
 }
 
@@ -57,7 +59,6 @@ enum StatementGroupEntry {
 enum StatementGroup {
     All(StatementGroupId, Vec<StatementGroupEntry>),
     Any(StatementGroupId, Vec<StatementGroupEntry>),
-    Exists(StatementGroupId, Vec<StatementGroupEntry>),
     ForAll(StatementGroupId, StatementId, Vec<StatementGroupEntry>),
 }
 
@@ -70,10 +71,6 @@ impl StatementGroup {
         StatementGroup::Any(parent, Vec::new())
     }
 
-    fn exists(parent: StatementGroupId) -> StatementGroup {
-        StatementGroup::Exists(parent, Vec::new())
-    }
-
     fn for_all(parent: StatementGroupId, statement: StatementId) -> StatementGroup {
         StatementGroup::ForAll(parent, statement, Vec::new())
     }
@@ -82,7 +79,6 @@ impl StatementGroup {
         match *self {
             StatementGroup::All(parent, _) => parent,
             StatementGroup::Any(parent, _) => parent,
-            StatementGroup::Exists(parent, _) => parent,
             StatementGroup::ForAll(parent, ..) => parent,
         }
     }
@@ -91,7 +87,6 @@ impl StatementGroup {
         match *self {
             StatementGroup::All(_, ref mut entries) => entries.push(entry),
             StatementGroup::Any(_, ref mut entries) => entries.push(entry),
-            StatementGroup::Exists(_, ref mut entries) => entries.push(entry),
             StatementGroup::ForAll(_, _, ref mut entries) => entries.push(entry),
         }
     }
@@ -102,7 +97,6 @@ impl StatementGroup {
             (All(..), All(..)) => true,
             (ForAll(..), All(..)) => true,
             (Any(..), Any(..)) => true,
-            (Exists(..), Exists(..)) => true,
             _ => false
         }
     }
@@ -526,10 +520,25 @@ impl RuleBuilder for ArrayRuleBuilder {
         Ok(self)
     }
 
-    fn when_exists<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+    fn when_exists<T: 'static + Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Result<Self, CompileError> {
+        let (statement_id, statement_details) = self.add_new_statement::<T, &'static str, N>(&[], nodes)?;
+        let statement_group = self.rule_data.current_group;
+        self.rule_data.statement_groups.get_mut(&statement_group)
+            .unwrap()
+            .push(StatementGroupEntry::Exists(statement_id));
+
+        self.rule_data.statement_data.insert(statement_id, statement_details);
         Ok(self)
     }
-    fn when_absent<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+
+    fn when_absent<T: 'static + Fact, N: Stage1Compile<T>>(mut self, nodes: &[N]) -> Result<Self, CompileError> {
+        let (statement_id, statement_details) = self.add_new_statement::<T, &'static str, N>(&[], nodes)?;
+        let statement_group = self.rule_data.current_group;
+        self.rule_data.statement_groups.get_mut(&statement_group)
+            .unwrap()
+            .push(StatementGroupEntry::Absent(statement_id));
+
+        self.rule_data.statement_data.insert(statement_id, statement_details);
         Ok(self)
     }
 
