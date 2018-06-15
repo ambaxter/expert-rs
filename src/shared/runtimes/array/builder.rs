@@ -58,7 +58,6 @@ enum StatementGroup {
     All(StatementGroupId, Vec<StatementGroupEntry>),
     Any(StatementGroupId, Vec<StatementGroupEntry>),
     Exists(StatementGroupId, Vec<StatementGroupEntry>),
-    NotAll(StatementGroupId, Vec<StatementGroupEntry>),
     ForAll(StatementGroupId, StatementId, Vec<StatementGroupEntry>),
 }
 
@@ -75,10 +74,6 @@ impl StatementGroup {
         StatementGroup::Exists(parent, Vec::new())
     }
 
-    fn not_all(parent: StatementGroupId) -> StatementGroup {
-        StatementGroup::NotAll(parent, Vec::new())
-    }
-
     fn for_all(parent: StatementGroupId, statement: StatementId) -> StatementGroup {
         StatementGroup::ForAll(parent, statement, Vec::new())
     }
@@ -88,7 +83,6 @@ impl StatementGroup {
             StatementGroup::All(parent, _) => parent,
             StatementGroup::Any(parent, _) => parent,
             StatementGroup::Exists(parent, _) => parent,
-            StatementGroup::NotAll(parent, _) => parent,
             StatementGroup::ForAll(parent, ..) => parent,
         }
     }
@@ -98,7 +92,6 @@ impl StatementGroup {
             StatementGroup::All(_, ref mut entries) => entries.push(entry),
             StatementGroup::Any(_, ref mut entries) => entries.push(entry),
             StatementGroup::Exists(_, ref mut entries) => entries.push(entry),
-            StatementGroup::NotAll(_, ref mut entries) => entries.push(entry),
             StatementGroup::ForAll(_, _, ref mut entries) => entries.push(entry),
         }
     }
@@ -107,9 +100,9 @@ impl StatementGroup {
         use self::StatementGroup::*;
         match (self, other) {
             (All(..), All(..)) => true,
+            (ForAll(..), All(..)) => true,
             (Any(..), Any(..)) => true,
             (Exists(..), Exists(..)) => true,
-            (NotAll(..), NotAll(..)) => true,
             _ => false
         }
     }
@@ -533,6 +526,25 @@ impl RuleBuilder for ArrayRuleBuilder {
         Ok(self)
     }
 
+    fn when_exists<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+        Ok(self)
+    }
+    fn when_absent<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+        Ok(self)
+    }
+
+    fn when_for_all<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
+        self.provides_when_for_all::<T, &'static str, N>(&[], nodes)
+    }
+
+    fn provides_when_for_all<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
+        let (statement_id, statement_details) = self.add_new_statement(provides, nodes)?;
+        self.rule_data.statement_data.insert(statement_id, statement_details);
+        let parent_group = self.rule_data.current_group;
+        self.add_new_group(StatementGroup::for_all(parent_group, statement_id));
+        Ok(self)
+    }
+
     fn all_group(mut self) -> Self {
         let parent_group = self.rule_data.current_group;
         self.add_new_group(StatementGroup::all(parent_group));
@@ -545,54 +557,39 @@ impl RuleBuilder for ArrayRuleBuilder {
         self
     }
 
-    fn exists_group(mut self) -> Self {
-        let parent_group = self.rule_data.current_group;
-        self.add_new_group(StatementGroup::exists(parent_group));
-        self
-    }
-
-    fn not_group(mut self) -> Self {
-        let parent_group = self.rule_data.current_group;
-        self.add_new_group(StatementGroup::not_all(parent_group));
-        self
-    }
-
-    fn for_all_group<T: Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError> {
-        self.provides_for_all_group::<T, &'static str, N>(&[], nodes)
-    }
-
-    fn provides_for_all_group<T: Fact, S: AsRef<str>, N: Stage1Compile<T>>(mut self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError> {
-        let (statement_id, statement_details) = self.add_new_statement(provides, nodes)?;
-        self.rule_data.statement_data.insert(statement_id, statement_details);
-        let parent_group = self.rule_data.current_group;
-        self.add_new_group(StatementGroup::for_all(parent_group, statement_id));
-        Ok(self)
-    }
-
     fn end_group(mut self) -> Result<Self, CompileError> {
         let current_group_id = self.rule_data.current_group;
-        let parent_id = {
-            // TODO: This can probably be done better
+        let parent_id = self.rule_data.statement_groups.get(&current_group_id).unwrap().parent();
+        if current_group_id != parent_id {
+            // TODO - optimize this somehow
             let current_group = self.rule_data.statement_groups.remove(&current_group_id).unwrap();
-            let parent_id = current_group.parent();
             if current_group.can_single_entry_optimize() {
                 let entry = current_group.extract_single_entry();
                 self.rule_data.statement_groups.get_mut(&parent_id).unwrap().push(entry);
             } else {
                 self.rule_data.statement_groups.insert(current_group_id, current_group);
             }
-            parent_id
-        };
-        if parent_id == self.rule_data.current_group {
-            unreachable!("end_group at root {:?}", parent_id);
+            self.rule_data.current_group = parent_id;
         }
-        self.rule_data.current_group = parent_id;
         Ok(self)
     }
 
-    fn then(self) -> Result<Self::CB, CompileError> {
+    fn then(mut self) -> Result<Self::CB, CompileError> {
         // TODO: Validate statement groups & requirements
         // TODO: How do we want to handle consequences?
+
+        // The grouping algorithm allows some pretty bad combinations at this stage
+        // AND(NOT(AND(NOT(
+        // A state machine may make more sense, but I've spent too much time trying to logic my way out of this
+        // https://youtu.be/x4E5hzC8Xvs?list=PL6EC7B047181AD013&t=536
+        loop {
+            let mut current_group_id = self.rule_data.current_group;
+            let mut parent_id = self.rule_data.statement_groups.get(&current_group_id).unwrap().parent();
+            if current_group_id == parent_id {
+                break;
+            }
+            self = self.end_group()?;
+        }
         Ok(ArrayConsequenceBuilder{
             rule_data: self.rule_data,
             consequence_data: ArrayConsequenceData {},

@@ -50,14 +50,16 @@ pub trait RuleBuilder {
         where Self: std::marker::Sized;
     fn provides_when<T: 'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
         where Self: std::marker::Sized;
+    fn when_exists<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError>
+        where Self: std::marker::Sized;
+    fn when_absent<T: 'static + Fact, N: Stage1Compile<T>>(self, nodes: &[N]) -> Result<Self, CompileError>
+        where Self: std::marker::Sized;
+    fn when_for_all<T:'static + Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Result<Self, CompileError>
+        where Self: std::marker::Sized;
+    fn provides_when_for_all<T:'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
+        where Self: std::marker::Sized;
     fn all_group(self) -> Self;
     fn any_group(self) -> Self;
-    fn exists_group(self) -> Self;
-    fn not_group(self) -> Self;
-    fn for_all_group<T:'static + Fact, N: Stage1Compile<T>>(self, node: &[N]) -> Result<Self, CompileError>
-        where Self: std::marker::Sized;
-    fn provides_for_all_group<T:'static + Fact, S: AsRef<str>, N: Stage1Compile<T>>(self, provides: &[ProvidesNode<S, S>], nodes: &[N]) -> Result<Self, CompileError>
-        where Self: std::marker::Sized;
     fn end_group(self) -> Result<Self, CompileError> where Self: std::marker::Sized;
     fn then(self) -> Result<Self::CB, CompileError>;
 }
