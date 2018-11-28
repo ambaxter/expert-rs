@@ -310,7 +310,7 @@ impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, SDynLimit<S>) {
 
 impl<S: AString> IntoStrTest<S> for S {
     fn into_str_test(self, field: S, test: StrArrayTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::Str(Truth::Is,test, SLimit::St(self.into())))
+        TestRepr::STR(field, StrTest::Str(Truth::Is,test, SLimit::St(self)))
     }
 }
 

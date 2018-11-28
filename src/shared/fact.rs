@@ -50,25 +50,25 @@ impl<T: Fact> Debug for Getter<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Getter::*;
         write!(f, "Getter(")?;
-        match self {
-            &BOOL(accessor) => write!(f, "BOOL({:#x})", accessor as usize)?,
-            &I8(accessor) => write!(f, "I8({:#x})", accessor as usize)?,
-            &I16(accessor) => write!(f, "I16({:#x})", accessor as usize)?,
-            &I32(accessor) => write!(f, "I32({:#x})", accessor as usize)?,
-            &I64(accessor) => write!(f, "I64({:#x})", accessor as usize)?,
-            &I128(accessor) => write!(f, "I128({:#x})", accessor as usize)?,
-            &U8(accessor) => write!(f, "U8({:#x})", accessor as usize)?,
-            &U16(accessor) => write!(f, "U16({:#x})", accessor as usize)?,
-            &U32(accessor) => write!(f, "U32({:#x})", accessor as usize)?,
-            &U64(accessor) => write!(f, "U64({:#x})", accessor as usize)?,
-            &U128(accessor) => write!(f, "U128({:#x})", accessor as usize)?,
-            &F32(accessor) => write!(f, "F32({:#x})", accessor as usize)?,
-            &F64(accessor) => write!(f, "F64({:#x})", accessor as usize)?,
-            &D128(accessor) => write!(f, "D128({:#x})", accessor as usize)?,
-            &STR(accessor) => write!(f, "STR({:#x})", accessor as usize)?,
-            &TIME(accessor) => write!(f, "TIME({:#x})", accessor as usize)?,
-            &DATE(accessor) => write!(f, "DATE({:#x})", accessor as usize)?,
-            &DATETIME(accessor) => write!(f, "DATETIME({:#x})", accessor as usize)?,
+        match *self {
+            BOOL(accessor) => write!(f, "BOOL({:#x})", accessor as usize)?,
+            I8(accessor) => write!(f, "I8({:#x})", accessor as usize)?,
+            I16(accessor) => write!(f, "I16({:#x})", accessor as usize)?,
+            I32(accessor) => write!(f, "I32({:#x})", accessor as usize)?,
+            I64(accessor) => write!(f, "I64({:#x})", accessor as usize)?,
+            I128(accessor) => write!(f, "I128({:#x})", accessor as usize)?,
+            U8(accessor) => write!(f, "U8({:#x})", accessor as usize)?,
+            U16(accessor) => write!(f, "U16({:#x})", accessor as usize)?,
+            U32(accessor) => write!(f, "U32({:#x})", accessor as usize)?,
+            U64(accessor) => write!(f, "U64({:#x})", accessor as usize)?,
+            U128(accessor) => write!(f, "U128({:#x})", accessor as usize)?,
+            F32(accessor) => write!(f, "F32({:#x})", accessor as usize)?,
+            F64(accessor) => write!(f, "F64({:#x})", accessor as usize)?,
+            D128(accessor) => write!(f, "D128({:#x})", accessor as usize)?,
+            STR(accessor) => write!(f, "STR({:#x})", accessor as usize)?,
+            TIME(accessor) => write!(f, "TIME({:#x})", accessor as usize)?,
+            DATE(accessor) => write!(f, "DATE({:#x})", accessor as usize)?,
+            DATETIME(accessor) => write!(f, "DATETIME({:#x})", accessor as usize)?,
         }
         write!(f, ")")
     }
@@ -91,8 +91,8 @@ macro_rules! getter_derive {
         impl <T:Fact> Hash for Getter<T> {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::Getter::*;
-                    match self {
-                    $ ( & $ t(getter) => Self::hash_self(self.enum_index(), getter as usize, state),
+                    match *self {
+                    $ ( $ t(getter) => Self::hash_self(self.enum_index(), getter as usize, state),
                     )*
                 }
             }
@@ -166,18 +166,18 @@ getter_derive!(
 
 impl FactFieldType {
 
-    pub fn is_compatible(&self, other: &Self) -> bool {
+    pub fn is_compatible(self, other: Self) -> bool {
         self.is_number_compatible(other)
     }
 
-    pub fn is_number_compatible(&self, other: &Self) -> bool {
+    pub fn is_number_compatible(self, other: Self) -> bool {
         match (self.is_number(), other.is_number()) {
             (true, true) => true,
             _ => false
         }
     }
 
-    pub fn is_number(&self) -> bool {
+    pub fn is_number(self) -> bool {
         use self::FactFieldType::*;
         match self {
             I8 | I16 | I32 | I64 | I128
@@ -203,12 +203,10 @@ pub trait FactField {
 }
 
 pub trait RefField : FactField {
-    #[inline]
     fn resolve<C: BetaContext>(context: &C, sym: SymbolId) -> &Self;
 }
 
 pub trait CastField : FactField {
-    #[inline]
     fn resolve<C: BetaContext>(context: &C, sym: SymbolId) -> Self;
 }
 

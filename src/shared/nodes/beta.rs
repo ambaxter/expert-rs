@@ -71,9 +71,9 @@ impl<T> SLimit<T, SymbolId>
 
     pub fn test_field_ref<C: BetaContext, E: STest<T> >(&self, test: &E, value: &T, context: &C) -> bool {
         use self::SLimit::*;
-        match self {
-            &St(ref to) => test.test(value, to),
-            &Dyn(ref s_to) => test.test(value, T::resolve(context, *s_to))
+        match *self {
+            St(ref to) => test.test(value, to),
+            Dyn(ref s_to) => test.test(value, T::resolve(context, *s_to))
         }
     }
 }
@@ -82,9 +82,9 @@ impl<'a> SLimit<&'a str, SymbolId> {
 
     pub fn test_field_str<C: BetaContext, E: STest<&'a str> >(&self, test: &E, value: &'a str, context: &'a C) -> bool {
         use self::SLimit::*;
-        match self {
-            &St(ref to) => test.test(&value, to),
-            &Dyn(ref s_to) => test.test(&value, & str::resolve(context, *s_to))
+        match *self {
+            St(ref to) => test.test(&value, to),
+            Dyn(ref s_to) => test.test(&value, & str::resolve(context, *s_to))
         }
     }
 }
@@ -94,9 +94,9 @@ impl<T> SLimit<T, SymbolId>
 
     pub fn test_field_cast<C: BetaContext, E: STest<T> >(&self, test: &E, value: &T, context: &C) -> bool {
         use self::SLimit::*;
-        match self {
-            &St(ref to) => test.test(value, to),
-            &Dyn(ref s_to) => test.test(value, &T::resolve(context, *s_to))
+        match *self {
+            St(ref to) => test.test(value, to),
+            Dyn(ref s_to) => test.test(value, &T::resolve(context, *s_to))
         }
     }
 }
@@ -104,9 +104,9 @@ impl<T> SLimit<T, SymbolId>
 impl<T, S> IsStatic for SLimit<T, S> {
     fn is_static(&self) -> bool {
         use self::SLimit::*;
-        match self {
-            &St(_) => true,
-            &Dyn(_) => false,
+        match *self {
+            St(_) => true,
+            Dyn(_) => false,
         }
     }
 }
@@ -119,9 +119,9 @@ impl<T, U, S> MapStatic<T, U> for SLimit<T, S>
         where F: FnMut(&T) -> U {
 
         use self::SLimit::*;
-        match self {
-            &St(ref t) => St(func(t)),
-            &Dyn(ref s) => Dyn(s.clone())
+        match *self {
+            St(ref t) => St(func(t)),
+            Dyn(ref s) => Dyn(s.clone())
         }
     }
 }
@@ -134,9 +134,9 @@ impl<T, U, S> MapDynamic<S, U> for SLimit<T, S>
         where F: FnMut(&S) -> U {
 
         use self::SLimit::*;
-        match self {
-            &St(ref t) => St(t.clone()),
-            &Dyn(ref s) => Dyn(func(s))
+        match *self {
+            St(ref t) => St(t.clone()),
+            Dyn(ref s) => Dyn(func(s))
         }
     }
 }
@@ -148,9 +148,9 @@ impl<T, U> MapAll<T, U> for SLimit<T, T> {
         where F: FnMut(&T) -> U {
 
         use self::SLimit::*;
-        match self {
-            &St(ref t) => St(func(t)),
-            &Dyn(ref s) => Dyn(func(s))
+        match *self {
+            St(ref t) => St(func(t)),
+            Dyn(ref s) => Dyn(func(s))
         }
     }
 }
@@ -159,9 +159,9 @@ impl<T> CollectRequired for SLimit<T, SymbolId>
     where T: FactField {
     fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::SLimit::*;
-        match *self {
-            Dyn(ref s) => {symbols.entry(*s).or_insert_with(|| Default::default()).insert(T::get_field_type());},
-            _ => {}
+
+        if let Dyn(ref s) = *self {
+            symbols.entry(*s).or_insert_with( Default::default).insert(T::get_field_type());
         }
     }
 }
@@ -179,11 +179,11 @@ impl<T> DLimit<T, SymbolId>
 
     pub fn test_field_ref<C: BetaContext, E: DTest<T> >(&self, test: &E, value: &T, context: &C) -> bool {
         use self::DLimit::*;
-        match self {
-            &St(ref from, ref to) => test.test(value, from, to),
-            &StDyn(ref from, ref s_to) => test.test(value, from, T::resolve(context, *s_to)),
-            &DynSt(ref s_from, ref to) => test.test(value, T::resolve(context, *s_from), to),
-            &Dyn(ref s_from, ref s_to) => test.test(value, T::resolve(context, *s_from), T::resolve(context, *s_to))
+        match *self {
+            St(ref from, ref to) => test.test(value, from, to),
+            StDyn(ref from, ref s_to) => test.test(value, from, T::resolve(context, *s_to)),
+            DynSt(ref s_from, ref to) => test.test(value, T::resolve(context, *s_from), to),
+            Dyn(ref s_from, ref s_to) => test.test(value, T::resolve(context, *s_from), T::resolve(context, *s_to))
         }
     }
 }
@@ -192,11 +192,11 @@ impl<'a> DLimit<&'a str, SymbolId> {
 
     pub fn test_field_str<C: BetaContext, E: DTest<&'a str> >(&self, test: &E, value: &'a str, context: &'a C) -> bool {
         use self::DLimit::*;
-        match self {
-            &St(ref from, ref to) => test.test(&value, from, to),
-            &StDyn(ref from, ref s_to) => test.test(&value, from, & str::resolve(context, *s_to)),
-            &DynSt(ref s_from, ref to) => test.test(&value, & str::resolve(context, *s_from), to),
-            &Dyn(ref s_from, ref s_to) => test.test(&value, & str::resolve(context, *s_from), & str::resolve(context, *s_to))
+        match *self {
+            St(ref from, ref to) => test.test(&value, from, to),
+            StDyn(ref from, ref s_to) => test.test(&value, from, & str::resolve(context, *s_to)),
+            DynSt(ref s_from, ref to) => test.test(&value, & str::resolve(context, *s_from), to),
+            Dyn(ref s_from, ref s_to) => test.test(&value, & str::resolve(context, *s_from), & str::resolve(context, *s_to))
         }
     }
 }
@@ -206,11 +206,11 @@ impl<T> DLimit<T, SymbolId>
 
     pub fn test_field_cast<C: BetaContext, E: DTest<T> >(&self, test: &E, value: &T, context: &C) -> bool {
         use self::DLimit::*;
-        match self {
-            &St(ref from, ref to) => test.test(value, from, to),
-            &StDyn(ref from, ref s_to) => test.test(value, from, &T::resolve(context, *s_to)),
-            &DynSt(ref s_from, ref to) => test.test(value, &T::resolve(context, *s_from), to),
-            &Dyn(ref s_from, ref s_to) => test.test(value, &T::resolve(context, *s_from), &T::resolve(context, *s_to))
+        match *self {
+            St(ref from, ref to) => test.test(value, from, to),
+            StDyn(ref from, ref s_to) => test.test(value, from, &T::resolve(context, *s_to)),
+            DynSt(ref s_from, ref to) => test.test(value, &T::resolve(context, *s_from), to),
+            Dyn(ref s_from, ref s_to) => test.test(value, &T::resolve(context, *s_from), &T::resolve(context, *s_to))
         }
     }
 }
@@ -218,8 +218,8 @@ impl<T> DLimit<T, SymbolId>
 impl<T, S> IsStatic for DLimit<T, S> {
     fn is_static(&self) -> bool {
         use self::DLimit::*;
-        match self {
-            &St(_, _) => true,
+        match *self {
+            St(_, _) => true,
             _ => false,
         }
     }
@@ -233,11 +233,11 @@ impl<T, U, S> MapStatic<T, U> for DLimit<T, S>
         where F: FnMut(&T) -> U {
 
         use self::DLimit::*;
-        match self {
-            &St(ref from, ref to) => St(func(from), func(to)),
-            &StDyn(ref from, ref s_to) => StDyn(func(from), s_to.clone()),
-            &DynSt(ref s_from, ref to) => DynSt(s_from.clone(), func(to)),
-            &Dyn(ref s_from, ref s_to) => Dyn(s_from.clone(), s_to.clone()),
+        match *self {
+            St(ref from, ref to) => St(func(from), func(to)),
+            StDyn(ref from, ref s_to) => StDyn(func(from), s_to.clone()),
+            DynSt(ref s_from, ref to) => DynSt(s_from.clone(), func(to)),
+            Dyn(ref s_from, ref s_to) => Dyn(s_from.clone(), s_to.clone()),
         }
     }
 }
@@ -250,11 +250,11 @@ impl<T, U, S> MapDynamic<S, U> for DLimit<T, S>
         where F: FnMut(&S) -> U {
 
         use self::DLimit::*;
-        match self {
-            &St(ref t1, ref t2) => St(t1.clone(), t2.clone()),
-            &StDyn(ref t, ref s) => StDyn(t.clone(), func(s)),
-            &DynSt(ref s, ref t) => DynSt(func(s), t.clone()),
-            &Dyn(ref s1, ref s2) => Dyn(func(s1), func(s2)),
+        match *self {
+            St(ref t1, ref t2) => St(t1.clone(), t2.clone()),
+            StDyn(ref t, ref s) => StDyn(t.clone(), func(s)),
+            DynSt(ref s, ref t) => DynSt(func(s), t.clone()),
+            Dyn(ref s1, ref s2) => Dyn(func(s1), func(s2)),
         }
     }
 }
@@ -266,11 +266,11 @@ impl<T, U> MapAll<T, U> for DLimit<T, T> {
         where F: FnMut(&T) -> U {
 
         use self::DLimit::*;
-        match self {
-            &St(ref from, ref to) => St(func(from), func(to)),
-            &StDyn(ref from, ref s_to) => StDyn(func(from), func(s_to)),
-            &DynSt(ref s_from, ref to) => DynSt(func(s_from), func(to)),
-            &Dyn(ref s_from, ref s_to) => Dyn(func(s_from), func(s_to)),
+        match *self {
+            St(ref from, ref to) => St(func(from), func(to)),
+            StDyn(ref from, ref s_to) => StDyn(func(from), func(s_to)),
+            DynSt(ref s_from, ref to) => DynSt(func(s_from), func(to)),
+            Dyn(ref s_from, ref s_to) => Dyn(func(s_from), func(s_to)),
         }
     }
 }
@@ -280,11 +280,11 @@ impl<T> CollectRequired for DLimit<T, SymbolId>
     fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::DLimit::*;
         match *self {
-            StDyn(_, ref s_to) => {symbols.entry(*s_to).or_insert_with(|| Default::default()).insert(T::get_field_type());},
-            DynSt(ref s_from, _) => {symbols.entry(*s_from).or_insert_with(|| Default::default()).insert(T::get_field_type());},
+            StDyn(_, ref s_to) => {symbols.entry(*s_to).or_insert_with(Default::default).insert(T::get_field_type());},
+            DynSt(ref s_from, _) => {symbols.entry(*s_from).or_insert_with(Default::default).insert(T::get_field_type());},
             Dyn(ref s_from, ref s_to) => {
-                symbols.entry(*s_from).or_insert_with(|| Default::default()).insert(T::get_field_type());
-                symbols.entry(*s_to).or_insert_with(|| Default::default()).insert(T::get_field_type());
+                symbols.entry(*s_from).or_insert_with( Default::default).insert(T::get_field_type());
+                symbols.entry(*s_to).or_insert_with( Default::default).insert(T::get_field_type());
             },
             _ => {}
         }
@@ -306,8 +306,8 @@ impl<S> StringIntern for BoolTest<S>
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::BoolTest::*;
-        match self {
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref())))
+        match *self {
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref())))
         }
     }
 }
@@ -315,8 +315,8 @@ impl<S> StringIntern for BoolTest<S>
 impl<S> IsAlpha for BoolTest<S> {
     fn is_alpha(&self) -> bool {
         use self::BoolTest::*;
-        match self {
-            &Eq(.., ref limit) => limit.is_static()
+        match *self {
+            Eq(.., ref limit) => limit.is_static()
         }
     }
 }
@@ -334,8 +334,8 @@ impl<S> Into<super::alpha::BoolTest> for BoolTest<S> {
 impl<S> ApplyNot for BoolTest<S> {
     fn apply_not(&mut self) {
         use self::BoolTest::*;
-        match self {
-            &mut Eq(ref mut truth, ..) => truth.apply_not()
+        match *self {
+            Eq(ref mut truth, ..) => truth.apply_not()
         }
     }
 }
@@ -343,8 +343,8 @@ impl<S> ApplyNot for BoolTest<S> {
 impl BetaTestField<bool> for BoolTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &bool, context: &C) -> bool {
         use self::BoolTest::*;
-        match self {
-            &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context)
+        match *self {
+            Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context)
         }
     }
 }
@@ -375,10 +375,10 @@ macro_rules! beta_number_test {
 
                 fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
                     use self::$test::*;
-                    match self {
-                        &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-                        &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-                        &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                    match *self {
+                        Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
                     }
                 }
             }
@@ -386,10 +386,10 @@ macro_rules! beta_number_test {
             impl<S> IsAlpha for $test<S> {
                 fn is_alpha(&self) -> bool {
                     use self::$test::*;
-                    match self {
-                        &Ord(.., ref limit) => limit.is_static(),
-                        &Btwn(.., ref limit) => limit.is_static(),
-                        &Eq(.., ref limit) => limit.is_static()
+                    match *self {
+                        Ord(.., ref limit) => limit.is_static(),
+                        Btwn(.., ref limit) => limit.is_static(),
+                        Eq(.., ref limit) => limit.is_static()
                     }
                 }
             }
@@ -409,10 +409,10 @@ macro_rules! beta_number_test {
             impl<S> ApplyNot for $test<S> {
                 fn apply_not(&mut self) {
                     use self::$test::*;
-                    match self {
-                        &mut Ord(ref mut truth, ..) => truth.apply_not(),
-                        &mut Btwn(ref mut truth, ..) => truth.apply_not(),
-                        &mut Eq(ref mut truth, ..) => truth.apply_not(),
+                    match *self {
+                        Ord(ref mut truth, ..) => truth.apply_not(),
+                        Btwn(ref mut truth, ..) => truth.apply_not(),
+                        Eq(ref mut truth, ..) => truth.apply_not(),
                     }
                 }
             }
@@ -420,10 +420,10 @@ macro_rules! beta_number_test {
             impl BetaTestField<$id> for $test<SymbolId> {
                 fn beta_test_field<C: BetaContext>(&self, value: &$id, context: &C) -> bool {
                     use self::$test::*;
-                    match self {
-                        &Ord(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
-                        &Eq(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
-                        &Btwn(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                    match *self {
+                        Ord(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                        Eq(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                        Btwn(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
 
                     }
                 }
@@ -460,10 +460,10 @@ macro_rules! beta_float_test {
 
                 fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
                     use self::$test::*;
-                    match self {
-                        &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-                        &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-                        &ApproxEq(truth, test, ref limit) => ApproxEq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                    match *self {
+                        Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        ApproxEq(truth, test, ref limit) => ApproxEq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
                     }
                 }
             }
@@ -471,10 +471,10 @@ macro_rules! beta_float_test {
             impl<S> IsAlpha for $test<S> {
                 fn is_alpha(&self) -> bool {
                     use self::$test::*;
-                    match self {
-                        &Ord(.., ref limit) => limit.is_static(),
-                        &Btwn(.., ref limit) => limit.is_static(),
-                        &ApproxEq(.., ref limit) => limit.is_static()
+                    match *self {
+                        Ord(.., ref limit) => limit.is_static(),
+                        Btwn(.., ref limit) => limit.is_static(),
+                        ApproxEq(.., ref limit) => limit.is_static()
                     }
                 }
             }
@@ -494,10 +494,10 @@ macro_rules! beta_float_test {
             impl<S> ApplyNot for $test<S> {
                 fn apply_not(&mut self) {
                     use self::$test::*;
-                    match self {
-                        &mut Ord(ref mut truth, ..) => truth.apply_not(),
-                        &mut Btwn(ref mut truth, ..) => truth.apply_not(),
-                        &mut ApproxEq(ref mut truth, ..) => truth.apply_not(),
+                    match *self {
+                        Ord(ref mut truth, ..) => truth.apply_not(),
+                        Btwn(ref mut truth, ..) => truth.apply_not(),
+                        ApproxEq(ref mut truth, ..) => truth.apply_not(),
                     }
                 }
             }
@@ -505,10 +505,10 @@ macro_rules! beta_float_test {
             impl BetaTestField<$id> for $test<SymbolId> {
                 fn beta_test_field<C: BetaContext>(&self, value: &$id, context: &C) -> bool {
                     use self::$test::*;
-                    match self {
-                        &Ord(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
-                        &Btwn(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
-                        &ApproxEq(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                    match *self {
+                        Ord(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                        Btwn(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
+                        ApproxEq(truth, ref test, ref limit) => limit.test_field_cast(&(truth, test), value, context),
 
                     }
                 }
@@ -562,11 +562,11 @@ impl<S> StringIntern for StrTest<S>
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::StrTest::*;
-        match self {
-            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
-            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
-            &Str(truth, test, ref limit) => Str(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
+        match *self {
+            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
+            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
+            Str(truth, test, ref limit) => Str(truth, test, limit.map_all(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -574,11 +574,11 @@ impl<S> StringIntern for StrTest<S>
 impl<S> IsAlpha for StrTest<S> {
     fn is_alpha(&self) -> bool {
         use self::StrTest::*;
-        match self {
-            &Ord(.., ref limit) => limit.is_static(),
-            &Btwn(.., ref limit) => limit.is_static(),
-            &Eq(.., ref limit) => limit.is_static(),
-            &Str(.., ref limit) => limit.is_static()
+        match *self {
+            Ord(.., ref limit) => limit.is_static(),
+            Btwn(.., ref limit) => limit.is_static(),
+            Eq(.., ref limit) => limit.is_static(),
+            Str(.., ref limit) => limit.is_static()
         }
     }
 }
@@ -599,11 +599,11 @@ impl Into<super::alpha::StrTest> for StrTest<SymbolId> {
 impl<S> ApplyNot for StrTest<S> {
     fn apply_not(&mut self) {
         use self::StrTest::*;
-        match self {
-            &mut Ord(ref mut truth, ..) => truth.apply_not(),
-            &mut Btwn(ref mut truth, ..) => truth.apply_not(),
-            &mut Eq(ref mut truth, ..) => truth.apply_not(),
-            &mut Str(ref mut truth, ..) => truth.apply_not(),
+        match *self {
+            Ord(ref mut truth, ..) => truth.apply_not(),
+            Btwn(ref mut truth, ..) => truth.apply_not(),
+            Eq(ref mut truth, ..) => truth.apply_not(),
+            Str(ref mut truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -613,17 +613,17 @@ impl BetaTestField<str> for StrTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &str, context: &C) -> bool {
         use self::StrTest::*;
         let string_cache = context.get_string_cache();
-        match self {
-            &Ord(truth, ref test, ref limit) => limit
+        match *self {
+            Ord(truth, ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
                 .test_field_str(&(truth, test), &value, context),
-            &Btwn(truth, ref test, ref limit) => limit
+            Btwn(truth, ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
                 .test_field_str(&(truth, test), &value, context),
-            &Eq(truth, ref test, ref limit) => limit
+            Eq(truth, ref test, ref limit) => limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
                 .test_field_str(&(truth, test), &value, context),
-            &Str(truth, ref test, ref limit) => truth.is_not() ^ limit
+            Str(truth, ref test, ref limit) => truth.is_not() ^ limit
                 .map_static(|s| string_cache.resolve(*s).unwrap())
                 .test_field_str(&(truth, test), &value, context),
         }
@@ -656,10 +656,10 @@ impl<S> StringIntern for TimeTest<S>
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::TimeTest::*;
-        match self {
-            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+        match *self {
+            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -667,10 +667,10 @@ impl<S> StringIntern for TimeTest<S>
 impl<S> IsAlpha for TimeTest<S> {
     fn is_alpha(&self) -> bool {
         use self::TimeTest::*;
-        match self {
-            &Ord(.., ref limit) => limit.is_static(),
-            &Btwn(.., ref limit) => limit.is_static(),
-            &Eq(.., ref limit) => limit.is_static()
+        match *self {
+            Ord(.., ref limit) => limit.is_static(),
+            Btwn(.., ref limit) => limit.is_static(),
+            Eq(.., ref limit) => limit.is_static()
         }
     }
 }
@@ -690,10 +690,10 @@ impl<S> Into<super::alpha::TimeTest> for TimeTest<S> {
 impl<S> ApplyNot for TimeTest<S> {
     fn apply_not(&mut self) {
         use self::TimeTest::*;
-        match self {
-            &mut Ord(ref mut truth, ..) => truth.apply_not(),
-            &mut Btwn(ref mut truth, ..) => truth.apply_not(),
-            &mut Eq(ref mut truth, ..) => truth.apply_not(),
+        match *self {
+            Ord(ref mut truth, ..) => truth.apply_not(),
+            Btwn(ref mut truth, ..) => truth.apply_not(),
+            Eq(ref mut truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -701,10 +701,10 @@ impl<S> ApplyNot for TimeTest<S> {
 impl BetaTestField<NaiveTime> for TimeTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &NaiveTime, context: &C) -> bool {
         use self::TimeTest::*;
-        match self {
-            &Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
-            &Btwn(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context),
-            &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context)
+        match *self {
+            Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
+            Btwn(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context),
+            Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value,  context)
         }
     }
 }
@@ -734,10 +734,10 @@ impl<S> StringIntern for DateTest<S>
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTest::*;
-        match self {
-            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+        match *self {
+            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -745,10 +745,10 @@ impl<S> StringIntern for DateTest<S>
 impl<S> IsAlpha for DateTest<S> {
     fn is_alpha(&self) -> bool {
         use self::DateTest::*;
-        match self {
-            &Ord(.., ref limit) => limit.is_static(),
-            &Btwn(.., ref limit) => limit.is_static(),
-            &Eq(.., ref limit) => limit.is_static()
+        match *self {
+            Ord(.., ref limit) => limit.is_static(),
+            Btwn(.., ref limit) => limit.is_static(),
+            Eq(.., ref limit) => limit.is_static()
         }
     }
 }
@@ -768,10 +768,10 @@ impl<S> Into<super::alpha::DateTest> for DateTest<S> {
 impl<S> ApplyNot for DateTest<S> {
     fn apply_not(&mut self) {
         use self::DateTest::*;
-        match self {
-            &mut Ord(ref mut truth, ..) => truth.apply_not(),
-            &mut Btwn(ref mut truth, ..) => truth.apply_not(),
-            &mut Eq(ref mut truth, ..) => truth.apply_not(),
+        match *self {
+            Ord(ref mut truth, ..) => truth.apply_not(),
+            Btwn(ref mut truth, ..) => truth.apply_not(),
+            Eq(ref mut truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -779,10 +779,10 @@ impl<S> ApplyNot for DateTest<S> {
 impl BetaTestField<Date<Utc>> for DateTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &Date<Utc>, context: &C) -> bool {
         use self::DateTest::*;
-        match self {
-            &Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
-            &Btwn(truth, ref test, ref limit) =>limit.test_field_ref(&(truth, test), value, context),
-            &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context)
+        match *self {
+            Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
+            Btwn(truth, ref test, ref limit) =>limit.test_field_ref(&(truth, test), value, context),
+            Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context)
         }
     }
 }
@@ -811,10 +811,10 @@ impl<S> StringIntern for  DateTimeTest<S>
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTimeTest::*;
-        match self {
-            &Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            &Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            &Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+        match *self {
+            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -822,10 +822,10 @@ impl<S> StringIntern for  DateTimeTest<S>
 impl<S> IsAlpha for DateTimeTest<S> {
     fn is_alpha(&self) -> bool {
         use self::DateTimeTest::*;
-        match self {
-            &Ord(.., ref limit) => limit.is_static(),
-            &Btwn(.., ref limit) => limit.is_static(),
-            &Eq(.., ref limit) => limit.is_static()
+        match *self {
+            Ord(.., ref limit) => limit.is_static(),
+            Btwn(.., ref limit) => limit.is_static(),
+            Eq(.., ref limit) => limit.is_static()
         }
     }
 }
@@ -847,10 +847,10 @@ impl<S> Into<super::alpha::DateTimeTest> for DateTimeTest<S> {
 impl<S> ApplyNot for DateTimeTest<S> {
     fn apply_not(&mut self) {
         use self::DateTimeTest::*;
-        match self {
-            &mut Ord(ref mut truth, ..) => truth.apply_not(),
-            &mut Btwn(ref mut truth, ..) => truth.apply_not(),
-            &mut Eq(ref mut truth, ..) => truth.apply_not(),
+        match *self {
+            Ord(ref mut truth, ..) => truth.apply_not(),
+            Btwn(ref mut truth, ..) => truth.apply_not(),
+            Eq(ref mut truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -858,10 +858,10 @@ impl<S> ApplyNot for DateTimeTest<S> {
 impl BetaTestField<DateTime<Utc>> for DateTimeTest<SymbolId> {
     fn beta_test_field<C: BetaContext>(&self, value: &DateTime<Utc>, context: &C) -> bool {
         use self::DateTimeTest::*;
-        match self {
-            &Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
-            &Btwn(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
-            &Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context)
+        match *self {
+            Ord(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
+            Btwn(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context),
+            Eq(truth, ref test, ref limit) => limit.test_field_ref(&(truth, test), value, context)
         }
     }
 }
@@ -1205,27 +1205,27 @@ impl<S: AsRef<str>> TestRepr<S>  {
 impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
     fn apply_not(&mut self) {
         use self::TestRepr::*;
-        match self {
-            &mut BOOL(_, ref mut test) => test.apply_not(),
-            &mut I8(_, ref mut test) => test.apply_not(),
-            &mut I16(_, ref mut test) => test.apply_not(),
-            &mut I32(_, ref mut test) => test.apply_not(),
-            &mut I64(_, ref mut test) => test.apply_not(),
-            &mut I128(_, ref mut test) => test.apply_not(),
-            &mut U8(_, ref mut test) => test.apply_not(),
-            &mut U16(_, ref mut test) => test.apply_not(),
-            &mut U32(_, ref mut test) => test.apply_not(),
-            &mut U64(_, ref mut test) => test.apply_not(),
-            &mut U128(_, ref mut test) => test.apply_not(),
-            &mut F32(_, ref mut test) => test.apply_not(),
-            &mut F64(_, ref mut test) => test.apply_not(),
-            &mut D128(_, ref mut test) => test.apply_not(),
-            &mut STR(_, ref mut test) => test.apply_not(),
-            &mut TIME(_, ref mut test) => test.apply_not(),
-            &mut DATE(_, ref mut test) => test.apply_not(),
-            &mut DATETIME(_, ref mut test) => test.apply_not(),
-            &mut SDYN(_, ref mut truth, ..) => truth.apply_not(),
-            &mut DDYN(_, ref mut truth, ..) => truth.apply_not(),
+        match *self {
+            BOOL(_, ref mut test) => test.apply_not(),
+            I8(_, ref mut test) => test.apply_not(),
+            I16(_, ref mut test) => test.apply_not(),
+            I32(_, ref mut test) => test.apply_not(),
+            I64(_, ref mut test) => test.apply_not(),
+            I128(_, ref mut test) => test.apply_not(),
+            U8(_, ref mut test) => test.apply_not(),
+            U16(_, ref mut test) => test.apply_not(),
+            U32(_, ref mut test) => test.apply_not(),
+            U64(_, ref mut test) => test.apply_not(),
+            U128(_, ref mut test) => test.apply_not(),
+            F32(_, ref mut test) => test.apply_not(),
+            F64(_, ref mut test) => test.apply_not(),
+            D128(_, ref mut test) => test.apply_not(),
+            STR(_, ref mut test) => test.apply_not(),
+            TIME(_, ref mut test) => test.apply_not(),
+            DATE(_, ref mut test) => test.apply_not(),
+            DATETIME(_, ref mut test) => test.apply_not(),
+            SDYN(_, ref mut truth, ..) => truth.apply_not(),
+            DDYN(_, ref mut truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -1278,8 +1278,8 @@ macro_rules! beta_derive {
         impl <T:Fact> Hash for BetaNode<T> {
             fn hash < H: Hasher > ( & self, state: & mut H) {
                 use self::BetaNode::*;
-                    match self {
-                    $ ( & $ t(getter, ref test) => Self::hash_self(self.enum_index(), getter as usize, test, state),
+                    match *self {
+                    $ ( $ t(getter, ref test) => Self::hash_self(self.enum_index(), getter as usize, test, state),
                     )*
                 }
             }
@@ -1320,9 +1320,9 @@ macro_rules! beta_derive {
         impl<T:Fact> IsAlpha for BetaNode<T> {
             fn is_alpha(&self) -> bool {
                 use self::BetaNode::*;
-                match self {
+                match *self {
                     $(
-                    &$t(_, test) => test.is_alpha(),
+                    $t(_, test) => test.is_alpha(),
                     )*
                 }
             }
@@ -1342,9 +1342,9 @@ macro_rules! beta_derive {
         impl<T:Fact> CollectRequired for BetaNode<T> {
             fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
                 use self::BetaNode::*;
-                match self {
+                match *self {
                     $(
-                    &$t(_, test) => test.collect_required(symbols),
+                    $t(_, test) => test.collect_required(symbols),
                     )*
                 }
             }
@@ -1377,25 +1377,25 @@ impl<I: Fact> Debug for BetaNode<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::BetaNode::*;
         write!(f, "Getter(")?;
-        match self {
-            &BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", getter as usize, test)?,
-            &I8(getter, test) => write!(f, "I8({:#x}) - {:?}", getter as usize, test)?,
-            &I16(getter, test) => write!(f, "I16({:#x}) - {:?}", getter as usize, test)?,
-            &I32(getter, test) => write!(f, "I32({:#x}) - {:?}", getter as usize, test)?,
-            &I64(getter, test) => write!(f, "I64({:#x}) - {:?}", getter as usize, test)?,
-            &I128(getter, test) => write!(f, "I128({:#x}) - {:?}", getter as usize, test)?,
-            &U8(getter, test) => write!(f, "U8({:#x}) - {:?}", getter as usize, test)?,
-            &U16(getter, test) => write!(f, "U16({:#x}) - {:?}", getter as usize, test)?,
-            &U32(getter, test) => write!(f, "U32({:#x}) - {:?}", getter as usize, test)?,
-            &U64(getter, test) => write!(f, "U64({:#x}) - {:?}", getter as usize, test)?,
-            &U128(getter, test) => write!(f, "U128({:#x}) - {:?}", getter as usize, test)?,
-            &F32(getter, test) => write!(f, "F32({:#x}) - {:?}", getter as usize, test)?,
-            &F64(getter, test) => write!(f, "F64({:#x}) - {:?}", getter as usize, test)?,
-            &D128(getter, test) => write!(f, "D128({:#x}) - {:?}", getter as usize, test)?,
-            &STR(getter, test) => write!(f, "STR({:#x}) - {:?}", getter as usize, test)?,
-            &TIME(getter, test) => write!(f, "TIME({:#x}) - {:?}", getter as usize, test)?,
-            &DATE(getter, test) => write!(f, "DATE({:#x}) - {:?}", getter as usize, test)?,
-            &DATETIME(getter, test) => write!(f, "DATETIME({:#x}) - {:?}", getter as usize, test)?,
+        match *self {
+            BOOL(getter, test) => write!(f, "BOOL({:#x}) - {:?}", getter as usize, test)?,
+            I8(getter, test) => write!(f, "I8({:#x}) - {:?}", getter as usize, test)?,
+            I16(getter, test) => write!(f, "I16({:#x}) - {:?}", getter as usize, test)?,
+            I32(getter, test) => write!(f, "I32({:#x}) - {:?}", getter as usize, test)?,
+            I64(getter, test) => write!(f, "I64({:#x}) - {:?}", getter as usize, test)?,
+            I128(getter, test) => write!(f, "I128({:#x}) - {:?}", getter as usize, test)?,
+            U8(getter, test) => write!(f, "U8({:#x}) - {:?}", getter as usize, test)?,
+            U16(getter, test) => write!(f, "U16({:#x}) - {:?}", getter as usize, test)?,
+            U32(getter, test) => write!(f, "U32({:#x}) - {:?}", getter as usize, test)?,
+            U64(getter, test) => write!(f, "U64({:#x}) - {:?}", getter as usize, test)?,
+            U128(getter, test) => write!(f, "U128({:#x}) - {:?}", getter as usize, test)?,
+            F32(getter, test) => write!(f, "F32({:#x}) - {:?}", getter as usize, test)?,
+            F64(getter, test) => write!(f, "F64({:#x}) - {:?}", getter as usize, test)?,
+            D128(getter, test) => write!(f, "D128({:#x}) - {:?}", getter as usize, test)?,
+            STR(getter, test) => write!(f, "STR({:#x}) - {:?}", getter as usize, test)?,
+            TIME(getter, test) => write!(f, "TIME({:#x}) - {:?}", getter as usize, test)?,
+            DATE(getter, test) => write!(f, "DATE({:#x}) - {:?}", getter as usize, test)?,
+            DATETIME(getter, test) => write!(f, "DATETIME({:#x}) - {:?}", getter as usize, test)?,
         }
         write!(f, ")")
     }

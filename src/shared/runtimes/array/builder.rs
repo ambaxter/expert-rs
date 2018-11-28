@@ -283,8 +283,8 @@ impl ArrayBaseBuilder {
         let hash_eq = T::create_hash_eq(&nodes);
         let (alpha_graph, id_generator) =
             (
-                self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
-                    .alpha_graph.entry(hash_eq).or_insert_with(|| Default::default()),
+                self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with( Default::default)
+                    .alpha_graph.entry(hash_eq).or_insert_with( Default::default),
                 &mut self.id_generator
             );
         for node in nodes.into_iter().filter(|n| !n.is_hash_eq()) {
@@ -294,13 +294,13 @@ impl ArrayBaseBuilder {
         }
     }
 
-    fn insert_beta<T: Fact>(&mut self, agenda_group: SymbolId, rule_id: RuleId, statement_id: StatementId, beta_node: Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
+    fn insert_beta<T: Fact>(&mut self, agenda_group: SymbolId, rule_id: RuleId, statement_id: StatementId, beta_node: &Stage1Node<T>) -> HashMap<ConditionGroupId, ConditionGroupType> {
         let mut condition_groups = Default::default();
         if !beta_node.is_empty() {
             let(beta_graph, id_generator) =
                 (
-                    self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(|| Default::default())
-                        .beta_graph_map.entry(agenda_group).or_insert_with(|| Default::default()),
+                    self.network_builders.entry::<ArrayNetworkBuilder<T>>().or_insert_with(Default::default)
+                        .beta_graph_map.entry(agenda_group).or_insert_with(Default::default),
                     &mut self.id_generator
                 );
             // Thank you @moxian in the Rust Discord for figuring out my monumental mistake!
@@ -343,7 +343,7 @@ impl ArrayBaseBuilder {
         }
         condition_groups.insert(parent_group_id, condition_group_type);
         let child_id = ConditionGroupChild::Group(parent_group_id);
-        beta_graph.rule_rel.entry(child_id).or_insert_with(|| Default::default()).push(rule_id);
+        beta_graph.rule_rel.entry(child_id).or_insert_with(Default::default).push(rule_id);
         child_id
     }
 
@@ -455,7 +455,7 @@ impl ArrayRuleBuilder {
         beta_nodes.collect_required(&mut statement_requires);
 
         let condition_groups =
-            self.base_builder.insert_beta(self.rule_data.agenda_group, rule_id, statement_id, beta_nodes);
+            self.base_builder.insert_beta(self.rule_data.agenda_group, rule_id, statement_id, &beta_nodes);
 
         let statement_details = Box::new(StatementData {
             statement_provides,
@@ -568,7 +568,7 @@ impl RuleBuilder for ArrayRuleBuilder {
 
     fn end_group(mut self) -> Result<Self, CompileError> {
         let current_group_id = self.rule_data.current_group;
-        let parent_id = self.rule_data.statement_groups.get(&current_group_id).unwrap().parent();
+        let parent_id = self.rule_data.statement_groups[&current_group_id].parent();
         if current_group_id != parent_id {
             // TODO - optimize this somehow
             let current_group = self.rule_data.statement_groups.remove(&current_group_id).unwrap();
@@ -593,7 +593,7 @@ impl RuleBuilder for ArrayRuleBuilder {
         // https://youtu.be/x4E5hzC8Xvs?list=PL6EC7B047181AD013&t=536
         loop {
             let mut current_group_id = self.rule_data.current_group;
-            let mut parent_id = self.rule_data.statement_groups.get(&current_group_id).unwrap().parent();
+            let mut parent_id = self.rule_data.statement_groups[&current_group_id].parent();
             if current_group_id == parent_id {
                 break;
             }

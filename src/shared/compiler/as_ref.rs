@@ -71,7 +71,7 @@ pub fn ends_with<'a, S: AsRef<str>, T: IntoStrTest<S>>(field: S, val: T) -> RefN
     RefNodes::Test(val.into_str_test(field, StrArrayTest::EndsWith))
 }
 
-pub fn not<'a, S: AsRef<str>>(node: RefNodes<'a, S>) -> RefNodes<'a, S> {
+pub fn not<S: AsRef<str>>(node: RefNodes<S>) -> RefNodes<S> {
     use self::RefNodes::*;
     match node {
         Test(mut t) => {
