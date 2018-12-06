@@ -562,10 +562,10 @@ macro_rules! beta_float_test {
             impl<S> IsAlpha for $test<S> {
                 fn is_alpha(&self) -> bool {
                     use self::$test::*;
-                    match *self {
-                        Ord(.., ref limit) => limit.is_static(),
-                        Btwn(.., ref limit) => limit.is_static(),
-                        ApproxEq(.., ref limit) => limit.is_static()
+                    match self {
+                        Ord(.., limit) => limit.is_static(),
+                        Btwn(.., limit) => limit.is_static(),
+                        ApproxEq(.., limit) => limit.is_static()
                     }
                 }
             }
@@ -585,10 +585,10 @@ macro_rules! beta_float_test {
             impl<S> ApplyNot for $test<S> {
                 fn apply_not(&mut self) {
                     use self::$test::*;
-                    match *self {
-                        Ord(ref mut truth, ..) => truth.apply_not(),
-                        Btwn(ref mut truth, ..) => truth.apply_not(),
-                        ApproxEq(ref mut truth, ..) => truth.apply_not(),
+                    match self {
+                        Ord(truth, ..) => truth.apply_not(),
+                        Btwn(truth, ..) => truth.apply_not(),
+                        ApproxEq(truth, ..) => truth.apply_not(),
                     }
                 }
             }
@@ -608,10 +608,10 @@ macro_rules! beta_float_test {
             impl CollectRequired for $test<SymbolId> {
                 fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
                     use self::$test::*;
-                    match *self {
-                        Ord(.., ref limit) => limit.collect_required(symbols),
-                        Btwn(.., ref limit) => limit.collect_required(symbols),
-                        ApproxEq(.., ref limit) => limit.collect_required(symbols)
+                    match self {
+                        Ord(.., limit) => limit.collect_required(symbols),
+                        Btwn(.., limit) => limit.collect_required(symbols),
+                        ApproxEq(.., limit) => limit.collect_required(symbols)
                     }
                 }
             }
@@ -682,11 +682,11 @@ where
 impl<S> IsAlpha for StrTest<S> {
     fn is_alpha(&self) -> bool {
         use self::StrTest::*;
-        match *self {
-            Ord(.., ref limit) => limit.is_static(),
-            Btwn(.., ref limit) => limit.is_static(),
-            Eq(.., ref limit) => limit.is_static(),
-            Str(.., ref limit) => limit.is_static(),
+        match self {
+            Ord(.., limit) => limit.is_static(),
+            Btwn(.., limit) => limit.is_static(),
+            Eq(.., limit) => limit.is_static(),
+            Str(.., limit) => limit.is_static(),
         }
     }
 }
@@ -709,11 +709,11 @@ impl Into<super::alpha::StrTest> for StrTest<SymbolId> {
 impl<S> ApplyNot for StrTest<S> {
     fn apply_not(&mut self) {
         use self::StrTest::*;
-        match *self {
-            Ord(ref mut truth, ..) => truth.apply_not(),
-            Btwn(ref mut truth, ..) => truth.apply_not(),
-            Eq(ref mut truth, ..) => truth.apply_not(),
-            Str(ref mut truth, ..) => truth.apply_not(),
+        match self {
+            Ord(truth, ..) => truth.apply_not(),
+            Btwn(truth, ..) => truth.apply_not(),
+            Eq(truth, ..) => truth.apply_not(),
+            Str(truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -746,11 +746,11 @@ impl BetaTestField<str> for StrTest<SymbolId> {
 impl CollectRequired for StrTest<SymbolId> {
     fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::StrTest::*;
-        match *self {
-            Ord(.., ref limit) => limit.collect_required(symbols),
-            Btwn(.., ref limit) => limit.collect_required(symbols),
-            Eq(.., ref limit) => limit.collect_required(symbols),
-            Str(.., ref limit) => limit.collect_required(symbols),
+        match self {
+            Ord(.., limit) => limit.collect_required(symbols),
+            Btwn(.., limit) => limit.collect_required(symbols),
+            Eq(.., limit) => limit.collect_required(symbols),
+            Str(.., limit) => limit.collect_required(symbols),
         }
     }
 }
@@ -793,10 +793,10 @@ where
 impl<S> IsAlpha for TimeTest<S> {
     fn is_alpha(&self) -> bool {
         use self::TimeTest::*;
-        match *self {
-            Ord(.., ref limit) => limit.is_static(),
-            Btwn(.., ref limit) => limit.is_static(),
-            Eq(.., ref limit) => limit.is_static(),
+        match self {
+            Ord(.., limit) => limit.is_static(),
+            Btwn(.., limit) => limit.is_static(),
+            Eq(.., limit) => limit.is_static(),
         }
     }
 }
@@ -818,10 +818,10 @@ impl<S> Into<super::alpha::TimeTest> for TimeTest<S> {
 impl<S> ApplyNot for TimeTest<S> {
     fn apply_not(&mut self) {
         use self::TimeTest::*;
-        match *self {
-            Ord(ref mut truth, ..) => truth.apply_not(),
-            Btwn(ref mut truth, ..) => truth.apply_not(),
-            Eq(ref mut truth, ..) => truth.apply_not(),
+        match self {
+            Ord(truth, ..) => truth.apply_not(),
+            Btwn(truth, ..) => truth.apply_not(),
+            Eq(truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -842,10 +842,10 @@ impl BetaTestField<NaiveTime> for TimeTest<SymbolId> {
 impl CollectRequired for TimeTest<SymbolId> {
     fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::TimeTest::*;
-        match *self {
-            Ord(.., ref limit) => limit.collect_required(symbols),
-            Btwn(.., ref limit) => limit.collect_required(symbols),
-            Eq(.., ref limit) => limit.collect_required(symbols),
+        match self {
+            Ord(.., limit) => limit.collect_required(symbols),
+            Btwn(.., limit) => limit.collect_required(symbols),
+            Eq(.., limit) => limit.collect_required(symbols),
         }
     }
 }
@@ -888,10 +888,10 @@ where
 impl<S> IsAlpha for DateTest<S> {
     fn is_alpha(&self) -> bool {
         use self::DateTest::*;
-        match *self {
-            Ord(.., ref limit) => limit.is_static(),
-            Btwn(.., ref limit) => limit.is_static(),
-            Eq(.., ref limit) => limit.is_static(),
+        match self {
+            Ord(.., limit) => limit.is_static(),
+            Btwn(.., limit) => limit.is_static(),
+            Eq(.., limit) => limit.is_static(),
         }
     }
 }
@@ -913,10 +913,10 @@ impl<S> Into<super::alpha::DateTest> for DateTest<S> {
 impl<S> ApplyNot for DateTest<S> {
     fn apply_not(&mut self) {
         use self::DateTest::*;
-        match *self {
-            Ord(ref mut truth, ..) => truth.apply_not(),
-            Btwn(ref mut truth, ..) => truth.apply_not(),
-            Eq(ref mut truth, ..) => truth.apply_not(),
+        match self {
+            Ord(truth, ..) => truth.apply_not(),
+            Btwn(truth, ..) => truth.apply_not(),
+            Eq(truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -937,10 +937,10 @@ impl BetaTestField<Date<Utc>> for DateTest<SymbolId> {
 impl CollectRequired for DateTest<SymbolId> {
     fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::DateTest::*;
-        match *self {
-            Ord(.., ref limit) => limit.collect_required(symbols),
-            Btwn(.., ref limit) => limit.collect_required(symbols),
-            Eq(.., ref limit) => limit.collect_required(symbols),
+        match self {
+            Ord(.., limit) => limit.collect_required(symbols),
+            Btwn(.., limit) => limit.collect_required(symbols),
+            Eq(.., limit) => limit.collect_required(symbols),
         }
     }
 }
@@ -983,10 +983,10 @@ where
 impl<S> IsAlpha for DateTimeTest<S> {
     fn is_alpha(&self) -> bool {
         use self::DateTimeTest::*;
-        match *self {
-            Ord(.., ref limit) => limit.is_static(),
-            Btwn(.., ref limit) => limit.is_static(),
-            Eq(.., ref limit) => limit.is_static(),
+        match self {
+            Ord(.., limit) => limit.is_static(),
+            Btwn(.., limit) => limit.is_static(),
+            Eq(.., limit) => limit.is_static(),
         }
     }
 }
@@ -1008,10 +1008,10 @@ impl<S> Into<super::alpha::DateTimeTest> for DateTimeTest<S> {
 impl<S> ApplyNot for DateTimeTest<S> {
     fn apply_not(&mut self) {
         use self::DateTimeTest::*;
-        match *self {
-            Ord(ref mut truth, ..) => truth.apply_not(),
-            Btwn(ref mut truth, ..) => truth.apply_not(),
-            Eq(ref mut truth, ..) => truth.apply_not(),
+        match self {
+            Ord(truth, ..) => truth.apply_not(),
+            Btwn(truth, ..) => truth.apply_not(),
+            Eq(truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -1032,10 +1032,10 @@ impl BetaTestField<DateTime<Utc>> for DateTimeTest<SymbolId> {
 impl CollectRequired for DateTimeTest<SymbolId> {
     fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::DateTimeTest::*;
-        match *self {
-            Ord(.., ref limit) => limit.collect_required(symbols),
-            Btwn(.., ref limit) => limit.collect_required(symbols),
-            Eq(.., ref limit) => limit.collect_required(symbols),
+        match self {
+            Ord(.., limit) => limit.collect_required(symbols),
+            Btwn(.., limit) => limit.collect_required(symbols),
+            Eq(.., limit) => limit.collect_required(symbols),
         }
     }
 }
@@ -1613,27 +1613,27 @@ impl<S: AsRef<str>> TestRepr<S> {
 impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
     fn apply_not(&mut self) {
         use self::TestRepr::*;
-        match *self {
-            BOOL(_, ref mut test) => test.apply_not(),
-            I8(_, ref mut test) => test.apply_not(),
-            I16(_, ref mut test) => test.apply_not(),
-            I32(_, ref mut test) => test.apply_not(),
-            I64(_, ref mut test) => test.apply_not(),
-            I128(_, ref mut test) => test.apply_not(),
-            U8(_, ref mut test) => test.apply_not(),
-            U16(_, ref mut test) => test.apply_not(),
-            U32(_, ref mut test) => test.apply_not(),
-            U64(_, ref mut test) => test.apply_not(),
-            U128(_, ref mut test) => test.apply_not(),
-            F32(_, ref mut test) => test.apply_not(),
-            F64(_, ref mut test) => test.apply_not(),
-            D128(_, ref mut test) => test.apply_not(),
-            STR(_, ref mut test) => test.apply_not(),
-            TIME(_, ref mut test) => test.apply_not(),
-            DATE(_, ref mut test) => test.apply_not(),
-            DATETIME(_, ref mut test) => test.apply_not(),
-            SACT(_, ref mut truth, ..) => truth.apply_not(),
-            DACT(_, ref mut truth, ..) => truth.apply_not(),
+        match self {
+            BOOL(_, test) => test.apply_not(),
+            I8(_, test) => test.apply_not(),
+            I16(_, test) => test.apply_not(),
+            I32(_, test) => test.apply_not(),
+            I64(_, test) => test.apply_not(),
+            I128(_, test) => test.apply_not(),
+            U8(_, test) => test.apply_not(),
+            U16(_, test) => test.apply_not(),
+            U32(_, test) => test.apply_not(),
+            U64(_, test) => test.apply_not(),
+            U128(_, test) => test.apply_not(),
+            F32(_, test) => test.apply_not(),
+            F64(_, test) => test.apply_not(),
+            D128(_, test) => test.apply_not(),
+            STR(_, test) => test.apply_not(),
+            TIME(_, test) => test.apply_not(),
+            DATE(_, test) => test.apply_not(),
+            DATETIME(_, test) => test.apply_not(),
+            SACT(_, truth, ..) => truth.apply_not(),
+            DACT(_, truth, ..) => truth.apply_not(),
         }
     }
 }
@@ -1727,7 +1727,7 @@ macro_rules! beta_derive {
         impl<T:Fact> IsAlpha for BetaNode<T> {
             fn is_alpha(&self) -> bool {
                 use self::BetaNode::*;
-                match *self {
+                match self {
                     $(
                     $t(_, test) => test.is_alpha(),
                     )*
@@ -1738,9 +1738,9 @@ macro_rules! beta_derive {
         impl<T: Fact> ApplyNot for BetaNode<T> {
             fn apply_not(&mut self) {
                 use self::BetaNode::*;
-                match *self {
+                match self {
                     $(
-                    $t(_, ref mut test) => test.apply_not(),
+                    $t(_, test) => test.apply_not(),
                     )*
                 }
             }
@@ -1749,7 +1749,7 @@ macro_rules! beta_derive {
         impl<T:Fact> CollectRequired for BetaNode<T> {
             fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
                 use self::BetaNode::*;
-                match *self {
+                match self {
                     $(
                     $t(_, test) => test.collect_required(symbols),
                     )*

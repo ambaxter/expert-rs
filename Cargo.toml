@@ -17,7 +17,7 @@ itertools = "0.7"
 string-interner = "0.7"
 ordered-float = "0.5"
 float-cmp = "0.4"
-parking_lot = {version = "0.6", features = ["nightly"]}
+parking_lot = {version = "0.6"}
 failure = "0.1"
 failure_derive = "0.1"
 decimal = "^2"

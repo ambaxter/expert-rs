@@ -30,7 +30,7 @@ impl Truth {
 impl ApplyNot for Truth {
     fn apply_not(&mut self) {
         use self::Truth::*;
-        *self = match *self {
+        *self = match self {
             Not => Is,
             Is => Not,
         };
@@ -85,7 +85,7 @@ where
 {
     fn test(&self, val: &T, to: &T) -> bool {
         use self::OrdTest::*;
-        match *self {
+        match self {
             Lt => val < to,
             Le => val <= to,
             Gt => val > to,
@@ -113,7 +113,7 @@ where
 {
     fn test(&self, val: &T, from: &T, to: &T) -> bool {
         use self::BetweenTest::*;
-        match *self {
+        match self {
             GtLt => val > from && val < to,
             GeLt => val >= from && val < to,
             GtLe => val > from && val <= to,
@@ -137,7 +137,7 @@ where
 {
     fn test(&self, val: &T, to: &T) -> bool {
         use self::EqTest::*;
-        match *self {
+        match self {
             Eq => val == to,
             Ne => val != to,
         }
@@ -166,7 +166,7 @@ pub enum ApproxEqTest {
 impl STest<NotNaN<f32>> for ApproxEqTest {
     fn test(&self, val: &NotNaN<f32>, to: &NotNaN<f32>) -> bool {
         use self::ApproxEqTest::*;
-        match *self {
+        match self {
             Eq => val.as_ref().approx_eq_ulps(to.as_ref(), 2),
             Ne => val.as_ref().approx_ne_ulps(to.as_ref(), 2),
         }
@@ -176,7 +176,7 @@ impl STest<NotNaN<f32>> for ApproxEqTest {
 impl STest<NotNaN<f64>> for ApproxEqTest {
     fn test(&self, val: &NotNaN<f64>, to: &NotNaN<f64>) -> bool {
         use self::ApproxEqTest::*;
-        match *self {
+        match self {
             Eq => val.as_ref().approx_eq_ulps(to.as_ref(), 2),
             Ne => val.as_ref().approx_ne_ulps(to.as_ref(), 2),
         }
@@ -206,7 +206,7 @@ where
 {
     fn test(&self, val: &T, to: &T) -> bool {
         use self::StrArrayTest::*;
-        match *self {
+        match self {
             Contains => val.as_ref().contains(to.as_ref()),
             StartsWith => val.as_ref().starts_with(to.as_ref()),
             EndsWith => val.as_ref().ends_with(to.as_ref()),
