@@ -212,7 +212,7 @@ impl<T> STest<T> for StrArrayTest
 mod tests {
 
     use ordered_float::NotNaN;
-    use shared::nodes::tests::*;
+    use crate::shared::nodes::tests::*;
 
     #[test]
     fn eq_tests() {

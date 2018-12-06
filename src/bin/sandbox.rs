@@ -174,7 +174,7 @@ impl expert::shared::fact::Fact for ATestAspect {
         unimplemented!()
     }
 
-    fn create_hash_eq(conditions: &[AlphaNode<Self>]) -> Self::HashEq {
+    fn create_hash_eq(_conditions: &[AlphaNode<Self>]) -> Self::HashEq {
         unimplemented!()
     }
 }

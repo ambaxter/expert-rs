@@ -111,9 +111,10 @@ impl<S: AsRef<str>, T: Fact> Stage1Compile<T> for VecNodes<S> {
 
 #[cfg(test)]
 mod tests {
-    use shared::fact::{Fact, Getter};
+    use crate::shared::fact::{Fact, Getter};
     use super::*;
-    use shared::nodes::alpha::HashEqField;
+    use crate::shared::nodes::alpha::HashEqField;
+    use crate::shared::nodes::alpha::AlphaNode;
 
     #[derive(Clone, Hash, Eq, PartialEq, Debug)]
     struct Dummy {
@@ -140,7 +141,7 @@ mod tests {
             unimplemented!()
         }
 
-        fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq {
+        fn create_hash_eq(conditions: &[AlphaNode<Self>]) -> Self::HashEq {
             unimplemented!()
         }
     }
