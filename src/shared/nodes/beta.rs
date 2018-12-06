@@ -42,10 +42,10 @@ pub trait MapStatic<T, U> {
         where F: FnMut(&T) -> U;
 }
 
-pub trait MapDynamic<T, U> {
+pub trait MapActive<T, U> {
     type Output;
 
-    fn map_dynamic<F>(&self, func: F) -> Self::Output
+    fn map_active<F>(&self, func: F) -> Self::Output
         where F: FnMut(&T) -> U;
 }
 
@@ -63,7 +63,7 @@ pub trait CollectRequired {
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum SLimit<T, S> {
     St(T),
-    Dyn(S),
+    Act(S),
 }
 
 impl<T> SLimit<T, SymbolId>
@@ -73,7 +73,7 @@ impl<T> SLimit<T, SymbolId>
         use self::SLimit::*;
         match *self {
             St(ref to) => test.test(value, to),
-            Dyn(ref s_to) => test.test(value, T::resolve(context, *s_to))
+            Act(ref s_to) => test.test(value, T::resolve(context, *s_to))
         }
     }
 }
@@ -84,7 +84,7 @@ impl<'a> SLimit<&'a str, SymbolId> {
         use self::SLimit::*;
         match *self {
             St(ref to) => test.test(&value, to),
-            Dyn(ref s_to) => test.test(&value, & str::resolve(context, *s_to))
+            Act(ref s_to) => test.test(&value, & str::resolve(context, *s_to))
         }
     }
 }
@@ -96,7 +96,7 @@ impl<T> SLimit<T, SymbolId>
         use self::SLimit::*;
         match *self {
             St(ref to) => test.test(value, to),
-            Dyn(ref s_to) => test.test(value, &T::resolve(context, *s_to))
+            Act(ref s_to) => test.test(value, &T::resolve(context, *s_to))
         }
     }
 }
@@ -106,7 +106,7 @@ impl<T, S> IsStatic for SLimit<T, S> {
         use self::SLimit::*;
         match *self {
             St(_) => true,
-            Dyn(_) => false,
+            Act(_) => false,
         }
     }
 }
@@ -121,22 +121,22 @@ impl<T, U, S> MapStatic<T, U> for SLimit<T, S>
         use self::SLimit::*;
         match *self {
             St(ref t) => St(func(t)),
-            Dyn(ref s) => Dyn(s.clone())
+            Act(ref s) => Act(s.clone())
         }
     }
 }
 
-impl<T, U, S> MapDynamic<S, U> for SLimit<T, S>
+impl<T, U, S> MapActive<S, U> for SLimit<T, S>
     where T: Clone {
     type Output = SLimit<T, U>;
 
-    fn map_dynamic<F>(&self, mut func: F) -> Self::Output
+    fn map_active<F>(&self, mut func: F) -> Self::Output
         where F: FnMut(&S) -> U {
 
         use self::SLimit::*;
         match *self {
             St(ref t) => St(t.clone()),
-            Dyn(ref s) => Dyn(func(s))
+            Act(ref s) => Act(func(s))
         }
     }
 }
@@ -150,7 +150,7 @@ impl<T, U> MapAll<T, U> for SLimit<T, T> {
         use self::SLimit::*;
         match *self {
             St(ref t) => St(func(t)),
-            Dyn(ref s) => Dyn(func(s))
+            Act(ref s) => Act(func(s))
         }
     }
 }
@@ -160,7 +160,7 @@ impl<T> CollectRequired for SLimit<T, SymbolId>
     fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::SLimit::*;
 
-        if let Dyn(ref s) = *self {
+        if let Act(ref s) = *self {
             symbols.entry(*s).or_insert_with( Default::default).insert(T::get_field_type());
         }
     }
@@ -169,9 +169,9 @@ impl<T> CollectRequired for SLimit<T, SymbolId>
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug)]
 pub enum DLimit<T, S> {
     St(T, T),
-    StDyn(T, S),
-    DynSt(S, T),
-    Dyn(S, S),
+    StAct(T, S),
+    ActSt(S, T),
+    Act(S, S),
 }
 
 impl<T> DLimit<T, SymbolId>
@@ -181,9 +181,9 @@ impl<T> DLimit<T, SymbolId>
         use self::DLimit::*;
         match *self {
             St(ref from, ref to) => test.test(value, from, to),
-            StDyn(ref from, ref s_to) => test.test(value, from, T::resolve(context, *s_to)),
-            DynSt(ref s_from, ref to) => test.test(value, T::resolve(context, *s_from), to),
-            Dyn(ref s_from, ref s_to) => test.test(value, T::resolve(context, *s_from), T::resolve(context, *s_to))
+            StAct(ref from, ref s_to) => test.test(value, from, T::resolve(context, *s_to)),
+            ActSt(ref s_from, ref to) => test.test(value, T::resolve(context, *s_from), to),
+            Act(ref s_from, ref s_to) => test.test(value, T::resolve(context, *s_from), T::resolve(context, *s_to))
         }
     }
 }
@@ -194,9 +194,9 @@ impl<'a> DLimit<&'a str, SymbolId> {
         use self::DLimit::*;
         match *self {
             St(ref from, ref to) => test.test(&value, from, to),
-            StDyn(ref from, ref s_to) => test.test(&value, from, & str::resolve(context, *s_to)),
-            DynSt(ref s_from, ref to) => test.test(&value, & str::resolve(context, *s_from), to),
-            Dyn(ref s_from, ref s_to) => test.test(&value, & str::resolve(context, *s_from), & str::resolve(context, *s_to))
+            StAct(ref from, ref s_to) => test.test(&value, from, & str::resolve(context, *s_to)),
+            ActSt(ref s_from, ref to) => test.test(&value, & str::resolve(context, *s_from), to),
+            Act(ref s_from, ref s_to) => test.test(&value, & str::resolve(context, *s_from), & str::resolve(context, *s_to))
         }
     }
 }
@@ -208,9 +208,9 @@ impl<T> DLimit<T, SymbolId>
         use self::DLimit::*;
         match *self {
             St(ref from, ref to) => test.test(value, from, to),
-            StDyn(ref from, ref s_to) => test.test(value, from, &T::resolve(context, *s_to)),
-            DynSt(ref s_from, ref to) => test.test(value, &T::resolve(context, *s_from), to),
-            Dyn(ref s_from, ref s_to) => test.test(value, &T::resolve(context, *s_from), &T::resolve(context, *s_to))
+            StAct(ref from, ref s_to) => test.test(value, from, &T::resolve(context, *s_to)),
+            ActSt(ref s_from, ref to) => test.test(value, &T::resolve(context, *s_from), to),
+            Act(ref s_from, ref s_to) => test.test(value, &T::resolve(context, *s_from), &T::resolve(context, *s_to))
         }
     }
 }
@@ -235,26 +235,26 @@ impl<T, U, S> MapStatic<T, U> for DLimit<T, S>
         use self::DLimit::*;
         match *self {
             St(ref from, ref to) => St(func(from), func(to)),
-            StDyn(ref from, ref s_to) => StDyn(func(from), s_to.clone()),
-            DynSt(ref s_from, ref to) => DynSt(s_from.clone(), func(to)),
-            Dyn(ref s_from, ref s_to) => Dyn(s_from.clone(), s_to.clone()),
+            StAct(ref from, ref s_to) => StAct(func(from), s_to.clone()),
+            ActSt(ref s_from, ref to) => ActSt(s_from.clone(), func(to)),
+            Act(ref s_from, ref s_to) => Act(s_from.clone(), s_to.clone()),
         }
     }
 }
 
-impl<T, U, S> MapDynamic<S, U> for DLimit<T, S>
+impl<T, U, S> MapActive<S, U> for DLimit<T, S>
     where T: Clone {
     type Output = DLimit<T, U>;
 
-    fn map_dynamic<F>(&self, mut func: F) -> Self::Output
+    fn map_active<F>(&self, mut func: F) -> Self::Output
         where F: FnMut(&S) -> U {
 
         use self::DLimit::*;
         match *self {
             St(ref t1, ref t2) => St(t1.clone(), t2.clone()),
-            StDyn(ref t, ref s) => StDyn(t.clone(), func(s)),
-            DynSt(ref s, ref t) => DynSt(func(s), t.clone()),
-            Dyn(ref s1, ref s2) => Dyn(func(s1), func(s2)),
+            StAct(ref t, ref s) => StAct(t.clone(), func(s)),
+            ActSt(ref s, ref t) => ActSt(func(s), t.clone()),
+            Act(ref s1, ref s2) => Act(func(s1), func(s2)),
         }
     }
 }
@@ -268,9 +268,9 @@ impl<T, U> MapAll<T, U> for DLimit<T, T> {
         use self::DLimit::*;
         match *self {
             St(ref from, ref to) => St(func(from), func(to)),
-            StDyn(ref from, ref s_to) => StDyn(func(from), func(s_to)),
-            DynSt(ref s_from, ref to) => DynSt(func(s_from), func(to)),
-            Dyn(ref s_from, ref s_to) => Dyn(func(s_from), func(s_to)),
+            StAct(ref from, ref s_to) => StAct(func(from), func(s_to)),
+            ActSt(ref s_from, ref to) => ActSt(func(s_from), func(to)),
+            Act(ref s_from, ref s_to) => Act(func(s_from), func(s_to)),
         }
     }
 }
@@ -280,9 +280,9 @@ impl<T> CollectRequired for DLimit<T, SymbolId>
     fn collect_required(&self, symbols: &mut HashMap<SymbolId, HashSet<FactFieldType>>) {
         use self::DLimit::*;
         match *self {
-            StDyn(_, ref s_to) => {symbols.entry(*s_to).or_insert_with(Default::default).insert(T::get_field_type());},
-            DynSt(ref s_from, _) => {symbols.entry(*s_from).or_insert_with(Default::default).insert(T::get_field_type());},
-            Dyn(ref s_from, ref s_to) => {
+            StAct(_, ref s_to) => {symbols.entry(*s_to).or_insert_with(Default::default).insert(T::get_field_type());},
+            ActSt(ref s_from, _) => {symbols.entry(*s_from).or_insert_with(Default::default).insert(T::get_field_type());},
+            Act(ref s_from, ref s_to) => {
                 symbols.entry(*s_from).or_insert_with( Default::default).insert(T::get_field_type());
                 symbols.entry(*s_to).or_insert_with( Default::default).insert(T::get_field_type());
             },
@@ -307,7 +307,7 @@ impl<S> StringIntern for BoolTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::BoolTest::*;
         match *self {
-            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref())))
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref())))
         }
     }
 }
@@ -376,9 +376,9 @@ macro_rules! beta_number_test {
                 fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
                     use self::$test::*;
                     match *self {
-                        Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-                        Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-                        Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        Ord(truth, test, ref limit) => Ord(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+                        Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+                        Eq(truth, test, ref limit) => Eq(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
                     }
                 }
             }
@@ -461,9 +461,9 @@ macro_rules! beta_float_test {
                 fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
                     use self::$test::*;
                     match *self {
-                        Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-                        Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-                        ApproxEq(truth, test, ref limit) => ApproxEq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+                        Ord(truth, test, ref limit) => Ord(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+                        Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+                        ApproxEq(truth, test, ref limit) => ApproxEq(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
                     }
                 }
             }
@@ -657,9 +657,9 @@ impl<S> StringIntern for TimeTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::TimeTest::*;
         match *self {
-            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -735,9 +735,9 @@ impl<S> StringIntern for DateTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTest::*;
         match *self {
-            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -812,9 +812,9 @@ impl<S> StringIntern for  DateTimeTest<S>
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
         use self::DateTimeTest::*;
         match *self {
-            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
-            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_dynamic(|s| cache.get_or_intern(s.as_ref()))),
+            Ord(truth, test, ref limit) => Ord(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+            Btwn(truth, test, ref limit) => Btwn(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
+            Eq(truth, test, ref limit) => Eq(truth, test, limit.map_active(|s| cache.get_or_intern(s.as_ref()))),
         }
     }
 }
@@ -878,55 +878,55 @@ impl CollectRequired for DateTimeTest<SymbolId> {
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
-pub struct SDynLimit<S> {
+pub struct SActLimit<S> {
     pub(crate) limit: S
 }
 
-impl<S> StringIntern for SDynLimit<S>
+impl<S> StringIntern for SActLimit<S>
     where S: AsRef<str> {
-    type Output = SDynLimit<SymbolId>;
+    type Output = SActLimit<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
-        SDynLimit{limit: cache.get_or_intern(self.limit.as_ref())}
+        SActLimit {limit: cache.get_or_intern(self.limit.as_ref())}
     }
 }
 
-impl<T, S: Symbol> Into<SLimit<T, S>> for SDynLimit<S> {
+impl<T, S: Symbol> Into<SLimit<T, S>> for SActLimit<S> {
     fn into(self) -> SLimit<T, S> {
-        SLimit::Dyn(self.limit)
+        SLimit::Act(self.limit)
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum SDynTests {
+pub enum SActTests {
     Ord(OrdTest),
     Eq(EqTest),
     Str(StrArrayTest)
 }
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
-pub struct DDynLimit<S> {
+pub struct DActLimit<S> {
     pub(crate) l: S,
     pub(crate) r: S
 }
 
-impl<S> StringIntern for DDynLimit<S>
+impl<S> StringIntern for DActLimit<S>
     where S: AsRef<str> {
-    type Output = DDynLimit<SymbolId>;
+    type Output = DActLimit<SymbolId>;
 
     fn string_intern(&self, cache: &mut StringCache) -> Self::Output {
-        DDynLimit{l: cache.get_or_intern(self.l.as_ref()), r: cache.get_or_intern(self.r.as_ref())}
+        DActLimit {l: cache.get_or_intern(self.l.as_ref()), r: cache.get_or_intern(self.r.as_ref())}
     }
 }
 
-impl<T, S: Symbol> Into<DLimit<T, S>> for DDynLimit<S> {
+impl<T, S: Symbol> Into<DLimit<T, S>> for DActLimit<S> {
     fn into(self) -> DLimit<T, S> {
-        DLimit::Dyn(self.l, self.r)
+        DLimit::Act(self.l, self.r)
     }
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub enum DDynTests {
+pub enum DActTests {
     Btwn(BetweenTest)
 }
 
@@ -950,8 +950,8 @@ pub enum TestRepr<S: AsRef<str>> {
     TIME(S, TimeTest<S>),
     DATE(S, DateTest<S>),
     DATETIME(S, DateTimeTest<S>),
-    SDYN(S, Truth, SDynTests, SDynLimit<S>),
-    DDYN(S, Truth, DDynTests, DDynLimit<S>),
+    SACT(S, Truth, SActTests, SActLimit<S>),
+    DACT(S, Truth, DActTests, DActLimit<S>),
 }
 
 impl<S: AsRef<str>> TestRepr<S>  {
@@ -976,8 +976,8 @@ impl<S: AsRef<str>> TestRepr<S>  {
             TIME(field, _) => field.as_ref(),
             DATE(field, _) => field.as_ref(),
             DATETIME(field, _) => field.as_ref(),
-            SDYN(field, ..) => field.as_ref(),
-            DDYN(field, ..) => field.as_ref(),
+            SACT(field, ..) => field.as_ref(),
+            DACT(field, ..) => field.as_ref(),
         }
     }
 
@@ -1002,8 +1002,8 @@ impl<S: AsRef<str>> TestRepr<S>  {
             TIME(..) => "TIME",
             DATE(..) => "DATE",
             DATETIME(..) => "DATETIME",
-            SDYN(..) => "SDYN",
-            DDYN(..) => "DDYN",
+            SACT(..) => "SACT",
+            DACT(..) => "DACT",
         }
     }
 
@@ -1015,182 +1015,182 @@ impl<S: AsRef<str>> TestRepr<S>  {
             // BOOL
             (&Getter::BOOL(getter), &TestRepr::BOOL(_, ref test)) =>
                 Ok(BetaNode::BOOL(getter, test.string_intern(cache))),
-            (&Getter::BOOL(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::BOOL(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::BOOL(getter, BoolTest::Eq(truth, test, limit.string_intern(cache).into()))),
 
             // I8
             (&Getter::I8(getter), &TestRepr::I8(_, ref test)) =>
                 Ok(BetaNode::I8(getter, test.string_intern(cache))),
-            (&Getter::I8(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::I8(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::I8(getter, I8Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I8(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::I8(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::I8(getter, I8Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I8(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::I8(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::I8(getter, I8Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // I16
             (&Getter::I16(getter), &TestRepr::I16(_, ref test)) =>
                 Ok(BetaNode::I16(getter, test.string_intern(cache))),
-            (&Getter::I16(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::I16(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::I16(getter, I16Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I16(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::I16(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::I16(getter, I16Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I16(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::I16(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::I16(getter, I16Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // I32
             (&Getter::I32(getter), &TestRepr::I32(_, ref test)) =>
                 Ok(BetaNode::I32(getter, test.string_intern(cache))),
-            (&Getter::I32(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::I32(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::I32(getter, I32Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I32(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::I32(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::I32(getter, I32Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I32(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::I32(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::I32(getter, I32Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // I64
             (&Getter::I64(getter), &TestRepr::I64(_, ref test)) =>
                 Ok(BetaNode::I64(getter, test.string_intern(cache))),
-            (&Getter::I64(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::I64(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::I64(getter, I64Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I64(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::I64(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::I64(getter, I64Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I64(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::I64(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::I64(getter, I64Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
 
             // I128
             (&Getter::I128(getter), &TestRepr::I128(_, ref test)) =>
                 Ok(BetaNode::I128(getter, test.string_intern(cache))),
-            (&Getter::I128(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::I128(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::I128(getter, I128Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I128(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::I128(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::I128(getter, I128Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::I128(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::I128(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::I128(getter, I128Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // U8
             (&Getter::U8(getter), &TestRepr::U8(_, ref test)) =>
                 Ok(BetaNode::U8(getter, test.string_intern(cache))),
-            (&Getter::U8(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::U8(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::U8(getter, U8Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U8(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::U8(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::U8(getter, U8Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U8(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::U8(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::U8(getter, U8Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // U16
             (&Getter::U16(getter), &TestRepr::U16(_, ref test)) =>
                 Ok(BetaNode::U16(getter, test.string_intern(cache))),
-            (&Getter::U16(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::U16(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::U16(getter, U16Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U16(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::U16(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::U16(getter, U16Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U16(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::U16(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::U16(getter, U16Test::Btwn(truth, test, limit.string_intern(cache).into()))),
             
             // U32
             (&Getter::U32(getter), &TestRepr::U32(_, ref test)) =>
                 Ok(BetaNode::U32(getter, test.string_intern(cache))),
-            (&Getter::U32(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::U32(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::U32(getter, U32Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U32(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::U32(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::U32(getter, U32Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U32(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::U32(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::U32(getter, U32Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // U64
             (&Getter::U64(getter), &TestRepr::U64(_, ref test)) =>
                 Ok(BetaNode::U64(getter, test.string_intern(cache))),
-            (&Getter::U64(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::U64(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::U64(getter, U64Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U64(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::U64(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::U64(getter, U64Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U64(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::U64(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::U64(getter, U64Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // U128
             (&Getter::U128(getter), &TestRepr::U128(_, ref test)) =>
                 Ok(BetaNode::U128(getter, test.string_intern(cache))),
-            (&Getter::U128(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::U128(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::U128(getter, U128Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U128(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::U128(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::U128(getter, U128Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::U128(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::U128(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::U128(getter, U128Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
 
             // F32
             (&Getter::F32(getter), &TestRepr::F32(_, ref test)) =>
                 Ok(BetaNode::F32(getter, test.string_intern(cache))),
-            (&Getter::F32(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::F32(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::F32(getter, F32Test::ApproxEq(truth, test.into(), limit.string_intern(cache).into()))),
-            (&Getter::F32(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::F32(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::F32(getter, F32Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::F32(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::F32(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::F32(getter, F32Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // F64
             (&Getter::F64(getter), &TestRepr::F64(_, ref test)) =>
                 Ok(BetaNode::F64(getter, test.string_intern(cache))),
-            (&Getter::F64(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::F64(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::F64(getter, F64Test::ApproxEq(truth, test.into(), limit.string_intern(cache).into()))),
-            (&Getter::F64(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::F64(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::F64(getter, F64Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::F64(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::F64(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::F64(getter, F64Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
 
             // D128
             (&Getter::D128(getter), &TestRepr::D128(_, ref test)) =>
                 Ok(BetaNode::D128(getter, test.string_intern(cache))),
-            (&Getter::D128(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::D128(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::D128(getter, D128Test::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::D128(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::D128(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::D128(getter, D128Test::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::D128(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::D128(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::D128(getter, D128Test::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // STR
             (&Getter::STR(getter), &TestRepr::STR(_, ref test)) =>
                 Ok(BetaNode::STR(getter, test.string_intern(cache))),
-            (&Getter::STR(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::STR(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::STR(getter, StrTest::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::STR(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::STR(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::STR(getter, StrTest::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::STR(getter), &TestRepr::SDYN(_, truth, SDynTests::Str(test), ref limit)) =>
+            (&Getter::STR(getter), &TestRepr::SACT(_, truth, SActTests::Str(test), ref limit)) =>
                 Ok(BetaNode::STR(getter, StrTest::Str(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::STR(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::STR(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::STR(getter, StrTest::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             //TIME
             (&Getter::TIME(getter), &TestRepr::TIME(_, ref test)) =>
                 Ok(BetaNode::TIME(getter, test.string_intern(cache))),
-            (&Getter::TIME(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::TIME(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::TIME(getter, TimeTest::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::TIME(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::TIME(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::TIME(getter, TimeTest::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::TIME(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::TIME(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::TIME(getter, TimeTest::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // DATE
             (&Getter::DATE(getter), &TestRepr::DATE(_, ref test)) =>
                 Ok(BetaNode::DATE(getter, test.string_intern(cache))),
-            (&Getter::DATE(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::DATE(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::DATE(getter, DateTest::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::DATE(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::DATE(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::DATE(getter, DateTest::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::DATE(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::DATE(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::DATE(getter, DateTest::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             // DATETIME
             (&Getter::DATETIME(getter), &TestRepr::DATETIME(_, ref test)) =>
                 Ok(BetaNode::DATETIME(getter, test.string_intern(cache))),
-            (&Getter::DATETIME(getter), &TestRepr::SDYN(_, truth, SDynTests::Eq(test), ref limit)) =>
+            (&Getter::DATETIME(getter), &TestRepr::SACT(_, truth, SActTests::Eq(test), ref limit)) =>
                 Ok(BetaNode::DATETIME(getter, DateTimeTest::Eq(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::DATETIME(getter), &TestRepr::SDYN(_, truth, SDynTests::Ord(test), ref limit)) =>
+            (&Getter::DATETIME(getter), &TestRepr::SACT(_, truth, SActTests::Ord(test), ref limit)) =>
                 Ok(BetaNode::DATETIME(getter, DateTimeTest::Ord(truth, test, limit.string_intern(cache).into()))),
-            (&Getter::DATETIME(getter), &TestRepr::DDYN(_, truth, DDynTests::Btwn(test), ref limit)) =>
+            (&Getter::DATETIME(getter), &TestRepr::DACT(_, truth, DActTests::Btwn(test), ref limit)) =>
                 Ok(BetaNode::DATETIME(getter, DateTimeTest::Btwn(truth, test, limit.string_intern(cache).into()))),
 
             _ => Err(CompileError::IncorrectGetter {
@@ -1224,8 +1224,8 @@ impl<S: AsRef<str>> ApplyNot for TestRepr<S> {
             TIME(_, ref mut test) => test.apply_not(),
             DATE(_, ref mut test) => test.apply_not(),
             DATETIME(_, ref mut test) => test.apply_not(),
-            SDYN(_, ref mut truth, ..) => truth.apply_not(),
-            DDYN(_, ref mut truth, ..) => truth.apply_not(),
+            SACT(_, ref mut truth, ..) => truth.apply_not(),
+            DACT(_, ref mut truth, ..) => truth.apply_not(),
         }
     }
 }

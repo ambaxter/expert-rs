@@ -1,12 +1,12 @@
 use crate::shared::nodes::beta::{
-    TestRepr, SLimit, SDynLimit, DLimit, DDynLimit,
+    TestRepr, SLimit, SActLimit, DLimit, DActLimit,
     BoolTest,
     I8Test, I16Test, I32Test, I64Test, I128Test,
     U8Test, U16Test, U32Test, U64Test, U128Test,
     F32Test, F64Test, D128Test,
     StrTest,
     TimeTest, DateTest, DateTimeTest,
-    SDynTests, DDynTests
+    SActTests, DActTests
 };
 use std::marker;
 use ord_subset::OrdVar;
@@ -31,8 +31,8 @@ use crate::shared::nodes::beta::CollectRequired;
 use std::collections::HashSet;
 use std::collections::HashMap;
 
-pub fn act<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
-    SDynLimit{limit}
+pub fn act<S: AsRef<str>>(limit: S) -> SActLimit<S> {
+    SActLimit {limit}
 }
 
 pub trait AString: AsRef<str> {}
@@ -137,9 +137,9 @@ impl<S: AsRef<str>> IntoEqTest<S> for d128 {
     }
 }
 
-impl<S: AsRef<str>> IntoEqTest<S> for SDynLimit<S> {
+impl<S: AsRef<str>> IntoEqTest<S> for SActLimit<S> {
     fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-        TestRepr::SDYN(field, Truth::Is, SDynTests::Eq(test), self)
+        TestRepr::SACT(field, Truth::Is, SActTests::Eq(test), self)
     }
 }
 
@@ -200,9 +200,9 @@ impl<S: AString> IntoOrdTest<S> for S {
     }
 }
 
-impl<S: AsRef<str>> IntoOrdTest<S> for SDynLimit<S> {
+impl<S: AsRef<str>> IntoOrdTest<S> for SActLimit<S> {
     fn into_ord_test(self, field: S, test: OrdTest) -> TestRepr<S> {
-        TestRepr::SDYN(field, Truth::Is,SDynTests::Ord(test), self)
+        TestRepr::SACT(field, Truth::Is, SActTests::Ord(test), self)
     }
 }
 
@@ -219,15 +219,15 @@ macro_rules! into_btwn_tests {
                 }
             }
 
-            impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, $id) {
+            impl<S: AsRef<str>> IntoBtwnTest<S> for (SActLimit<S>, $id) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::Btwn(Truth::Is, test, DLimit::DynSt(self.0.limit, self.1)))
+                    TestRepr::$sub(field, $test::Btwn(Truth::Is, test, DLimit::ActSt(self.0.limit, self.1)))
                 }
             }
 
-            impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SDynLimit<S>) {
+            impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SActLimit<S>) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::Btwn(Truth::Is, test, DLimit::StDyn(self.0, self.1.limit)))
+                    TestRepr::$sub(field, $test::Btwn(Truth::Is, test, DLimit::StAct(self.0, self.1.limit)))
                 }
             }
         )*
@@ -262,15 +262,15 @@ macro_rules! float_into_btwn_tests {
                 }
             }
 
-            impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, $id) {
+            impl<S: AsRef<str>> IntoBtwnTest<S> for (SActLimit<S>, $id) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::Btwn(Truth::Is, test, DLimit::DynSt(self.0.limit, self.1.into())))
+                    TestRepr::$sub(field, $test::Btwn(Truth::Is, test, DLimit::ActSt(self.0.limit, self.1.into())))
                 }
             }
 
-            impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SDynLimit<S>) {
+            impl<S: AsRef<str>> IntoBtwnTest<S> for ($id, SActLimit<S>) {
                 fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-                    TestRepr::$sub(field, $test::Btwn(Truth::Is, test, DLimit::StDyn(self.0.into(), self.1.limit)))
+                    TestRepr::$sub(field, $test::Btwn(Truth::Is, test, DLimit::StAct(self.0.into(), self.1.limit)))
                 }
             }
         )*
@@ -289,22 +289,22 @@ impl<S: AString> IntoBtwnTest<S> for (S, S) {
     }
 }
 
-impl<S: AString> IntoBtwnTest<S> for (SDynLimit<S>, S) {
+impl<S: AString> IntoBtwnTest<S> for (SActLimit<S>, S) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::Btwn(Truth::Is,test, DLimit::DynSt(self.0.limit, self.1)))
+        TestRepr::STR(field, StrTest::Btwn(Truth::Is,test, DLimit::ActSt(self.0.limit, self.1)))
     }
 }
 
-impl<S: AString> IntoBtwnTest<S> for (S, SDynLimit<S>) {
+impl<S: AString> IntoBtwnTest<S> for (S, SActLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::Btwn(Truth::Is, test, DLimit::StDyn(self.0, self.1.limit)))
+        TestRepr::STR(field, StrTest::Btwn(Truth::Is, test, DLimit::StAct(self.0, self.1.limit)))
     }
 }
 
-impl<S: AsRef<str>> IntoBtwnTest<S> for (SDynLimit<S>, SDynLimit<S>) {
+impl<S: AsRef<str>> IntoBtwnTest<S> for (SActLimit<S>, SActLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        let limit = DDynLimit{l: self.0.limit, r: self.1.limit};
-        TestRepr::DDYN(field, Truth::Is, DDynTests::Btwn(test), limit)
+        let limit = DActLimit {l: self.0.limit, r: self.1.limit};
+        TestRepr::DACT(field, Truth::Is, DActTests::Btwn(test), limit)
     }
 }
 
