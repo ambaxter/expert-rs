@@ -515,7 +515,7 @@ impl<T: Fact> Stage1Node<T> {
         // Extract singletons
         if any.iter().filter(|n| n.is_singleton()).count() > 0 {
             continue_simplify = true;
-            for mut o in any.drain_where(|n| n.is_singleton()) {
+            for o in any.drain_where(|n| n.is_singleton()) {
                 any.push(o.extract_singleton());
             }
         }
@@ -538,7 +538,7 @@ impl<T: Fact> Stage1Node<T> {
         // Extract singletons
         if all.iter().filter(|n| n.is_singleton()).count() > 0 {
             continue_simplify = true;
-            for mut o in all.drain_where(|n| n.is_singleton()) {
+            for o in all.drain_where(|n| n.is_singleton()) {
                 all.push(o.extract_singleton());
             }
         }
@@ -553,7 +553,7 @@ impl<T: Fact> Stage1Node<T> {
         if all.iter().filter(|n| n.is_any()).count() > 1 {
             let mut cum_any = all.drain_where(|n| n.is_any());
             let mut parent = cum_any.pop().unwrap();
-            for mut o in cum_any {
+            for o in cum_any {
                 parent.merge(o);
             }
             parent.simplify();

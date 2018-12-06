@@ -376,7 +376,7 @@ impl BaseBuilder for ArrayBaseBuilder {
     type RB = ArrayRuleBuilder;
     type KB = ArrayKnowledgeBase;
 
-    fn rule<S: AsRef<str>>(mut self, name: S) -> Self::RB {
+    fn rule<S: AsRef<str>>(self, name: S) -> Self::RB {
         self.rule_with_agenda(name, "MAIN")
     }
 
@@ -592,8 +592,8 @@ impl RuleBuilder for ArrayRuleBuilder {
         // A state machine may make more sense, but I've spent too much time trying to logic my way out of this
         // https://youtu.be/x4E5hzC8Xvs?list=PL6EC7B047181AD013&t=536
         loop {
-            let mut current_group_id = self.rule_data.current_group;
-            let mut parent_id = self.rule_data.statement_groups[&current_group_id].parent();
+            let current_group_id = self.rule_data.current_group;
+            let parent_id = self.rule_data.statement_groups[&current_group_id].parent();
             if current_group_id == parent_id {
                 break;
             }

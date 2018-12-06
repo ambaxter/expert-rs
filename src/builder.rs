@@ -159,7 +159,7 @@ pub struct StatementBuilder<T: ReteIntrospection> {
 }
 
 impl<T: ReteIntrospection> StatementBuilder<T> {
-    fn new(mut rule_builder: RuleBuilder<T>) -> StatementBuilder<T> {
+    fn new(rule_builder: RuleBuilder<T>) -> StatementBuilder<T> {
         StatementBuilder {rule_builder, conditions: Default::default()}
     }
 
@@ -336,7 +336,7 @@ impl<T: ReteIntrospection> Debug for AlphaTest<T> {
             &HashEq => {
                 write!(f, "HashEq")?;
             },
-            &Ord{ref data, test} => {
+            &Ord{data: _, test: _} => {
                 write!(f, "Ord")?;
             }
         }

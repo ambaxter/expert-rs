@@ -288,13 +288,13 @@ impl<T: Fact> Debug for AlphaTest<T> {
             &HashEq => {
                 write!(f, "HashEq")?
             },
-            &Ord(ref data, ref test) => {
+            &Ord(ref _data, ref _test) => {
                 write!(f, "Ord")?
             },
-            &Fl(ref data, ref test) => {
+            &Fl(ref _data, ref _test) => {
                 write!(f, "Fl")?
             },
-            &Str(ref data, ref test) => {
+            &Str(ref _data, ref _test) => {
                 write!(f, "Str")?
             }
         }

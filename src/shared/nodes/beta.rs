@@ -1408,6 +1408,6 @@ mod tests {
     #[test]
     pub fn str_test() {
         use super::SLimit;
-        let s: SLimit<&'static str, &'static str> = SLimit::St("Test");
+        let _s: SLimit<&'static str, &'static str> = SLimit::St("Test");
     }
 }

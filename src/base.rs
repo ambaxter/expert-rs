@@ -51,10 +51,10 @@ pub struct KnowledgeBase<T: ReteIntrospection> {
 impl<T: ReteIntrospection> KnowledgeBase<T> {
 
     pub fn compile(builder: KnowledgeBuilder<T>) -> KnowledgeBase<T> {
-        let (string_repo, rules, condition_map) = builder.explode();
+        let (_string_repo, rules, condition_map) = builder.explode();
 
 
-        let (hash_eq_nodes, alpha_network, statement_memories) = Self::compile_alpha_network(condition_map);
+        let (_hash_eq_nodes, _alpha_network, _statement_memories) = Self::compile_alpha_network(condition_map);
 
         let mut statement_rule_map = HashMap::new();
         for (rule_id, rule) in rules {
@@ -213,8 +213,8 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
             while let Some((intersect_pos, intersect)) = alpha_mem_dependents.iter().enumerate().rev()
                 .filter(|&(_, &(_, ref rule_set))| !rule_set.is_empty())
                 .map(|(pos, &(_, ref rule_set))| (pos, &most_dep & rule_set))
-                .filter(|&(pos, ref intersect)| !intersect.is_empty())
-                .max_by_key(|&(pos, ref intersect)| !intersect.len()) {
+                .filter(|&(_pos, ref intersect)| !intersect.is_empty())
+                .max_by_key(|&(_pos, ref intersect)| !intersect.len()) {
 
                 // Join alpha nodes with beta
                 let beta_id = beta_ids.next();
