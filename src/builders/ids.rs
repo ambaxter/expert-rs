@@ -1,34 +1,40 @@
+use crate::serial::SerialGen;
 use std::fmt;
 use std::fmt::Debug;
-use crate::serial::SerialGen;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct RuleId{index: usize}
+pub struct RuleId {
+    index: usize,
+}
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct StatementId{index: usize}
+pub struct StatementId {
+    index: usize,
+}
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
-pub struct ConditionId{index: usize}
+pub struct ConditionId {
+    index: usize,
+}
 
 index_id!(RuleId, StatementId, ConditionId);
 
 pub type RuleIdGen = SerialGen<usize, RuleId>;
-pub type StatementIdGen =  SerialGen<usize, StatementId>;
+pub type StatementIdGen = SerialGen<usize, StatementId>;
 pub type ConditionIdGen = SerialGen<usize, ConditionId>;
 
 pub struct BuilderIdGen {
     rule_ids: RuleIdGen,
     statement_ids: StatementIdGen,
-    condition_ids: ConditionIdGen
+    condition_ids: ConditionIdGen,
 }
 
 impl BuilderIdGen {
     pub fn new() -> BuilderIdGen {
-        BuilderIdGen{
+        BuilderIdGen {
             rule_ids: Default::default(),
             statement_ids: Default::default(),
-            condition_ids: Default::default()
+            condition_ids: Default::default(),
         }
     }
 

@@ -1,27 +1,26 @@
-use std::marker::PhantomData;
-use std::rc::Rc;
-use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use crate::builder::{AlphaTest, ConditionInfo, KnowledgeBuilder};
+use crate::builders::ids::{RuleId, StatementId};
+use crate::network::ids::*;
+use crate::runtime::memory::{AlphaMemoryId, MemoryId};
 use crate::serial::SerialGen;
 use crate::traits::ReteIntrospection;
-use crate::builder::{AlphaTest, ConditionInfo, KnowledgeBuilder};
-use crate::network::ids::*;
-use crate::builders::ids::{StatementId, RuleId};
-use crate::runtime::memory::{AlphaMemoryId, MemoryId};
-
+use itertools::Itertools;
+use std::collections::{HashMap, HashSet};
+use std::marker::PhantomData;
+use std::rc::Rc;
 
 pub struct LayoutIdGenerator {
     hash_eq_ids: HashEqIdGen,
     alpha_ids: AlphaIdGen,
-    beta_ids: BetaIdGen
+    beta_ids: BetaIdGen,
 }
 
 impl LayoutIdGenerator {
     pub fn new() -> LayoutIdGenerator {
-        LayoutIdGenerator{
+        LayoutIdGenerator {
             hash_eq_ids: Default::default(),
             alpha_ids: Default::default(),
-            beta_ids: Default::default()
+            beta_ids: Default::default(),
         }
     }
 
@@ -45,16 +44,15 @@ impl Default for LayoutIdGenerator {
 }
 
 pub struct KnowledgeBase<T: ReteIntrospection> {
-    t: PhantomData<T>
+    t: PhantomData<T>,
 }
 
 impl<T: ReteIntrospection> KnowledgeBase<T> {
-
     pub fn compile(builder: KnowledgeBuilder<T>) -> KnowledgeBase<T> {
         let (_string_repo, rules, condition_map) = builder.explode();
 
-
-        let (_hash_eq_nodes, _alpha_network, _statement_memories) = Self::compile_alpha_network(condition_map);
+        let (_hash_eq_nodes, _alpha_network, _statement_memories) =
+            Self::compile_alpha_network(condition_map);
 
         let mut statement_rule_map = HashMap::new();
         for (rule_id, rule) in rules {
@@ -63,16 +61,28 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
             }
         }
 
-        KnowledgeBase{t: PhantomData}
+        KnowledgeBase { t: PhantomData }
     }
 
-    fn compile_alpha_network(condition_map: HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>)
-                             -> (HashMap<HashEqId, (T::HashEq, HashEqNode)>, Vec<AlphaNode<T>>, HashMap<StatementId, MemoryId>) {
+    fn compile_alpha_network(
+        condition_map: HashMap<T::HashEq, HashMap<AlphaTest<T>, ConditionInfo>>,
+    ) -> (
+        HashMap<HashEqId, (T::HashEq, HashEqNode)>,
+        Vec<AlphaNode<T>>,
+        HashMap<StatementId, MemoryId>,
+    ) {
         let mut conditions: Vec<_> = condition_map.into_iter().collect();
         // Order conditions ascending by dependent statement count, then test count.
         conditions.sort_by(|&(_, ref tests1), &(_, ref tests2)| {
-            if let (Some(ref hash1), Some(ref hash2)) = (tests1.get(&AlphaTest::HashEq), tests2.get(&AlphaTest::HashEq)) {
-                hash1.dependents.len().cmp(&hash2.dependents.len()).then(tests1.len().cmp(&tests2.len()))
+            if let (Some(ref hash1), Some(ref hash2)) = (
+                tests1.get(&AlphaTest::HashEq),
+                tests2.get(&AlphaTest::HashEq),
+            ) {
+                hash1
+                    .dependents
+                    .len()
+                    .cmp(&hash2.dependents.len())
+                    .then(tests1.len().cmp(&tests2.len()))
             } else {
                 unreachable!("Unexpected comparison. HashEq must be set");
             }
@@ -89,7 +99,6 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
         // Pop off the most shared & complex tests first and lay them out at the front of the network.
         // That way they're more likely to be right next to each other
         while let Some((hash_val, mut test_map)) = conditions.pop() {
-
             let mut layout_map = HashMap::new();
 
             // Take the HashEq node (our entry point) and exhaustively assign destination nodes until no more statements are shared.
@@ -98,22 +107,39 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
             let mut hash_eq_destinations: Vec<DestinationNode> = Vec::new();
 
             // Lay down the node for the most shared nodes before the others
-            while let Some((max_info, max_intersection)) = test_map.iter()
+            while let Some((max_info, max_intersection)) = test_map
+                .iter()
                 .map(|(_, info)| info)
                 .map(|info| (info, &hash_eq_info.dependents & &info.dependents))
                 .filter(|&(_, ref intersection)| !intersection.is_empty())
-                .max_by_key(|&(_, ref intersection)| intersection.len()) {
+                .max_by_key(|&(_, ref intersection)| intersection.len())
+            {
+                let destination_id = layout_map
+                    .entry(max_info.id)
+                    .or_insert_with(|| NodeLayout {
+                        node_id: node_id_gen.next_alpha_id(),
+                        destinations: Default::default(),
+                    })
+                    .node_id;
 
-                let destination_id = layout_map.entry(max_info.id)
-                        .or_insert_with(|| NodeLayout{node_id: node_id_gen.next_alpha_id(), destinations: Default::default()})
-                        .node_id;
-
-                hash_eq_info.dependents.retain(|x| !max_intersection.contains(&x));
+                hash_eq_info
+                    .dependents
+                    .retain(|x| !max_intersection.contains(&x));
                 hash_eq_destinations.push(destination_id.into());
             }
 
             // Add the HashEq node to the map && store any remaining statements for the beta network
-            hash_eq_nodes.insert(hash_eq_id, (hash_val, HashEqNode{id: hash_eq_id, store: !hash_eq_info.dependents.is_empty(), destinations: hash_eq_destinations}));
+            hash_eq_nodes.insert(
+                hash_eq_id,
+                (
+                    hash_val,
+                    HashEqNode {
+                        id: hash_eq_id,
+                        store: !hash_eq_info.dependents.is_empty(),
+                        destinations: hash_eq_destinations,
+                    },
+                ),
+            );
 
             for statment_id in hash_eq_info.dependents {
                 statement_memories.insert(statment_id, hash_eq_id.into());
@@ -130,18 +156,45 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
 
                 // Again, in order of most shared to least, lay down nodes
                 // TODO: when closure is cloneable, fix this to use cartisian product
-                let output = tests.iter().enumerate().tuple_combinations()
-                    .filter(|&((_, &(_, ref info1)), (_, &(_, ref info2)))| !info1.dependents.is_empty() && layout_map.contains_key(&info1.id) && !layout_map.contains_key(&info2.id))
-                    .map(|((pos1, &(_, ref info1)), (_, &(_, ref info2)))| (pos1, info1.id, info2.id, &info1.dependents & &info2.dependents))
+                let output = tests
+                    .iter()
+                    .enumerate()
+                    .tuple_combinations()
+                    .filter(|&((_, &(_, ref info1)), (_, &(_, ref info2)))| {
+                        !info1.dependents.is_empty()
+                            && layout_map.contains_key(&info1.id)
+                            && !layout_map.contains_key(&info2.id)
+                    })
+                    .map(|((pos1, &(_, ref info1)), (_, &(_, ref info2)))| {
+                        (
+                            pos1,
+                            info1.id,
+                            info2.id,
+                            &info1.dependents & &info2.dependents,
+                        )
+                    })
                     .filter(|&(_, _, _, ref shared)| !shared.is_empty())
                     .max_by_key(|&(_, _, _, ref shared)| shared.len());
 
                 if let Some((pos1, id1, id2, shared)) = output {
-                    let alpha2_id = layout_map.entry(id2)
-                        .or_insert_with(|| NodeLayout{node_id: node_id_gen.next_alpha_id(), destinations: Default::default()})
+                    let alpha2_id = layout_map
+                        .entry(id2)
+                        .or_insert_with(|| NodeLayout {
+                            node_id: node_id_gen.next_alpha_id(),
+                            destinations: Default::default(),
+                        })
                         .node_id;
-                    layout_map.get_mut(&id1).unwrap().destinations.push(alpha2_id.into());
-                    tests.get_mut(pos1).unwrap().1.dependents.retain(|x| !shared.contains(&x));
+                    layout_map
+                        .get_mut(&id1)
+                        .unwrap()
+                        .destinations
+                        .push(alpha2_id.into());
+                    tests
+                        .get_mut(pos1)
+                        .unwrap()
+                        .1
+                        .dependents
+                        .retain(|x| !shared.contains(&x));
                 } else {
                     break;
                 }
@@ -156,13 +209,17 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
                 let dest = alpha_layout.destinations;
                 let store = !info.dependents.is_empty();
                 assert_eq!(alpha_network.len(), alpha_layout.node_id.index());
-                alpha_network.push(AlphaNode{id, test, store, dest});
+                alpha_network.push(AlphaNode {
+                    id,
+                    test,
+                    store,
+                    dest,
+                });
 
                 for statment_id in info.dependents {
                     statement_memories.insert(statment_id, id.into());
                 }
             }
-
         }
         println!("Conditions: {:?}", &conditions);
         println!("HashEqNode: {:?}", &hash_eq_nodes);
@@ -171,10 +228,12 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
         (hash_eq_nodes, alpha_network, statement_memories)
     }
 
-    fn compile_beta_network(statement_memories: &HashMap<StatementId, MemoryId>,
-                            statement_rule_map: &HashMap<StatementId, RuleId>,
-                            mut hash_eq_nodes: HashMap<HashEqId, (T::HashEq, HashEqNode)>,
-                            mut alpha_network: Vec<AlphaNode<T>>) {
+    fn compile_beta_network(
+        statement_memories: &HashMap<StatementId, MemoryId>,
+        statement_rule_map: &HashMap<StatementId, RuleId>,
+        mut hash_eq_nodes: HashMap<HashEqId, (T::HashEq, HashEqNode)>,
+        mut alpha_network: Vec<AlphaNode<T>>,
+    ) {
         let mut beta_ids: SerialGen<usize, BetaId> = Default::default();
 
         let mut memory_rule_map: HashMap<MemoryId, HashSet<RuleId>> = HashMap::new();
@@ -183,14 +242,15 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
             let rule_id = *statement_rule_map.get(statement_id).unwrap();
             memory_rule_map
                 .entry(*memory_id)
-                .or_insert_with(|| Default::default()).insert(rule_id);
+                .or_insert_with(|| Default::default())
+                .insert(rule_id);
         }
-/*
+        /*
 
-        let mut beta_network= Vec::new();
+                let mut beta_network= Vec::new();
 
-        let mut beta_stack = Vec::new();
-*/
+                let mut beta_stack = Vec::new();
+        */
 
         // 1. Select (and remove from the map) the memory (m1) with the most rules
         // 2. Select the next memory (m2) with the most shared rules
@@ -201,8 +261,8 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
         // 4. If an m2 can be found, go to 3a. Otherwise add rule to destination. pop b1 off beta stack
         // 5. If stack empty, select next m2 for m1. if no m2, add rule ids as destination nodes. if no more m1 rules, remove from map
 
-
-        let mut alpha_mem_dependents: Vec<(MemoryId, HashSet<RuleId>)> = memory_rule_map.into_iter().collect();
+        let mut alpha_mem_dependents: Vec<(MemoryId, HashSet<RuleId>)> =
+            memory_rule_map.into_iter().collect();
         alpha_mem_dependents.sort_by_key(|&(_, ref rule_set)| rule_set.len());
 
         while let Some((most_dep_id, mut most_dep)) = alpha_mem_dependents.pop() {
@@ -210,55 +270,79 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
             if most_dep.is_empty() {
                 break;
             }
-            while let Some((intersect_pos, intersect)) = alpha_mem_dependents.iter().enumerate().rev()
+            while let Some((intersect_pos, intersect)) = alpha_mem_dependents
+                .iter()
+                .enumerate()
+                .rev()
                 .filter(|&(_, &(_, ref rule_set))| !rule_set.is_empty())
                 .map(|(pos, &(_, ref rule_set))| (pos, &most_dep & rule_set))
                 .filter(|&(_pos, ref intersect)| !intersect.is_empty())
-                .max_by_key(|&(_pos, ref intersect)| !intersect.len()) {
-
+                .max_by_key(|&(_pos, ref intersect)| !intersect.len())
+            {
                 // Join alpha nodes with beta
                 let beta_id = beta_ids.next();
 
                 most_dep.retain(|x| !intersect.contains(x));
-                Self::add_alpha_destination(&mut hash_eq_nodes, &mut alpha_network, most_dep_id, beta_id.into());
+                Self::add_alpha_destination(
+                    &mut hash_eq_nodes,
+                    &mut alpha_network,
+                    most_dep_id,
+                    beta_id.into(),
+                );
                 {
-                    let &mut (intersect_id, ref mut intersect_dep) = alpha_mem_dependents.get_mut(intersect_pos).unwrap();
+                    let &mut (intersect_id, ref mut intersect_dep) =
+                        alpha_mem_dependents.get_mut(intersect_pos).unwrap();
                     intersect_dep.retain(|x| !intersect.contains(x));
-                    Self::add_alpha_destination(&mut hash_eq_nodes, &mut alpha_network, intersect_id, beta_id.into());
+                    Self::add_alpha_destination(
+                        &mut hash_eq_nodes,
+                        &mut alpha_network,
+                        intersect_id,
+                        beta_id.into(),
+                    );
                 }
                 // TODO: Left off at creating new beta node
-
             }
-
 
             alpha_mem_dependents.sort_by_key(|&(_, ref rule_set)| rule_set.len());
         }
     }
 
-    fn add_alpha_destination(hash_eq_nodes: &mut HashMap<HashEqId, (T::HashEq, HashEqNode)>,
-                             alpha_network: &mut Vec<AlphaNode<T>>,
-                             memory: MemoryId,
-                             destination: DestinationNode) {
+    fn add_alpha_destination(
+        hash_eq_nodes: &mut HashMap<HashEqId, (T::HashEq, HashEqNode)>,
+        alpha_network: &mut Vec<AlphaNode<T>>,
+        memory: MemoryId,
+        destination: DestinationNode,
+    ) {
         use crate::base::MemoryId::*;
         match memory {
-            HashEq(ref id) => {hash_eq_nodes.get_mut(id).unwrap().1.destinations.push(destination)},
-            Alpha(alpha_id) => {alpha_network.get_mut(alpha_id.index()).unwrap().dest.push(destination)},
-            _ => unreachable!("We shouldn't be adding an beta memory destination with this function")
+            HashEq(ref id) => hash_eq_nodes
+                .get_mut(id)
+                .unwrap()
+                .1
+                .destinations
+                .push(destination),
+            Alpha(alpha_id) => alpha_network
+                .get_mut(alpha_id.index())
+                .unwrap()
+                .dest
+                .push(destination),
+            _ => {
+                unreachable!("We shouldn't be adding an beta memory destination with this function")
+            }
         }
     }
-
 }
 #[derive(Debug, Eq, Hash, Ord, PartialOrd, PartialEq)]
 struct NodeLayout<T> {
     node_id: T,
-    destinations: Vec<DestinationNode>
+    destinations: Vec<DestinationNode>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub enum DestinationNode {
     Alpha(AlphaId),
     Beta(BetaId),
-    Rule(RuleId)
+    Rule(RuleId),
 }
 
 impl Into<DestinationNode> for AlphaId {
@@ -277,31 +361,31 @@ impl Into<DestinationNode> for RuleId {
     fn into(self) -> DestinationNode {
         DestinationNode::Rule(self)
     }
-
 }
 
 #[derive(Debug)]
 pub struct HashEqNode {
     id: HashEqId,
     store: bool,
-    destinations: Vec<DestinationNode>
+    destinations: Vec<DestinationNode>,
 }
 
 pub struct AlphaNode<T: ReteIntrospection> {
     id: AlphaId,
     test: AlphaTest<T>,
     store: bool,
-    dest: Vec<DestinationNode>
+    dest: Vec<DestinationNode>,
 }
 
-pub struct AlphaMemory<T: ReteIntrospection>  {
+pub struct AlphaMemory<T: ReteIntrospection> {
     mem: HashMap<MemoryId, HashSet<Rc<T>>>,
 }
 
 impl<T: ReteIntrospection> AlphaMemory<T> {
     pub fn insert<I: Into<MemoryId> + AlphaMemoryId>(&mut self, id: I, val: Rc<T>) {
         let mem_id = id.into();
-        self.mem.entry(mem_id)
+        self.mem
+            .entry(mem_id)
             .or_insert_with(Default::default)
             .insert(val);
     }
@@ -309,11 +393,11 @@ impl<T: ReteIntrospection> AlphaMemory<T> {
 
 pub struct AlphaNetwork<T: ReteIntrospection> {
     hash_eq_node: HashMap<T::HashEq, HashEqNode>,
-    alpha_network: Vec<AlphaNode<T>>
+    alpha_network: Vec<AlphaNode<T>>,
 }
 
 pub struct FactStore<T: ReteIntrospection> {
-    store: HashSet<Rc<T>>
+    store: HashSet<Rc<T>>,
 }
 
 impl<T: ReteIntrospection> FactStore<T> {
@@ -328,17 +412,17 @@ impl<T: ReteIntrospection> FactStore<T> {
 }
 
 pub enum BetaNodeType {
-    And(MemoryId, MemoryId)
+    And(MemoryId, MemoryId),
 }
 
 pub struct BetaNode {
     id: BetaId,
     b_type: BetaNodeType,
-    destinations: Vec<DestinationNode>
+    destinations: Vec<DestinationNode>,
 }
 
 pub struct BetaNetwork {
-    b_network: Vec<BetaNode>
+    b_network: Vec<BetaNode>,
 }
 
 pub struct BetaMemory {

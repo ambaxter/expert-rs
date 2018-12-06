@@ -21,7 +21,7 @@ pub enum BetaGroupType {
     ALL,
     NOTALL,
     ANY,
-    NOTANY
+    NOTANY,
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]

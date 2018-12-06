@@ -1,21 +1,21 @@
-use std::hash::Hash;
-use std;
-use std::fmt;
-use std::fmt::Debug;
-use ord_subset::OrdVar;
-use decimal::d128;
-use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
-use crate::runtime::memory::SymbolId;
-use ordered_float::NotNaN;
 use super::context::BetaContext;
 use crate::runtime::memory::StringCache;
-use crate::shared::nodes::alpha::HashEqField;
+use crate::runtime::memory::SymbolId;
 use crate::shared::nodes::alpha::AlphaNode;
-use std::hash::Hasher;
-use std::cmp::Ordering;
+use crate::shared::nodes::alpha::HashEqField;
+use chrono::{Date, DateTime, Duration, NaiveTime, Utc};
+use decimal::d128;
 use enum_index;
 use enum_index::EnumIndex;
+use ord_subset::OrdVar;
+use ordered_float::NotNaN;
+use std;
 use std::any::Any;
+use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 #[derive(Copy, EnumIndex)]
 pub enum Getter<T: Fact> {
@@ -155,17 +155,11 @@ macro_rules! getter_derive {
 }
 
 getter_derive!(
-        BOOL,
-        I8, I16, I32, I64, I128,
-        U8, U16, U32, U64, U128,
-        F32, F64, D128,
-        STR ,
-        TIME, DATE, DATETIME
-    );
-
+    BOOL, I8, I16, I32, I64, I128, U8, U16, U32, U64, U128, F32, F64, D128, STR, TIME, DATE,
+    DATETIME
+);
 
 impl FactFieldType {
-
     pub fn is_compatible(self, other: Self) -> bool {
         self.is_number_compatible(other)
     }
@@ -173,28 +167,27 @@ impl FactFieldType {
     pub fn is_number_compatible(self, other: Self) -> bool {
         match (self.is_number(), other.is_number()) {
             (true, true) => true,
-            _ => false
+            _ => false,
         }
     }
 
     pub fn is_number(self) -> bool {
         use self::FactFieldType::*;
         match self {
-            I8 | I16 | I32 | I64 | I128
-            | U8 | U16 | U32 | U64 | U128
-            | F32 | F64 | D128 => true,
-            _ => false
+            I8 | I16 | I32 | I64 | I128 | U8 | U16 | U32 | U64 | U128 | F32 | F64 | D128 => true,
+            _ => false,
         }
     }
 }
 
 pub trait Fact: 'static + Eq + Hash + Any
-    where Self: std::marker::Sized {
-
+where
+    Self: std::marker::Sized,
+{
     type HashEq: Hash + Eq + Clone + Debug;
 
     fn getter(field: &str) -> Option<Getter<Self>>;
-    fn exhaustive_hash(&self) -> Box<Iterator<Item=Self::HashEq>>;
+    fn exhaustive_hash(&self) -> Box<Iterator<Item = Self::HashEq>>;
     fn create_hash_eq(conditions: &[AlphaNode<Self>]) -> Self::HashEq;
 }
 
@@ -202,11 +195,11 @@ pub trait FactField {
     fn get_field_type() -> FactFieldType;
 }
 
-pub trait RefField : FactField {
+pub trait RefField: FactField {
     fn resolve<C: BetaContext>(context: &C, sym: SymbolId) -> &Self;
 }
 
-pub trait CastField : FactField {
+pub trait CastField: FactField {
     fn resolve<C: BetaContext>(context: &C, sym: SymbolId) -> Self;
 }
 

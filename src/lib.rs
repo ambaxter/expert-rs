@@ -33,15 +33,15 @@ extern crate bimap;
 mod macros;
 
 pub mod base;
-pub mod traits;
+pub mod builder;
+pub mod builders;
+pub mod errors;
+pub mod iter;
 pub mod network;
 pub mod runtime;
 pub mod serial;
-pub mod builder;
-pub mod builders;
-pub mod iter;
-pub mod errors;
 pub mod shared;
+pub mod traits;
 
 pub use failure::Error;
 

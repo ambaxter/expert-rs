@@ -2,14 +2,18 @@
 pub struct OptionIter<T: Copy> {
     is_some: bool,
     is_none: bool,
-    t: Option<T>
+    t: Option<T>,
 }
 
 impl<T: Copy> OptionIter<T> {
     pub fn new(t: Option<T>) -> Self {
         let is_some = t.is_some();
         let is_none = true;
-        OptionIter{is_some, is_none, t}
+        OptionIter {
+            is_some,
+            is_none,
+            t,
+        }
     }
 
     pub fn some(t: T) -> Self {

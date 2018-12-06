@@ -1,38 +1,33 @@
-use crate::shared::nodes::beta::{
-    TestRepr, SLimit, SActLimit, DLimit, DActLimit,
-    BoolTest,
-    I8Test, I16Test, I32Test, I64Test, I128Test,
-    U8Test, U16Test, U32Test, U64Test, U128Test,
-    F32Test, F64Test, D128Test,
-    StrTest,
-    TimeTest, DateTest, DateTimeTest,
-    SActTests, DActTests
-};
-use std::marker;
-use ord_subset::OrdVar;
-use ordered_float::NotNaN;
-use decimal::d128;
-use chrono::{Utc, NaiveTime, Date, DateTime};
-use std::borrow::Cow;
-use crate::shared::nodes::tests::{Truth, EqTest, OrdTest, BetweenTest, StrArrayTest};
-use crate::shared::fact::{Fact, FactFieldType};
-use crate::runtime::memory::StringCache;
-use crate::shared::nodes::beta::{IsAlpha, BetaNode};
 use crate::errors::CompileError;
-use enum_index;
-use enum_index::EnumIndex;
-use std::cmp::Ordering;
-use crate::shared::nodes::tests::ApplyNot;
-use std::mem;
+use crate::runtime::memory::StringCache;
 use crate::runtime::memory::SymbolId;
 use crate::shared::fact::Getter;
+use crate::shared::fact::{Fact, FactFieldType};
 use crate::shared::nodes::alpha::AlphaNode;
 use crate::shared::nodes::beta::CollectRequired;
-use std::collections::HashSet;
+use crate::shared::nodes::beta::{BetaNode, IsAlpha};
+use crate::shared::nodes::beta::{
+    BoolTest, D128Test, DActLimit, DActTests, DLimit, DateTest, DateTimeTest, F32Test, F64Test,
+    I128Test, I16Test, I32Test, I64Test, I8Test, SActLimit, SActTests, SLimit, StrTest, TestRepr,
+    TimeTest, U128Test, U16Test, U32Test, U64Test, U8Test,
+};
+use crate::shared::nodes::tests::ApplyNot;
+use crate::shared::nodes::tests::{BetweenTest, EqTest, OrdTest, StrArrayTest, Truth};
+use chrono::{Date, DateTime, NaiveTime, Utc};
+use decimal::d128;
+use enum_index;
+use enum_index::EnumIndex;
+use ord_subset::OrdVar;
+use ordered_float::NotNaN;
+use std::borrow::Cow;
+use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::marker;
+use std::mem;
 
 pub fn act<S: AsRef<str>>(limit: S) -> SActLimit<S> {
-    SActLimit {limit}
+    SActLimit { limit }
 }
 
 pub trait AString: AsRef<str> {}
@@ -124,7 +119,6 @@ nn_float_into_approx_eq_tests!(
     NotNaN<f64> => [F64, F64Test]
 );
 
-
 impl<S: AString> IntoEqTest<S> for S {
     fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
         TestRepr::STR(field, StrTest::Eq(Truth::Is, test, SLimit::St(self)))
@@ -133,7 +127,10 @@ impl<S: AString> IntoEqTest<S> for S {
 
 impl<S: AsRef<str>> IntoEqTest<S> for d128 {
     fn into_eq_test(self, field: S, test: EqTest) -> TestRepr<S> {
-        TestRepr::D128(field, D128Test::Eq(Truth::Is, test, SLimit::St(self.into())))
+        TestRepr::D128(
+            field,
+            D128Test::Eq(Truth::Is, test, SLimit::St(self.into())),
+        )
     }
 }
 
@@ -285,42 +282,58 @@ float_into_btwn_tests!(
 
 impl<S: AString> IntoBtwnTest<S> for (S, S) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::Btwn(Truth::Is,test, DLimit::St(self.0, self.1)))
+        TestRepr::STR(
+            field,
+            StrTest::Btwn(Truth::Is, test, DLimit::St(self.0, self.1)),
+        )
     }
 }
 
 impl<S: AString> IntoBtwnTest<S> for (SActLimit<S>, S) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::Btwn(Truth::Is,test, DLimit::ActSt(self.0.limit, self.1)))
+        TestRepr::STR(
+            field,
+            StrTest::Btwn(Truth::Is, test, DLimit::ActSt(self.0.limit, self.1)),
+        )
     }
 }
 
 impl<S: AString> IntoBtwnTest<S> for (S, SActLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::Btwn(Truth::Is, test, DLimit::StAct(self.0, self.1.limit)))
+        TestRepr::STR(
+            field,
+            StrTest::Btwn(Truth::Is, test, DLimit::StAct(self.0, self.1.limit)),
+        )
     }
 }
 
 impl<S: AsRef<str>> IntoBtwnTest<S> for (SActLimit<S>, SActLimit<S>) {
     fn into_btwn_test(self, field: S, test: BetweenTest) -> TestRepr<S> {
-        let limit = DActLimit {l: self.0.limit, r: self.1.limit};
+        let limit = DActLimit {
+            l: self.0.limit,
+            r: self.1.limit,
+        };
         TestRepr::DACT(field, Truth::Is, DActTests::Btwn(test), limit)
     }
 }
 
 impl<S: AString> IntoStrTest<S> for S {
     fn into_str_test(self, field: S, test: StrArrayTest) -> TestRepr<S> {
-        TestRepr::STR(field, StrTest::Str(Truth::Is,test, SLimit::St(self)))
+        TestRepr::STR(field, StrTest::Str(Truth::Is, test, SLimit::St(self)))
     }
 }
 
 pub trait DrainWhere<T, F>
-    where F: FnMut(&T) -> bool {
+where
+    F: FnMut(&T) -> bool,
+{
     fn drain_where(&mut self, f: F) -> Self;
 }
 
 impl<T, F> DrainWhere<T, F> for Vec<T>
-    where F: FnMut(&T) -> bool {
+where
+    F: FnMut(&T) -> bool,
+{
     fn drain_where(&mut self, mut f: F) -> Self {
         let mut i = 0;
         let mut v = Vec::new();
@@ -341,7 +354,7 @@ pub enum Stage1Node<T: Fact> {
     Any(Vec<Stage1Node<T>>),
     NotAny(Vec<Stage1Node<T>>),
     All(Vec<Stage1Node<T>>),
-    NotAll(Vec<Stage1Node<T>>)
+    NotAll(Vec<Stage1Node<T>>),
 }
 
 // https://stackoverflow.com/questions/36557412/change-enum-variant-while-moving-the-field-to-the-new-variant
@@ -354,14 +367,14 @@ impl<T: Fact> ApplyNot for Stage1Node<T> {
             Test(mut node) => {
                 node.apply_not();
                 Test(node)
-            },
+            }
             Any(nodes) => NotAny(nodes),
             NotAny(nodes) => Any(nodes),
             All(nodes) => NotAll(nodes),
             NotAll(nodes) => All(nodes),
         };
         let interim = mem::replace(self, next);
-        mem::forget(interim);   // Important! interim was never initialized
+        mem::forget(interim); // Important! interim was never initialized
     }
 }
 
@@ -374,7 +387,7 @@ impl<T: Fact> Ord for Stage1Node<T> {
             (NotAny(ref v1), NotAny(ref v2)) => v1.cmp(v2),
             (All(ref v1), All(ref v2)) => v1.cmp(v2),
             (NotAll(ref v1), NotAll(ref v2)) => v1.cmp(v2),
-            _ => self.enum_index().cmp(&other.enum_index())
+            _ => self.enum_index().cmp(&other.enum_index()),
         }
     }
 }
@@ -386,12 +399,11 @@ impl<T: Fact> PartialOrd for Stage1Node<T> {
 }
 
 impl<T: Fact> Stage1Node<T> {
-
     pub fn is_test(&self) -> bool {
         use self::Stage1Node::*;
         match *self {
             Test(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -399,7 +411,7 @@ impl<T: Fact> Stage1Node<T> {
         use self::Stage1Node::*;
         match *self {
             Test(ref test) => test.is_alpha(),
-            _ => false
+            _ => false,
         }
     }
 
@@ -407,7 +419,7 @@ impl<T: Fact> Stage1Node<T> {
         use self::Stage1Node::*;
         match self {
             Test(test) => test.into(),
-            _ => unreachable!("get_alpha on non alpha node")
+            _ => unreachable!("get_alpha on non alpha node"),
         }
     }
 
@@ -415,7 +427,7 @@ impl<T: Fact> Stage1Node<T> {
         use self::Stage1Node::*;
         match *self {
             Any(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -423,7 +435,7 @@ impl<T: Fact> Stage1Node<T> {
         use self::Stage1Node::*;
         match *self {
             All(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -434,7 +446,7 @@ impl<T: Fact> Stage1Node<T> {
             NotAny(ref nodes) => nodes.len() == 1,
             All(ref nodes) => nodes.len() == 1,
             NotAll(ref nodes) => nodes.len() == 1,
-            _ => false
+            _ => false,
         }
     }
 
@@ -445,7 +457,7 @@ impl<T: Fact> Stage1Node<T> {
             NotAny(ref nodes) => nodes.is_empty(),
             All(ref nodes) => nodes.is_empty(),
             NotAll(ref nodes) => nodes.is_empty(),
-            _ => false
+            _ => false,
         }
     }
 
@@ -458,13 +470,13 @@ impl<T: Fact> Stage1Node<T> {
                 let mut node = nodes.pop().unwrap();
                 node.apply_not();
                 node
-            },
+            }
             All(mut nodes) => nodes.pop().unwrap(),
             NotAll(mut nodes) => {
                 let mut node = nodes.pop().unwrap();
                 node.apply_not();
                 node
-            },
+            }
             _ => unreachable!("extract_singleton on a BetaNode"),
         }
     }
@@ -489,21 +501,21 @@ impl<T: Fact> Stage1Node<T> {
      * This tank ain't big enough for both of us.
      * It's just the perfect size for a fish of our both's combined volume! And that fish is me!
      * - /u/GregTheMad - https://www.reddit.com/r/WTF/comments/82o8jv/this_tank_aint_big_enough_for_both_of_us/dvboaqw/
-    */
+     */
     fn give(&mut self, to: &mut Vec<Self>) {
         use self::Stage1Node::*;
         match *self {
             Any(ref mut from) => to.append(from),
             All(ref mut from) => to.append(from),
-            _ => unreachable!("give from invalid node")
+            _ => unreachable!("give from invalid node"),
         }
     }
 
     fn merge(&mut self, from_node: Self) {
         use self::Stage1Node::*;
-        match(self, from_node) {
+        match (self, from_node) {
             (&mut Any(ref mut to), Any(ref mut from)) => to.append(from),
-            _ => unreachable!("merge on invalid node combination")
+            _ => unreachable!("merge on invalid node combination"),
         }
     }
 
@@ -525,7 +537,6 @@ impl<T: Fact> Stage1Node<T> {
             for mut o in any.drain_where(|n| n.is_any()) {
                 o.give(any);
             }
-
         }
         continue_simplify
     }
@@ -600,12 +611,12 @@ impl<T: Fact> Stage1Node<T> {
     pub fn collect_alpha(&mut self) -> Vec<AlphaNode<T>> {
         use self::Stage1Node::*;
         match *self {
-            All(ref mut v) => {
-                v.drain_where(|n| n.is_alpha())
-                    .into_iter()
-                    .map(|n| n.get_alpha()).collect()
-            },
-            _ => unreachable!("collect_alpha on non-all node")
+            All(ref mut v) => v
+                .drain_where(|n| n.is_alpha())
+                .into_iter()
+                .map(|n| n.get_alpha())
+                .collect(),
+            _ => unreachable!("collect_alpha on non-all node"),
         }
     }
 }
@@ -624,20 +635,23 @@ impl<T: Fact> CollectRequired for Stage1Node<T> {
 }
 
 pub trait Stage1Compile<T: Fact> {
-
     fn stage1_compile(&self, cache: &mut StringCache) -> Result<Stage1Node<T>, CompileError>;
 
-    fn stage1_compile_slice(t: &[Self], cache: &mut StringCache) -> Result<Vec<Stage1Node<T>>, CompileError>
-        where Self: marker::Sized {
+    fn stage1_compile_slice(
+        t: &[Self],
+        cache: &mut StringCache,
+    ) -> Result<Vec<Stage1Node<T>>, CompileError>
+    where
+        Self: marker::Sized,
+    {
         t.iter().map(|c| c.stage1_compile(cache)).collect()
     }
 }
 
-
 #[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Debug, EnumIndex)]
 pub enum ProvidesNode<S, G> {
     Var(S),
-    Field(S, G)
+    Field(S, G),
 }
 
 impl<S, G> ProvidesNode<S, G> {
@@ -658,14 +672,22 @@ impl<S, G> ProvidesNode<S, G> {
     }
 }
 
-impl<S> ProvidesNode<S, S> where S: AsRef<str> {
-    pub fn compile<T: Fact>(&self, cache: &mut StringCache) -> Result<ProvidesNode<SymbolId, Getter<T>>, CompileError> {
+impl<S> ProvidesNode<S, S>
+where
+    S: AsRef<str>,
+{
+    pub fn compile<T: Fact>(
+        &self,
+        cache: &mut StringCache,
+    ) -> Result<ProvidesNode<SymbolId, Getter<T>>, CompileError> {
         use self::ProvidesNode::*;
         match *self {
             Var(ref s) => Ok(Var(cache.get_or_intern(s.as_ref()))),
             Field(ref s, ref g) => Ok(Field(
                 cache.get_or_intern(s.as_ref()),
-                T::getter(g.as_ref()).ok_or_else(|| CompileError::MissingGetter { getter: g.as_ref().to_owned() })?
+                T::getter(g.as_ref()).ok_or_else(|| CompileError::MissingGetter {
+                    getter: g.as_ref().to_owned(),
+                })?,
             )),
         }
     }
