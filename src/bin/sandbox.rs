@@ -58,7 +58,7 @@ impl Fact for Aspect {
     type HashEq = (Option<u64>, Option<u64>, Option<u64>);
 
     fn getter(field: &str) -> Option<Getters<Self>> {
-        use Getters::*;
+        use expert::traits::Getters::*;
         match field {
             "id" => Some(U64(Self::get_id)),
             "aspect_type" => Some(U64(Self::get_aspect_type)),
@@ -68,9 +68,9 @@ impl Fact for Aspect {
     }
 
     fn create_hash_eq(conditions: &Vec<StatementConditions>, cache: &StringCache) -> Self::HashEq {
-        use StatementConditions::*;
-        use StatementValues::*;
-        use ValueHolder::*;
+        use expert::builders::statement::StatementConditions::*;
+        use expert::builders::statement::StatementValues::*;
+        use expert::builders::statement::ValueHolder::*;
         let mut o_id = None;
         let mut o_aspect_type = None;
         let mut o_impact = None;

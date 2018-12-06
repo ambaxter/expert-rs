@@ -31,7 +31,7 @@ use crate::shared::nodes::beta::CollectRequired;
 use std::collections::HashSet;
 use std::collections::HashMap;
 
-pub fn dyn<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
+pub fn act<S: AsRef<str>>(limit: S) -> SDynLimit<S> {
     SDynLimit{limit}
 }
 

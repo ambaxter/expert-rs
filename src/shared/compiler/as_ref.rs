@@ -1,5 +1,5 @@
 use super::prelude::*;
-pub use super::prelude::dyn;
+pub use super::prelude::act;
 use super::super::nodes::tests::{ApplyNot, EqTest, OrdTest, BetweenTest, StrArrayTest};
 use super::super::nodes::beta::TestRepr;
 use crate::runtime::memory::StringCache;
@@ -149,7 +149,7 @@ mod tests {
     pub fn as_ref_test() {
         let mut cache = StringCache::new();
         let nodes: Stage1Node<Dummy> = all(
-            &[not(any(&[eq("d", 6u64)])), all(&[le("d", 64u64), le("d", dyn("ab"))])]
+            &[not(any(&[eq("d", 6u64)])), all(&[le("d", 64u64), le("d", act("ab"))])]
         ).stage1_compile(&mut cache).unwrap()
             .clean();
         println!("{:?}", nodes);
