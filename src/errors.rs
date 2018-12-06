@@ -1,4 +1,4 @@
-use shared::compiler::id_generator::StatementId;
+use crate::shared::compiler::id_generator::StatementId;
 
 #[derive(Debug, Fail)]
 pub enum CompileError {

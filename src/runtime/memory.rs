@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::any::TypeId;
 
-use network::ids::*;
+use crate::network::ids::*;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub struct SymbolId {

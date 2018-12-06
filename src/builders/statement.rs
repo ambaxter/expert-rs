@@ -1,11 +1,11 @@
 use std::marker::PhantomData;
-use traits::{Fact, RuleBuilder, Getters};
+use crate::traits::{Fact, RuleBuilder, Getters};
 use ordered_float::NotNaN;
-use runtime::memory::{StringCache, SymbolId};
-use builders::ids::{StatementId, ConditionId};
-use network::tests::{CLimits, OrdTest, OrdData, FLimits, FlData, FlTest, StrData, StrTest, AlphaTest};
+use crate::runtime::memory::{StringCache, SymbolId};
+use crate::builders::ids::{StatementId, ConditionId};
+use crate::network::tests::{CLimits, OrdTest, OrdData, FLimits, FlData, FlTest, StrData, StrTest, AlphaTest};
 use std::collections::HashSet;
-use ::Result;
+use crate::Result;
 use failure::ResultExt;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq, Debug)]

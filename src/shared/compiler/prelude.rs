@@ -1,4 +1,4 @@
-use ::shared::nodes::beta::{
+use crate::shared::nodes::beta::{
     TestRepr, SLimit, SDynLimit, DLimit, DDynLimit,
     BoolTest,
     I8Test, I16Test, I32Test, I64Test, I128Test,
@@ -14,20 +14,20 @@ use ordered_float::NotNaN;
 use decimal::d128;
 use chrono::{Utc, NaiveTime, Date, DateTime};
 use std::borrow::Cow;
-use shared::nodes::tests::{Truth, EqTest, OrdTest, BetweenTest, StrArrayTest};
-use shared::fact::{Fact, FactFieldType};
-use runtime::memory::StringCache;
-use shared::nodes::beta::{IsAlpha, BetaNode};
-use errors::CompileError;
+use crate::shared::nodes::tests::{Truth, EqTest, OrdTest, BetweenTest, StrArrayTest};
+use crate::shared::fact::{Fact, FactFieldType};
+use crate::runtime::memory::StringCache;
+use crate::shared::nodes::beta::{IsAlpha, BetaNode};
+use crate::errors::CompileError;
 use enum_index;
 use enum_index::EnumIndex;
 use std::cmp::Ordering;
-use shared::nodes::tests::ApplyNot;
+use crate::shared::nodes::tests::ApplyNot;
 use std::mem;
-use runtime::memory::SymbolId;
-use shared::fact::Getter;
-use shared::nodes::alpha::AlphaNode;
-use shared::nodes::beta::CollectRequired;
+use crate::runtime::memory::SymbolId;
+use crate::shared::fact::Getter;
+use crate::shared::nodes::alpha::AlphaNode;
+use crate::shared::nodes::beta::CollectRequired;
 use std::collections::HashSet;
 use std::collections::HashMap;
 

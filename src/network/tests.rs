@@ -1,9 +1,9 @@
 use std::hash::{Hash, Hasher};
 use std::fmt;
 use std::fmt::Debug;
-use traits::Fact;
+use crate::traits::Fact;
 use ordered_float::NotNaN;
-use runtime::memory::SymbolId;
+use crate::runtime::memory::SymbolId;
 use num::Float;
 
 #[derive(Clone, Hash, Eq, PartialEq)]

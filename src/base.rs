@@ -2,12 +2,12 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
-use ::serial::SerialGen;
-use ::traits::ReteIntrospection;
-use ::builder::{AlphaTest, ConditionInfo, KnowledgeBuilder};
-use ::network::ids::*;
-use ::builders::ids::{StatementId, RuleId};
-use runtime::memory::{AlphaMemoryId, MemoryId};
+use crate::serial::SerialGen;
+use crate::traits::ReteIntrospection;
+use crate::builder::{AlphaTest, ConditionInfo, KnowledgeBuilder};
+use crate::network::ids::*;
+use crate::builders::ids::{StatementId, RuleId};
+use crate::runtime::memory::{AlphaMemoryId, MemoryId};
 
 
 pub struct LayoutIdGenerator {
@@ -239,7 +239,7 @@ impl<T: ReteIntrospection> KnowledgeBase<T> {
                              alpha_network: &mut Vec<AlphaNode<T>>,
                              memory: MemoryId,
                              destination: DestinationNode) {
-        use ::base::MemoryId::*;
+        use crate::base::MemoryId::*;
         match memory {
             HashEq(ref id) => {hash_eq_nodes.get_mut(id).unwrap().1.destinations.push(destination)},
             Alpha(alpha_id) => {alpha_network.get_mut(alpha_id.index()).unwrap().dest.push(destination)},

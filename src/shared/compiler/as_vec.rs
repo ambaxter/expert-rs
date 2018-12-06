@@ -2,9 +2,9 @@ use super::prelude::*;
 pub use super::prelude::dyn;
 use super::super::nodes::tests::{ApplyNot, EqTest, OrdTest, BetweenTest, StrArrayTest};
 use super::super::nodes::beta::TestRepr;
-use runtime::memory::StringCache;
-use shared::fact::Fact;
-use errors::CompileError;
+use crate::runtime::memory::StringCache;
+use crate::shared::fact::Fact;
+use crate::errors::CompileError;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum VecNodes<S: AsRef<str>> {

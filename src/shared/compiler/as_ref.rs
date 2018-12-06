@@ -2,9 +2,9 @@ use super::prelude::*;
 pub use super::prelude::dyn;
 use super::super::nodes::tests::{ApplyNot, EqTest, OrdTest, BetweenTest, StrArrayTest};
 use super::super::nodes::beta::TestRepr;
-use runtime::memory::StringCache;
-use errors::CompileError;
-use shared::fact::Fact;
+use crate::runtime::memory::StringCache;
+use crate::errors::CompileError;
+use crate::shared::fact::Fact;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum RefNodes<'a, S: 'a + AsRef<str>> {

@@ -1,15 +1,15 @@
 use std;
 use std::any::TypeId;
 use std::hash::Hash;
-use builders::statement::{ConditionDesc, StatementConditions};
-use network::tests::AlphaTest;
-use ::builder::StatementCondition;
-use runtime::memory::{SymbolId, StringCache};
+use crate::builders::statement::{ConditionDesc, StatementConditions};
+use crate::network::tests::AlphaTest;
+use crate::builder::StatementCondition;
+use crate::runtime::memory::{SymbolId, StringCache};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::fmt;
 use ordered_float::NotNaN;
-use builders::ids::*;
+use crate::builders::ids::*;
 
 pub trait Introspect {
     fn static_type_id() -> TypeId;

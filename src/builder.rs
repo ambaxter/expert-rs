@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
-use ::traits::ReteIntrospection;
-use ::base::KnowledgeBase;
-use runtime::memory::{SymbolId, StringCache};
-use ::builders::ids::*;
+use crate::traits::ReteIntrospection;
+use crate::base::KnowledgeBase;
+use crate::runtime::memory::{SymbolId, StringCache};
+use crate::builders::ids::*;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::collections::{HashMap, HashSet};

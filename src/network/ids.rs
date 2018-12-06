@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::Debug;
 
-use serial::SerialGen;
+use crate::serial::SerialGen;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub struct HashEqId{index: usize}

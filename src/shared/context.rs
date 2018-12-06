@@ -1,9 +1,9 @@
-use ::runtime::memory::SymbolId;
+use crate::runtime::memory::SymbolId;
 use ord_subset::OrdVar;
 use decimal::d128;
 use chrono::{NaiveTime, Date, DateTime, Duration, Utc};
 use ordered_float::NotNaN;
-use runtime::memory::StringCache;
+use crate::runtime::memory::StringCache;
 
 pub trait AlphaContext {
     fn get_string_cache(&self) -> &StringCache;

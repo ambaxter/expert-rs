@@ -1,8 +1,8 @@
 use super::prelude::Stage1Compile;
-use errors::CompileError;
-use shared::compiler::prelude::{DrainWhere, ProvidesNode};
+use crate::errors::CompileError;
+use crate::shared::compiler::prelude::{DrainWhere, ProvidesNode};
 use std;
-use shared::fact::Fact;
+use crate::shared::fact::Fact;
 
 // Have a single KnowledgeBuilder trait
 // Have a single RuleBuilder trait
