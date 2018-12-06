@@ -9,6 +9,7 @@ homepage = "https://github.com/ambaxter/expert-rs"
 description = "A cache-friendly, typesafe expert/business rules system"
 categories = ["algorithms", "data-structures"]
 keywords = ["rete", "expert", "business", "rules", "brms", "decision", "manager"]
+edition = '2018'
 
 [dependencies]
 num = "0.2"
