@@ -1,9 +1,9 @@
-use string_interner::{StringInterner, Symbol};
+use std::any::TypeId;
 use std::fmt;
 use std::fmt::Debug;
-use std::any::TypeId;
+use string_interner::{StringInterner, Symbol};
 
-use network::ids::*;
+use crate::network::ids::*;
 
 #[derive(Copy, Clone, Eq, Hash, Ord, PartialOrd, PartialEq)]
 pub struct SymbolId {
@@ -12,7 +12,7 @@ pub struct SymbolId {
 
 impl Symbol for SymbolId {
     fn from_usize(val: usize) -> Self {
-        SymbolId{id: val}
+        SymbolId { id: val }
     }
 
     fn to_usize(self) -> usize {
@@ -34,7 +34,7 @@ pub trait AlphaMemoryId {}
 pub enum MemoryId {
     HashEq(HashEqId),
     Alpha(AlphaId),
-    Beta(BetaId)
+    Beta(BetaId),
 }
 
 impl Into<MemoryId> for HashEqId {
@@ -64,5 +64,5 @@ pub enum InterMemoryId {
     HashEq(TypeId, HashEqId),
     Alpha(TypeId, AlphaId),
     Beta(TypeId, BetaId),
-    Inter(InterId)
+    Inter(InterId),
 }

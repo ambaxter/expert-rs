@@ -9,6 +9,7 @@ homepage = "https://github.com/ambaxter/expert-rs"
 description = "A cache-friendly, typesafe expert/business rules system"
 categories = ["algorithms", "data-structures"]
 keywords = ["rete", "expert", "business", "rules", "brms", "decision", "manager"]
+edition = '2018'
 
 [dependencies]
 num = "0.2"
@@ -16,7 +17,7 @@ itertools = "0.7"
 string-interner = "0.7"
 ordered-float = "0.5"
 float-cmp = "0.4"
-parking_lot = {version = "0.6", features = ["nightly"]}
+parking_lot = {version = "0.6"}
 failure = "0.1"
 failure_derive = "0.1"
 decimal = "^2"

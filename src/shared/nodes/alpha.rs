@@ -1,41 +1,40 @@
-use ord_subset::OrdVar;
-use decimal::d128;
-use ordered_float::NotNaN;
-use std::hash::{Hash, Hasher};
 use super::tests::*;
-use runtime::memory::SymbolId;
-use chrono::NaiveTime;
+use crate::runtime::memory::SymbolId;
+use crate::shared::context::AlphaContext;
+use crate::shared::fact::Fact;
+use crate::shared::fact::FactField;
+use crate::shared::nodes::beta::{BetaNode, IsAlpha};
 use chrono::Date;
-use chrono::Utc;
 use chrono::DateTime;
-use shared::fact::Fact;
-use shared::fact::FactField;
-use shared::context::AlphaContext;
-use std::fmt::Debug;
-use std::fmt;
-use shared::nodes::beta::{BetaNode, IsAlpha};
+use chrono::NaiveTime;
+use chrono::Utc;
+use decimal::d128;
 use enum_index;
 use enum_index::EnumIndex;
+use ord_subset::OrdVar;
+use ordered_float::NotNaN;
+use std::fmt;
+use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 
 pub trait IsHashEq {
     fn is_hash_eq(&self) -> bool;
 }
 
-pub trait AlphaTestField<T: FactField + ?Sized > {
+pub trait AlphaTestField<T: FactField + ?Sized> {
     fn alpha_test_field<C: AlphaContext>(&self, value: &T, context: &C) -> bool;
 }
 
-
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum BoolTest {
-    Eq(Truth, EqTest, bool)
+    Eq(Truth, EqTest, bool),
 }
 
 impl IsHashEq for BoolTest {
     fn is_hash_eq(&self) -> bool {
         use self::BoolTest::*;
         match self {
-            Eq(..) => true
+            Eq(..) => true,
         }
     }
 }
@@ -44,7 +43,7 @@ impl AlphaTestField<bool> for BoolTest {
     fn alpha_test_field<C: AlphaContext>(&self, value: &bool, _: &C) -> bool {
         use self::BoolTest::*;
         match *self {
-            Eq(truth, ref test, ref to) => (truth, test).test(value, to)
+            Eq(truth, ref test, ref to) => (truth, test).test(value, to),
         }
     }
 }
@@ -138,7 +137,7 @@ pub enum StrTest {
     Ord(Truth, OrdTest, SymbolId),
     Btwn(Truth, BetweenTest, SymbolId, SymbolId),
     Eq(Truth, EqTest, SymbolId),
-    Str(Truth, StrArrayTest, SymbolId)
+    Str(Truth, StrArrayTest, SymbolId),
 }
 
 impl IsHashEq for StrTest {
@@ -147,7 +146,7 @@ impl IsHashEq for StrTest {
         match self {
             Eq(Truth::Is, EqTest::Eq, _) => true,
             Eq(Truth::Not, EqTest::Ne, _) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -157,21 +156,29 @@ impl AlphaTestField<str> for StrTest {
         use self::StrTest::*;
         let string_cache = context.get_string_cache();
         match *self {
-            Ord(truth, ref test, ref to) => (truth, test).test(value, string_cache.resolve(*to).unwrap()),
-            Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, string_cache.resolve(*from).unwrap(), string_cache.resolve(*to).unwrap()),
-            Eq(truth, ref test, ref to) => (truth, test).test(value, string_cache.resolve(*to).unwrap()),
-            Str(truth, ref test, ref to) => (truth, test).test(value, string_cache.resolve(*to).unwrap()),
-
+            Ord(truth, ref test, ref to) => {
+                (truth, test).test(value, string_cache.resolve(*to).unwrap())
+            }
+            Btwn(truth, ref test, ref from, ref to) => (truth, test).test(
+                value,
+                string_cache.resolve(*from).unwrap(),
+                string_cache.resolve(*to).unwrap(),
+            ),
+            Eq(truth, ref test, ref to) => {
+                (truth, test).test(value, string_cache.resolve(*to).unwrap())
+            }
+            Str(truth, ref test, ref to) => {
+                (truth, test).test(value, string_cache.resolve(*to).unwrap())
+            }
         }
     }
 }
-
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum TimeTest {
     Ord(Truth, OrdTest, NaiveTime),
     Btwn(Truth, BetweenTest, NaiveTime, NaiveTime),
-    Eq(Truth, EqTest, NaiveTime)
+    Eq(Truth, EqTest, NaiveTime),
 }
 
 impl IsHashEq for TimeTest {
@@ -180,7 +187,7 @@ impl IsHashEq for TimeTest {
         match self {
             Eq(Truth::Is, EqTest::Eq, _) => true,
             Eq(Truth::Not, EqTest::Ne, _) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -191,7 +198,7 @@ impl AlphaTestField<NaiveTime> for TimeTest {
         match *self {
             Ord(truth, ref test, ref to) => (truth, test).test(value, to),
             Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, from, to),
-            Eq(truth, ref test, ref to) => (truth, test).test(value, to)
+            Eq(truth, ref test, ref to) => (truth, test).test(value, to),
         }
     }
 }
@@ -200,7 +207,7 @@ impl AlphaTestField<NaiveTime> for TimeTest {
 pub enum DateTest {
     Ord(Truth, OrdTest, Date<Utc>),
     Btwn(Truth, BetweenTest, Date<Utc>, Date<Utc>),
-    Eq(Truth, EqTest, Date<Utc>)
+    Eq(Truth, EqTest, Date<Utc>),
 }
 
 impl IsHashEq for DateTest {
@@ -209,7 +216,7 @@ impl IsHashEq for DateTest {
         match self {
             Eq(Truth::Is, EqTest::Eq, _) => true,
             Eq(Truth::Not, EqTest::Ne, _) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -220,17 +227,16 @@ impl AlphaTestField<Date<Utc>> for DateTest {
         match *self {
             Ord(truth, ref test, ref to) => (truth, test).test(value, to),
             Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, from, to),
-            Eq(truth, ref test, ref to) => (truth, test).test(value, to)
+            Eq(truth, ref test, ref to) => (truth, test).test(value, to),
         }
     }
 }
-
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub enum DateTimeTest {
     Ord(Truth, OrdTest, DateTime<Utc>),
     Btwn(Truth, BetweenTest, DateTime<Utc>, DateTime<Utc>),
-    Eq(Truth, EqTest, DateTime<Utc>)
+    Eq(Truth, EqTest, DateTime<Utc>),
 }
 
 impl IsHashEq for DateTimeTest {
@@ -239,7 +245,7 @@ impl IsHashEq for DateTimeTest {
         match self {
             Eq(Truth::Is, EqTest::Eq, _) => true,
             Eq(Truth::Not, EqTest::Ne, _) => true,
-            _ => false
+            _ => false,
         }
     }
 }
@@ -250,7 +256,7 @@ impl AlphaTestField<DateTime<Utc>> for DateTimeTest {
         match *self {
             Ord(truth, ref test, ref to) => (truth, test).test(value, to),
             Btwn(truth, ref test, ref from, ref to) => (truth, test).test(value, from, to),
-            Eq(truth, ref test, ref to) => (truth, test).test(value, to)
+            Eq(truth, ref test, ref to) => (truth, test).test(value, to),
         }
     }
 }
@@ -346,13 +352,9 @@ macro_rules! alpha_derive {
 }
 
 alpha_derive!(
-    BOOL,
-    I8, I16, I32, I64, I128,
-    U8, U16, U32, U64, U128,
-    F32, F64, D128,
-    STR,
-    TIME, DATE, DATETIME
-    );
+    BOOL, I8, I16, I32, I64, I128, U8, U16, U32, U64, U128, F32, F64, D128, STR, TIME, DATE,
+    DATETIME
+);
 
 impl<I: Fact> Debug for AlphaNode<I> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -377,7 +379,9 @@ impl<I: Fact> Debug for AlphaNode<I> {
             STR(getter, test) => write!(f, "STR({:#x}) - {:?}", (*getter) as usize, test)?,
             TIME(getter, test) => write!(f, "TIME({:#x}) - {:?}", (*getter) as usize, test)?,
             DATE(getter, test) => write!(f, "DATE({:#x}) - {:?}", (*getter) as usize, test)?,
-            DATETIME(getter, test) => write!(f, "DATETIME({:#x}) - {:?}", (*getter) as usize, test)?,
+            DATETIME(getter, test) => {
+                write!(f, "DATETIME({:#x}) - {:?}", (*getter) as usize, test)?
+            }
         }
         write!(f, ")")
     }

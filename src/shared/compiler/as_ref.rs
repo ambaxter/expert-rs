@@ -1,10 +1,10 @@
-use super::prelude::*;
-pub use super::prelude::dyn;
-use super::super::nodes::tests::{ApplyNot, EqTest, OrdTest, BetweenTest, StrArrayTest};
 use super::super::nodes::beta::TestRepr;
-use runtime::memory::StringCache;
-use errors::CompileError;
-use shared::fact::Fact;
+use super::super::nodes::tests::{ApplyNot, BetweenTest, EqTest, OrdTest, StrArrayTest};
+pub use super::prelude::act;
+use super::prelude::*;
+use crate::errors::CompileError;
+use crate::runtime::memory::StringCache;
+use crate::shared::fact::Fact;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub enum RefNodes<'a, S: 'a + AsRef<str>> {
@@ -12,7 +12,7 @@ pub enum RefNodes<'a, S: 'a + AsRef<str>> {
     Any(&'a [RefNodes<'a, S>]),
     NotAny(&'a [RefNodes<'a, S>]),
     All(&'a [RefNodes<'a, S>]),
-    NotAll(&'a [RefNodes<'a, S>])
+    NotAll(&'a [RefNodes<'a, S>]),
 }
 
 pub fn eq<'a, S: AsRef<str>, T: IntoEqTest<S>>(field: S, to: T) -> RefNodes<'a, S> {
@@ -40,22 +40,30 @@ pub fn ge<'a, S: AsRef<str>, T: IntoOrdTest<S>>(field: S, to: T) -> RefNodes<'a,
 }
 
 pub fn gtlt<'a, S: AsRef<str>, T>(field: S, from: T, to: T) -> RefNodes<'a, S>
-    where (T, T): IntoBtwnTest<S>{
+where
+    (T, T): IntoBtwnTest<S>,
+{
     RefNodes::Test((from, to).into_btwn_test(field, BetweenTest::GtLt))
 }
 
 pub fn gelt<'a, S: AsRef<str>, T>(field: S, from: T, to: T) -> RefNodes<'a, S>
-    where (T, T): IntoBtwnTest<S>{
+where
+    (T, T): IntoBtwnTest<S>,
+{
     RefNodes::Test((from, to).into_btwn_test(field, BetweenTest::GeLt))
 }
 
 pub fn gtle<'a, S: AsRef<str>, T>(field: S, from: T, to: T) -> RefNodes<'a, S>
-    where (T, T): IntoBtwnTest<S>{
+where
+    (T, T): IntoBtwnTest<S>,
+{
     RefNodes::Test((from, to).into_btwn_test(field, BetweenTest::GtLe))
 }
 
 pub fn gele<'a, S: AsRef<str>, T>(field: S, from: T, to: T) -> RefNodes<'a, S>
-    where (T, T): IntoBtwnTest<S>{
+where
+    (T, T): IntoBtwnTest<S>,
+{
     RefNodes::Test((from, to).into_btwn_test(field, BetweenTest::GeLe))
 }
 
@@ -77,19 +85,19 @@ pub fn not<S: AsRef<str>>(node: RefNodes<S>) -> RefNodes<S> {
         Test(mut t) => {
             t.apply_not();
             Test(t)
-        },
+        }
         Any(t) => NotAny(t),
         NotAny(t) => Any(t),
         All(t) => NotAll(t),
-        NotAll(t) => All(t)
+        NotAll(t) => All(t),
     }
 }
 
-pub fn any<'a, S: AsRef<str>>(nodes: &'a[RefNodes<'a, S>]) -> RefNodes<'a, S> {
+pub fn any<'a, S: AsRef<str>>(nodes: &'a [RefNodes<'a, S>]) -> RefNodes<'a, S> {
     RefNodes::Any(nodes)
 }
 
-pub fn all<'a, S: AsRef<str>>(nodes: &'a[RefNodes<'a, S>]) -> RefNodes<'a, S> {
+pub fn all<'a, S: AsRef<str>>(nodes: &'a [RefNodes<'a, S>]) -> RefNodes<'a, S> {
     RefNodes::All(nodes)
 }
 
@@ -98,26 +106,32 @@ impl<'a, S: AsRef<str>, T: Fact> Stage1Compile<T> for RefNodes<'a, S> {
         use self::RefNodes::*;
         match *self {
             Test(ref t) => Ok(Stage1Node::Test(t.compile(cache)?)),
-            Any(ref v) => Ok(Stage1Node::Any(Stage1Compile::stage1_compile_slice(v, cache)?)),
-            NotAny(ref v) => Ok(Stage1Node::NotAny(Stage1Compile::stage1_compile_slice(v, cache)?)),
-            All(ref v) => Ok(Stage1Node::All(Stage1Compile::stage1_compile_slice(v, cache)?)),
-            NotAll(ref v) => Ok(Stage1Node::NotAny(Stage1Compile::stage1_compile_slice(v, cache)?)),
+            Any(ref v) => Ok(Stage1Node::Any(Stage1Compile::stage1_compile_slice(
+                v, cache,
+            )?)),
+            NotAny(ref v) => Ok(Stage1Node::NotAny(Stage1Compile::stage1_compile_slice(
+                v, cache,
+            )?)),
+            All(ref v) => Ok(Stage1Node::All(Stage1Compile::stage1_compile_slice(
+                v, cache,
+            )?)),
+            NotAll(ref v) => Ok(Stage1Node::NotAny(Stage1Compile::stage1_compile_slice(
+                v, cache,
+            )?)),
         }
     }
 }
 
-
-
-
 #[cfg(test)]
 mod tests {
-    use shared::fact::{Fact, Getter};
     use super::*;
-    use shared::nodes::alpha::HashEqField;
+    use crate::shared::fact::{Fact, Getter};
+    use crate::shared::nodes::alpha::AlphaNode;
+    use crate::shared::nodes::alpha::HashEqField;
 
     #[derive(Clone, Hash, Eq, PartialEq, Debug)]
     struct Dummy {
-        d: u64
+        d: u64,
     }
 
     impl Dummy {
@@ -132,15 +146,15 @@ mod tests {
         fn getter(field: &str) -> Option<Getter<Self>> {
             match field {
                 "d" => Some(Getter::U64(Dummy::get_d)),
-                _ => unimplemented!()
+                _ => unimplemented!(),
             }
         }
 
-        fn exhaustive_hash(&self) -> Box<Iterator<Item=<Self as Fact>::HashEq>> {
+        fn exhaustive_hash(&self) -> Box<Iterator<Item = <Self as Fact>::HashEq>> {
             unimplemented!()
         }
 
-        fn create_hash_eq(conditions: &Vec<HashEqField>, cache: &StringCache) -> Self::HashEq {
+        fn create_hash_eq(_conditions: &[AlphaNode<Self>]) -> Self::HashEq {
             unimplemented!()
         }
     }
@@ -148,10 +162,13 @@ mod tests {
     #[test]
     pub fn as_ref_test() {
         let mut cache = StringCache::new();
-        let nodes: Stage1Node<Dummy> = all(
-            &[not(any(&[eq("d", 6u64)])), all(&[le("d", 64u64), le("d", dyn("ab"))])]
-        ).stage1_compile(&mut cache).unwrap()
-            .clean();
+        let nodes: Stage1Node<Dummy> = all(&[
+            not(any(&[eq("d", 6u64)])),
+            all(&[le("d", 64u64), le("d", act("ab"))]),
+        ])
+        .stage1_compile(&mut cache)
+        .unwrap()
+        .clean();
         println!("{:?}", nodes);
     }
 }

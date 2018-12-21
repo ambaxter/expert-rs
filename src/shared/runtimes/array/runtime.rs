@@ -1,6 +1,6 @@
-use shared::fact::Fact;
-use shared::nodes::alpha::AlphaNode;
-use shared::nodes::beta::BetaNode;
+use crate::shared::fact::Fact;
+use crate::shared::nodes::alpha::AlphaNode;
+use crate::shared::nodes::beta::BetaNode;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct AlphaNodeData {
@@ -21,7 +21,7 @@ pub enum BetaGroupType {
     ALL,
     NOTALL,
     ANY,
-    NOTANY
+    NOTANY,
 }
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]

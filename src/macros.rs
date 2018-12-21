@@ -20,5 +20,3 @@ macro_rules! index_id {
         )*
     };
 }
-
-

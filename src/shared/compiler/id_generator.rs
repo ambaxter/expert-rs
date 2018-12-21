@@ -1,5 +1,5 @@
+use crate::serial::SerialGen;
 use std::fmt;
-use serial::SerialGen;
 
 macro_rules! id_generator {
     ( $( $t:ident => $g:ident => $f:ident),+) => {
@@ -62,4 +62,3 @@ id_generator!(
     AlphaId => AlphaIdGen => alpha_ids,
     BetaId => BetaIdGen => beta_ids
     );
-
